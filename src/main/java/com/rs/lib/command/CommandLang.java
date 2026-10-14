@@ -91,8 +91,16 @@ final class CommandLang {
     }
 
     private static String key(String word) {
-        return word.matches("[a-z0-9_-]+") && !word.matches("(?i)y|n|yes|no|on|off|true|false|null|~")
+        return word.matches("[a-z_][a-z0-9_-]*") && !word.matches("(?i)y|n|yes|no|on|off|true|false|null")
                 ? word : quote(word);
+    }
+
+    private static boolean validSurrogate(String text, int i) {
+        char c = text.charAt(i);
+        if (Character.isHighSurrogate(c)) {
+            return i + 1 < text.length() && Character.isLowSurrogate(text.charAt(i + 1));
+        }
+        return i > 0 && Character.isHighSurrogate(text.charAt(i - 1));
     }
 
     static String quote(String text) {
@@ -106,8 +114,9 @@ final class CommandLang {
                 case '\r' -> out.append("\\r");
                 case '\t' -> out.append("\\t");
                 default -> {
-                    if (c < 0x20) {
-                        out.append(String.format("\\x%02x", (int) c));
+                    if (Character.isISOControl(c) || c == '\uFEFF' || c >= '\uFFFE'
+                            || Character.isSurrogate(c) && !validSurrogate(text, i)) {
+                        out.append(String.format("\\u%04x", (int) c));
                     } else {
                         out.append(c);
                     }

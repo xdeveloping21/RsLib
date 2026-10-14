@@ -5,6 +5,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
+import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
@@ -43,12 +44,27 @@ public final class ListenerHub {
             }
         }
 
+        /** PlaceholderAPI appearing or leaving: every plugin asks again whether it can use it. */
+        @EventHandler(priority = EventPriority.MONITOR)
+        public void onPluginEnable(PluginEnableEvent event) {
+            refreshPapi(event.getPlugin().getName());
+        }
+
+        private static void refreshPapi(String name) {
+            if (name.equals("PlaceholderAPI")) {
+                for (Rs rs : RsLib.contexts()) {
+                    rs.papi().invalidate();
+                }
+            }
+        }
+
         /**
          * Safety net: a plugin disabled without going through {@code RsPlugin.onDisable}
          * (a broken plugin manager) still gets its context taken down, one tick later.
          */
         @EventHandler(priority = EventPriority.MONITOR)
         public void onPluginDisable(PluginDisableEvent event) {
+            refreshPapi(event.getPlugin().getName());
             if (event.getPlugin() == rslib) {
                 return;
             }

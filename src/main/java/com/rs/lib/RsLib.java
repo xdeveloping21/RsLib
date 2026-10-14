@@ -32,12 +32,13 @@ public final class RsLib {
     }
 
     static Rs init(JavaPlugin plugin, RsSpec spec) {
+        Rs existing;
         synchronized (CONTEXTS) {
-            Rs existing = CONTEXTS.get(plugin);
-            if (existing != null) {
-                plugin.getLogger().warning("RsLib context created twice; keeping the first one.");
-                return existing;
-            }
+            existing = CONTEXTS.get(plugin);
+        }
+        if (existing != null) {
+            plugin.getLogger().warning("An old RsLib context was still registered; closing it first.");
+            existing.shutdown();
         }
         Rs rs = new Rs(plugin, spec);
         synchronized (CONTEXTS) {

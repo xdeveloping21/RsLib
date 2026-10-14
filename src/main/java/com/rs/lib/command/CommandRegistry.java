@@ -69,8 +69,8 @@ final class CommandRegistry {
             return;
         }
         String name = root.getName();
-        PluginCommand declared = root.owner().getCommand(name);
-        if (declared != null && declared.getPlugin() == root.owner()) {
+        PluginCommand declared = declaredCommand(root);
+        if (declared != null) {
             root.pluginCommand = declared;
             root.adapter = new Adapter(root);
             declared.setExecutor(root.adapter);
@@ -98,6 +98,26 @@ final class CommandRegistry {
         ROOTS.add(root);
         reconcileAliases(root);
         changed();
+    }
+
+    /** The plugin.yml command named exactly like the root (not one of its aliases), or null. */
+    private static PluginCommand declaredCommand(RootCommand root) {
+        PluginCommand declared;
+        try {
+            declared = root.owner().getCommand(root.getName());
+        } catch (UnsupportedOperationException pluginWithoutPluginYml) {
+            return null;
+        }
+        if (declared == null || declared.getPlugin() != root.owner()
+                || !declared.getName().equalsIgnoreCase(root.getName())) {
+            return null;
+        }
+        return declared;
+    }
+
+    /** The root a plugin.yml command hands over to, or null. */
+    static RootCommand rootBehind(PluginCommand command) {
+        return command.getExecutor() instanceof Adapter adapter ? adapter.root : null;
     }
 
     /** Same instance registered again (a reload): aliases are read again and taken keys recovered. */
@@ -138,6 +158,14 @@ final class CommandRegistry {
         root.registered = false;
         ROOTS.remove(root);
         changed();
+        for (RootCommand sibling : List.copyOf(ROOTS)) {
+            if (sibling.owner() == root.owner()) {
+                reconcileAliases(sibling);
+                if (sibling.priority) {
+                    recover(sibling);
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- aliases
@@ -257,6 +285,8 @@ final class CommandRegistry {
             other.activeAliases.remove(key);
             if (other.getName().equals(key)) {
                 other.holdsName = false;
+            } else if (known().get(prefix(other) + key) == other) {
+                other.prefixedOnly.add(key);
             }
         }
         root.commands.logOnce("took:" + key, Level.INFO, "Took /" + key + " from " + holder + "; " + holder
@@ -408,10 +438,13 @@ final class CommandRegistry {
      */
     private static void changed() {
         mapChanged = true;
-        if (publishScheduled || Bukkit.isStopping()) {
+        if (Bukkit.isStopping()) {
             return;
         }
         RsLibPlugin lib = RsLibPlugin.running();
+        if (publishScheduled && lib != null && lib.isEnabled()) {
+            return;
+        }
         if (lib == null || !lib.isEnabled() || !Bukkit.isPrimaryThread()) {
             publish();
             return;

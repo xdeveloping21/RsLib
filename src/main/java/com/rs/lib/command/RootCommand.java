@@ -25,9 +25,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.Ph;
 
 /**
- * A command built with {@link RsCommands#root(String)}. It is a real Bukkit {@link Command}
- * placed in the server's command map, so {@code getCommandMap().getCommand(label) instanceof
- * RootCommand} and {@link #owner()} tell which plugin a command belongs to.
+ * A command built with {@link RsCommands#root(String)}. It is a real Bukkit {@link Command};
+ * {@link RsCommands#rootOf(Command)} finds it from any command of the server's command map
+ * (also when plugin.yml declares it) and {@link #owner()} tells which plugin it belongs to.
  *
  * <p>{@link #execute} always returns true (Bukkit never prints the plugin.yml usage) and never
  * lets an exception reach the player: errors are logged with the subcommand's path.</p>
@@ -49,7 +49,7 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
     private volatile String translatedDescription;
 
     // Registration state, touched on the main thread only (see CommandRegistry).
-    boolean registered;
+    volatile boolean registered;
     PluginCommand pluginCommand;
     TabExecutor adapter;
     /** Holds the bare name key ({@code /name}). */
@@ -116,6 +116,10 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
     void translateDescription(String description) {
         translatedDescription = description;
         setDescription(rootDescription());
+        PluginCommand declared = pluginCommand;
+        if (declared != null) {
+            declared.setDescription(rootDescription());
+        }
     }
 
     /** Lowercase command words this root wants: its name and its desired aliases. */
@@ -127,19 +131,19 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
 
     @Override
     public boolean execute(CommandSender sender, String commandLabel, String[] args) {
-        String label = normalizeLabel(commandLabel);
-        Resolution result;
-        try {
-            result = resolve(sender, label, args);
-        } catch (RuntimeException | LinkageError e) {
-            owner().getLogger().log(Level.SEVERE, "Error reading /" + label + " " + String.join(" ", args), e);
+        if (!owner().isEnabled()) {
             return true;
         }
-        switch (result) {
-            case Resolution.Empty empty -> runEmpty(sender, label);
-            case Resolution.Message message -> commands.send(sender, message.key(), message.phs());
-            case Resolution.GroupHelp help -> sendGroupHelp(sender, label, help.group(), help.page());
-            case Resolution.Run run -> runLeaf(sender, label, run);
+        String label = normalizeLabel(commandLabel);
+        try {
+            switch (resolve(sender, label, args)) {
+                case Resolution.Empty empty -> runEmpty(sender, label);
+                case Resolution.Message message -> commands.send(sender, message.key(), message.phs());
+                case Resolution.GroupHelp help -> sendGroupHelp(sender, label, help.group(), help.page());
+                case Resolution.Run run -> runLeaf(sender, label, run);
+            }
+        } catch (RuntimeException | LinkageError e) {
+            owner().getLogger().log(Level.SEVERE, "Error running /" + label + " " + String.join(" ", args), e);
         }
         return true;
     }
