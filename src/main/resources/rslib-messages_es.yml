@@ -1,0 +1,21 @@
+# Mensajes compartidos de RsLib. Cada plugin copia los que falten en su archivo de idioma,
+# donde se pueden editar como cualquier otro mensaje.
+rslib:
+  no-permission: "&cNo tienes permiso para hacer eso."
+  players-only: "&cSolo los jugadores pueden usar este comando."
+  usage: "&cModo de uso: &f{usage}"
+  invalid-number: "&c'&f{value}&c' no es un número válido."
+  invalid-value: "&c'&f{value}&c' no es una opción válida."
+  out-of-range: "&cUsa un número entre &f{min}&c y &f{max}&c (escribiste &f{value}&c)."
+  number-too-small: "&cEl número debe ser &f{min}&c o mayor (escribiste &f{value}&c)."
+  player-not-found: "&cNo hay ningún jugador llamado '&f{value}&c'."
+  unknown-subcommand: "&cNo existe el subcomando '&f{value}&c'. Escribe &f/{label} help&c para verlos todos."
+  reload-done: "&aConfiguración y mensajes recargados."
+  debug-on: "&aLos mensajes de depuración de {plugin} están activados."
+  debug-off: "&eLos mensajes de depuración de {plugin} están desactivados."
+  help:
+    header: "&6&l{plugin} &8» &7Comandos"
+    entry: "&e{usage} &8- &7{description}"
+    footer: "&7Página &f{page}&7 de &f{total}&7. Más páginas: &f{command} <página>"
+    group-header: "&6&l{group} &8» &7{description}"
+    group-footer: "&7Página &f{page}&7 de &f{total}&7. Más páginas: &f{path} help <página>"
