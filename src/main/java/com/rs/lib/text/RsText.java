@@ -1,6 +1,8 @@
 package com.rs.lib.text;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -354,6 +356,24 @@ public final class RsText {
         return false;
     }
 
+    /** Click actions whose value is text; the same set on every Paper 1.21.x. */
+    private static final Set<ClickEvent.Action> TEXT_CLICKS = EnumSet.of(ClickEvent.Action.OPEN_URL,
+            ClickEvent.Action.RUN_COMMAND, ClickEvent.Action.SUGGEST_COMMAND, ClickEvent.Action.COPY_TO_CLIPBOARD);
+
+    /**
+     * Newer Adventure (Paper 1.21.6+) marks these String forms deprecated in favor of
+     * {@code ClickEvent.Payload}, which Paper 1.21.4 does not have; the String forms work on both.
+     */
+    @SuppressWarnings("deprecation")
+    private static String clickValue(ClickEvent click) {
+        return click.value();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static ClickEvent textClick(ClickEvent.Action action, String value) {
+        return ClickEvent.clickEvent(action, value);
+    }
+
     /** Turns literal markers back in text, hover text, click values and insertions. */
     static Component restoreLiterals(Component c) {
         Component out = c;
@@ -373,10 +393,11 @@ public final class RsText {
             }
         }
         ClickEvent click = out.clickEvent();
-        if (click != null && click.payload() instanceof ClickEvent.Payload.Text value) {
-            String restored = unwrapLiterals(value.value());
-            if (!restored.equals(value.value())) {
-                out = out.clickEvent(ClickEvent.clickEvent(click.action(), ClickEvent.Payload.string(restored)));
+        if (click != null && TEXT_CLICKS.contains(click.action())) {
+            String value = clickValue(click);
+            String restored = unwrapLiterals(value);
+            if (!restored.equals(value)) {
+                out = out.clickEvent(textClick(click.action(), restored));
             }
         }
         String insertion = out.insertion();
