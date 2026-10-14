@@ -1,0 +1,104 @@
+Copyright (c) 2025-2026 Raul Sanhueza (RsDevelopment). All rights reserved.
+
+This software, including its source code, compiled artifacts, bundled resources
+and documentation (the "Software"), is proprietary. The Software is licensed,
+not sold.
+
+1. LICENSE GRANT
+
+Subject to the terms below, the copyright holder grants the holder of a valid,
+active license key a non-exclusive, non-transferable, non-sublicensable and
+revocable license to install and run the Software on the Minecraft server or
+servers authorized by that key, for as long as that key remains valid.
+
+A license key may cover a single plugin or a bundle of plugins. The scope of
+what a given key authorizes is determined by the license records held by the
+copyright holder.
+
+No other right is granted. Use of the Software without a valid license key is
+unlicensed use.
+
+2. RESTRICTIONS
+
+Except where section 5 provides otherwise, the licensee may not:
+
+  (a) copy, publish, distribute, share, resell, rent, lend or sublicense the
+      Software, in whole or in part, to any third party;
+  (b) modify, adapt, translate or create derivative works of the Software;
+  (c) decompile, disassemble, deobfuscate or otherwise attempt to derive the
+      source code of the Software;
+  (d) remove, disable, circumvent or tamper with the license verification, the
+      integrity checks, or any copyright or ownership notice in the Software;
+  (e) use the Software, or knowledge derived from it, to build or assist a
+      competing product.
+
+For the avoidance of doubt, the configuration, language and menu files that the
+Software generates on the licensee's own server are intended to be edited by
+the licensee. Editing them is normal use and is not a modification of the
+Software under (b).
+
+3. LICENSE KEY AND TERMINATION
+
+License keys are issued per customer and are validated when the Software starts,
+against records held by the copyright holder. A key may be bound to specific
+servers or network addresses.
+
+This license terminates automatically, without notice, if the key expires, is
+cancelled or is revoked, or if the licensee breaches any term of this license.
+On termination the licensee must stop using the Software and delete every copy
+in their possession.
+
+Sharing a license key with anyone outside the licensee's own authorized servers
+is a breach of this license and grounds for revocation without refund.
+
+4. OWNERSHIP AND THIRD-PARTY COMPONENTS
+
+The copyright holder retains all right, title and interest in the Software.
+Nothing in this license transfers ownership of anything.
+
+The Software may depend on, or be distributed alongside, third-party components
+that carry their own license terms. Those components remain governed by their
+own terms, and nothing in this license overrides or replaces them.
+
+5. STATUTORY RIGHTS
+
+Nothing in this license limits any right the licensee holds under applicable law
+that cannot be excluded by agreement, including any statutory right to decompile
+the Software for interoperability purposes where such a right exists and its
+statutory conditions are met.
+
+6. NO WARRANTY
+
+The Software is provided "as is" and "as available", without warranty of any
+kind, express or implied, including but not limited to the implied warranties of
+merchantability, fitness for a particular purpose and non-infringement. The
+copyright holder does not warrant that the Software will be uninterrupted or
+error-free, or that it will work with any particular server version, plugin or
+configuration.
+
+7. LIMITATION OF LIABILITY
+
+To the maximum extent permitted by applicable law, the copyright holder shall
+not be liable for any indirect, incidental, special, consequential or punitive
+damages, nor for any loss of data, of in-game economy state, of players, of
+revenue or of goodwill, arising out of or in connection with the Software or its
+use, even if advised of the possibility of such damages.
+
+To the maximum extent permitted by applicable law, the copyright holder's total
+aggregate liability arising out of or in connection with the Software shall not
+exceed the amount actually paid by the licensee for the license in the twelve
+months preceding the event giving rise to the claim.
+
+8. SEVERABILITY
+
+If any provision of this license is held unenforceable, that provision shall be
+enforced to the maximum extent permissible and the remaining provisions shall
+remain in full force and effect.
+
+9. CONTACT
+
+License enquiries, permission requests and reports of unauthorized use:
+Raul Sanhueza (RsDevelopment) - raulsh018@gmail.com
+
+Unauthorized use, reproduction or distribution of the Software, or of any
+portion of it, may result in civil and criminal liability.
