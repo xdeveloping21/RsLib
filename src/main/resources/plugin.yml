@@ -1,0 +1,26 @@
+name: RsLib
+version: '${project.version}'
+main: com.rs.lib.RsLibPlugin
+api-version: '1.20'
+load: STARTUP
+author: Raul Sanhueza (RsDevelopment)
+website: https://rsdevelopment.dev
+description: Librería base de los plugins Rs.
+softdepend: [PlaceholderAPI, Vault]
+commands:
+  rslib:
+    description: RsLib administration.
+    usage: /rslib <version|reload <plugin>>
+permissions:
+  rslib.admin:
+    description: Every RsLib administration command.
+    default: op
+    children:
+      rslib.admin.reload: true
+      rslib.admin.version: true
+  rslib.admin.reload:
+    description: Reload a plugin built on RsLib.
+    default: op
+  rslib.admin.version:
+    description: See the RsLib version and the plugins using it.
+    default: op

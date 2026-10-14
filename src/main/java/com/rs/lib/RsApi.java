@@ -1,0 +1,25 @@
+package com.rs.lib;
+
+/**
+ * API level of this RsLib build.
+ *
+ * <p>A plugin returns {@code RsApi.LEVEL} from {@link RsPlugin#requiredApiLevel()}. Because it
+ * is a compile-time constant, the number of the RsLib the plugin was compiled against ends up
+ * inside the plugin's own class file; at startup it is compared with the installed RsLib, and
+ * an older RsLib disables the plugin with a clear message instead of failing later with a
+ * missing method. The level goes up by one in every release that adds public API, and public
+ * API is never removed within a major version.</p>
+ *
+ * <ul>
+ *     <li>1 (1.0.0): core (plugin base, context, placeholders, text, YAML files, messages,
+ *     debug, reload, scheduler, soft dependencies, version checks) and commands.</li>
+ * </ul>
+ */
+public final class RsApi {
+
+    /** Must stay a literal so the compiler inlines it into every plugin. */
+    public static final int LEVEL = 1;
+
+    private RsApi() {
+    }
+}
