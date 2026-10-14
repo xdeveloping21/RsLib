@@ -16,6 +16,7 @@ public final class ReloadManager {
 
     private final Rs rs;
     private final List<Reloadable> reloadables = new CopyOnWriteArrayList<>();
+    private boolean running;
 
     public ReloadManager(Rs rs) {
         this.rs = Objects.requireNonNull(rs, "rs");
@@ -25,8 +26,24 @@ public final class ReloadManager {
         reloadables.add(Objects.requireNonNull(reloadable, "reloadable"));
     }
 
-    /** Runs on the main thread; file reads are synchronous on purpose (it is an admin command). */
+    /**
+     * Runs on the main thread; file reads are synchronous on purpose (it is an admin command).
+     * A reload asked for while one is running (a {@code Reloadable} calling it) is ignored.
+     */
     public void reloadPlugin() {
+        if (running) {
+            rs.plugin().getLogger().warning("A reload was asked for during a reload; ignored.");
+            return;
+        }
+        running = true;
+        try {
+            reloadSteps();
+        } finally {
+            running = false;
+        }
+    }
+
+    private void reloadSteps() {
         if (rs.ymlOrNull() != null) {
             step("files", () -> rs.ymlOrNull().reloadAll());
         }

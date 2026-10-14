@@ -1,6 +1,7 @@
 package com.rs.lib.command;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.bukkit.command.CommandSender;
 
@@ -44,7 +45,7 @@ public interface Arg<T> {
 
         public ArgParseException(String langKey, Ph... phs) {
             super(langKey, null, false, false);
-            this.langKey = langKey;
+            this.langKey = Objects.requireNonNull(langKey, "langKey");
             this.phs = phs == null ? new Ph[0] : phs.clone();
         }
 

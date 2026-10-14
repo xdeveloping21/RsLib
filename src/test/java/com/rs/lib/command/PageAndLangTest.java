@@ -49,4 +49,13 @@ class PageAndLangTest {
         give.labels(new Node.Labels(" ", java.util.Map.of()));
         assertEquals("Give", give.description());
     }
+
+    @Test
+    void oddTextsAndNumericNamesStayValidYaml() throws Exception {
+        RootCommand root = Trees.root(null, null, null,
+                Trees.sub("010").description("bad \u007f\u0085\uFFFE \uD83D\uDE00 ok").executes(c -> { }));
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.load(new StringReader(CommandLang.block(List.of(root))));
+        assertEquals("bad \u007f\u0085\uFFFE \uD83D\uDE00 ok", yaml.getString("commands.rk.subcommands.010.description"));
+    }
 }

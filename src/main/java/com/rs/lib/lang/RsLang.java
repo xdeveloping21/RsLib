@@ -59,6 +59,8 @@ public final class RsLang {
     private static final String SHARED_RESOURCE = "/rslib-messages_%s.yml";
     private static final String LEGACY_BLOCK = "snlib:";
     private static final String SHARED_BLOCK = "rslib:";
+    /** Keys from SnLib times ({@code snlib.no-permission}) are read from {@code rslib.}. */
+    private static final String LEGACY_PREFIX = "snlib.";
     private static final long ACTIONBAR_REFRESH_TICKS = 40L;
     private static final int TITLE_FADE_IN = 10;
     private static final int TITLE_STAY = 70;
@@ -132,10 +134,13 @@ public final class RsLang {
         return lines.isEmpty() ? Component.empty() : lines.get(0);
     }
 
-    /** The first line as written in the file, or null when the key does not exist. */
+    /** The first line as written in the file ({@code ""} for an empty list), or null when the key does not exist. */
     public String rawOrNull(String key) {
-        Entry entry = catalog.find(key);
-        return entry == null || entry.lines.isEmpty() ? null : entry.lines.get(0).raw;
+        Entry entry = key == null ? null : catalog.find(key);
+        if (entry == null) {
+            return null;
+        }
+        return entry.lines.isEmpty() ? "" : entry.lines.get(0).raw;
     }
 
     /** The first line as a legacy string with section signs (no MiniMessage). */
@@ -267,7 +272,7 @@ public final class RsLang {
      */
     public boolean mergeDefaults(String yamlText) {
         File english = langFile("en");
-        boolean changed = YamlUpdater.updateFromLines(plugin.getLogger(), YamlText.lines(yamlText), english);
+        boolean changed = mergeLines(plugin.getLogger(), YamlText.lines(yamlText), english);
         if (changed) {
             load();
         }
@@ -334,7 +339,7 @@ public final class RsLang {
         }
         List<String> shared = sharedLines("en", log);
         if (shared != null) {
-            YamlUpdater.updateFromLines(log, shared, english);
+            mergeLines(log, shared, english);
         }
     }
 
@@ -354,11 +359,10 @@ public final class RsLang {
         }
         List<String> shared = sharedLines(code, log);
         if (shared != null) {
-            YamlUpdater.updateFromLines(log, shared, translated);
+            mergeLines(log, shared, translated);
         }
         try {
-            if (english.exists() && YamlUpdater.updateFromLines(log, YamlText.lines(YamlText.read(english.toPath())),
-                    translated)) {
+            if (english.exists() && mergeLines(log, YamlText.lines(YamlText.read(english.toPath())), translated)) {
                 log.info("New messages were added to lang/messages_" + code + ".yml; translate them when convenient.");
             }
         } catch (IOException e) {
@@ -370,6 +374,28 @@ public final class RsLang {
             return null;
         }
         return yaml;
+    }
+
+    /**
+     * Adds missing keys from {@code reference} to {@code file}. A file that is not valid YAML is
+     * left untouched (with a warning): it holds the owner's texts and there is no jar copy of
+     * it to rebuild from.
+     */
+    private static boolean mergeLines(Logger log, List<String> reference, File file) {
+        if (file.isFile()) {
+            try {
+                String text = YamlPreprocessor.preprocess(YamlPreprocessor.read(file.toPath())).cleanText();
+                if (!YamlUpdater.isParseable(text)) {
+                    log.warning(file.getName() + " is not valid YAML, so new messages were not added to it."
+                            + " Fix the file and reload.");
+                    return false;
+                }
+            } catch (IOException e) {
+                log.log(Level.WARNING, "Could not read " + file, e);
+                return false;
+            }
+        }
+        return YamlUpdater.updateFromLines(log, reference, file);
     }
 
     /** Files from SnLib times keep their texts: the {@code snlib:} block becomes {@code rslib:} once. */
@@ -445,7 +471,7 @@ public final class RsLang {
             if (translated.isFile()) {
                 try {
                     if (english.isFile()) {
-                        YamlUpdater.updateFromLines(log, YamlText.lines(YamlText.read(english.toPath())), translated);
+                        mergeLines(log, YamlText.lines(YamlText.read(english.toPath())), translated);
                     }
                 } catch (IOException e) {
                     log.log(Level.WARNING, "Could not read " + english, e);
@@ -521,6 +547,13 @@ public final class RsLang {
     // ---------------------------------------------------------------- rendering
 
     private Entry lookup(String key) {
+        if (key == null) {
+            warnOnce("missing:null", "A message was requested with a null key.");
+            return null;
+        }
+        if (key.startsWith(LEGACY_PREFIX)) {
+            key = "rslib." + key.substring(LEGACY_PREFIX.length());
+        }
         Catalog current = catalog;
         Entry entry = current.active.get(key);
         if (entry != null) {
@@ -641,12 +674,25 @@ public final class RsLang {
                 }
                 return cached;
             }
-            if (text.indexOf('%') >= 0 && papi.available()) {
+            if ((text.indexOf('%') >= 0 || formattedPercent(phs)) && papi.available()) {
                 String filled = RsText.applyLocals(text, phs);
                 String resolved = here ? papi.applyHere(viewer, filled) : papi.apply(viewer, filled);
                 return RsText.color(RsText.normalizePapiOutput(resolved));
             }
             return template.render(noLocals ? new Ph[0] : phs);
+        }
+
+        /** A formatted value can carry placeholders of its own ({@code Ph.of("rank", "%vault_rank%")}). */
+        private static boolean formattedPercent(Ph[] phs) {
+            if (phs == null) {
+                return false;
+            }
+            for (Ph ph : phs) {
+                if (ph != null && !ph.literal() && ph.value().indexOf('%') >= 0) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static boolean isStatic(String text) {

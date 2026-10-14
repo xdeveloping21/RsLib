@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -16,7 +15,9 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -111,6 +112,20 @@ public final class RsCommands {
         } catch (RuntimeException | LinkageError e) {
             rs.plugin().getLogger().log(Level.WARNING, "Could not apply the command texts of the language file", e);
         }
+    }
+
+    /**
+     * The root behind a command from the server's command map: the command itself, or the
+     * root a plugin.yml command hands over to. Null when it is not an RsLib root.
+     */
+    public static RootCommand rootOf(Command command) {
+        if (command instanceof RootCommand root) {
+            return root;
+        }
+        if (command instanceof PluginCommand declared) {
+            return CommandRegistry.rootBehind(declared);
+        }
+        return null;
     }
 
     /** The listener that keeps names taken with {@code commandPriority()}; RsLib registers it once. */
@@ -364,18 +379,7 @@ public final class RsCommands {
             if (!config.isSet(key)) {
                 return null;
             }
-            List<String> list = config.getStringList(key, List.of());
-            if (!list.isEmpty()) {
-                return list;
-            }
-            String single = config.getString(key, "");
-            Set<String> parsed = new LinkedHashSet<>();
-            for (String part : single.split(",")) {
-                if (!part.isBlank()) {
-                    parsed.add(part.trim());
-                }
-            }
-            return parsed;
+            return config.getStringList(key, null);
         }
     }
 

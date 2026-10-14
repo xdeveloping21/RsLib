@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.internal.ListenerHub;
+import com.rs.lib.text.RsText;
 
 /**
  * The RsLib plugin itself: loads at STARTUP, registers the listeners every Rs plugin shares
@@ -59,6 +60,7 @@ public final class RsLibPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         RsLib.shutdownAll();
+        RsText.clearCache();
         instance = null;
     }
 
@@ -86,7 +88,7 @@ public final class RsLibPlugin extends JavaPlugin {
                     rs.reloadAll();
                     sender.sendMessage(target.getName() + " reloaded.");
                 }
-                default -> {
+                case "version" -> {
                     if (!sender.hasPermission("rslib.admin.version")) {
                         sender.sendMessage("You do not have permission.");
                         return true;
@@ -96,6 +98,7 @@ public final class RsLibPlugin extends JavaPlugin {
                     sender.sendMessage("RsLib " + getPluginMeta().getVersion() + " (API level " + RsApi.LEVEL
                             + ") on " + RsVersion.describe() + ". Plugins: " + (users.isEmpty() ? "none" : users));
                 }
+                default -> sender.sendMessage("Usage: /" + label + " <version|reload <plugin>>");
             }
             return true;
         }

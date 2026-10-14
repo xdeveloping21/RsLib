@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -44,7 +45,7 @@ public final class Args {
             @Override
             protected Player read(CommandSender sender, String raw) throws ArgParseException {
                 Player player = Bukkit.getPlayerExact(raw);
-                if (player == null) {
+                if (player == null || sender instanceof Player viewer && !viewer.canSee(player)) {
                     throw new ArgParseException("rslib.player-not-found", Ph.literal("value", raw));
                 }
                 return player;
@@ -204,16 +205,20 @@ public final class Args {
         };
     }
 
+    /** Longest duration a command accepts (about 100 years), so adding it to a time never overflows. */
+    public static final long MAX_DURATION_MILLIS = 100L * 365 * 24 * 60 * 60 * 1000;
+
     /**
      * A duration in milliseconds, greater than zero ({@code 30s}, {@code 5m}, {@code 1d2h}).
-     * It is one word, so {@code 1d 2h} must be typed together as {@code 1d2h}.
+     * It is one word, so {@code 1d 2h} must be typed together as {@code 1d2h}. A sign, a comma
+     * or an exponent is rejected instead of being read wrong ({@code 1,5h} is not {@code 5h}).
      */
     public static RsArg<Long> duration() {
         return new RsArg<>(List.of("30s", "5m", "30m", "1h", "1d"), false, null) {
             @Override
             protected Long read(CommandSender sender, String raw) throws ArgParseException {
-                long millis = TimeUtil.parseMillis(raw);
-                if (millis <= 0) {
+                long millis = SUSPICIOUS_DURATION.matcher(raw).find() ? 0 : TimeUtil.parseMillis(raw);
+                if (millis <= 0 || millis > MAX_DURATION_MILLIS) {
                     throw new ArgParseException("rslib.invalid-value", Ph.literal("value", raw));
                 }
                 return millis;
@@ -265,6 +270,9 @@ public final class Args {
     }
 
     /** Signed on purpose: {@code -5} for {@code intMin(1)} reads as "too small", not "not a number". */
+    private static final Pattern SUSPICIOUS_DURATION =
+            Pattern.compile("[-+,]|\\d[eE][-+]?\\d");
+
     private static BigDecimal whole(String raw) throws ArgParseException {
         Optional<BigDecimal> value = Amounts.parseSigned(raw);
         if (value.isEmpty()) {

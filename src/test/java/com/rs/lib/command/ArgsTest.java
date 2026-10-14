@@ -96,4 +96,16 @@ class ArgsTest {
         e.phs()[0] = null;
         assertEquals("a", e.phs()[0].key());
     }
+
+    @Test
+    void durationRejectsWhatItWouldMisread() {
+        for (String bad : List.of("1,5h", "-5m", "1e3s", "+5m", "2w", "999999999d")) {
+            assertThrows(ArgParseException.class, () -> Args.duration().parse(SENDER, bad), bad);
+        }
+    }
+
+    @Test
+    void parseExceptionNeedsAKey() {
+        assertThrows(NullPointerException.class, () -> new ArgParseException(null));
+    }
 }
