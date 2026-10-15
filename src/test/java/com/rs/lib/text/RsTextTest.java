@@ -172,7 +172,7 @@ class RsTextTest {
         assertEquals("<b>&a %x% [rgb] \\ {y}", PlainTextComponentSerializer.plainText().serialize((Component) event.value()));
         Component click = RsText.color("<click:suggest_command:'/msg " + RsText.literal("a&b") + "'>go");
         ClickEvent clickEvent = Styled.styleOf(click, "go").clickEvent();
-        assertEquals("/msg a&b", ((ClickEvent.Payload.Text) clickEvent.payload()).value());
+        assertEquals("/msg a&b", clickValue(clickEvent));
         assertEquals("x <b>", RsText.colorLegacy("x " + RsText.literal("<b>")));
     }
 
@@ -323,7 +323,7 @@ class RsTextTest {
         assertTrue(Styled.bold(shown, "bold"));
         Component url = RsText.color("<click:open_url:'https://x.com/?a=1&b=2'>link");
         assertEquals("https://x.com/?a=1&b=2",
-                ((ClickEvent.Payload.Text) Styled.styleOf(url, "link").clickEvent().payload()).value());
+                clickValue(Styled.styleOf(url, "link").clickEvent()));
     }
 
     @Test
@@ -343,5 +343,11 @@ class RsTextTest {
             n++;
         }
         return n;
+    }
+
+    /** The click text through the form every supported Adventure version has (4.16 to 4.26). */
+    @SuppressWarnings("deprecation")
+    private static String clickValue(ClickEvent event) {
+        return event.value();
     }
 }

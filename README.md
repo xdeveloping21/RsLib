@@ -1,6 +1,6 @@
 # RsLib
 
-Librería base de los plugins Rs de RsDevelopment para Paper 1.21.x (Java 21).
+Librería base de los plugins Rs de RsDevelopment para Paper 1.20.4 a 1.21.x (Java 21).
 
 RsLib es un plugin que se instala en el servidor (`plugins/RsLib-<versión>.jar`) y que los
 plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:

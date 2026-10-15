@@ -397,13 +397,13 @@ public final class RsText {
         return rest;
     }
 
-    /** Click actions whose value is text; the same set on every Paper 1.21.x. */
+    /** Click actions whose value is text; the same set from Paper 1.20.4 to 1.21.x. */
     private static final Set<ClickEvent.Action> TEXT_CLICKS = EnumSet.of(ClickEvent.Action.OPEN_URL,
             ClickEvent.Action.RUN_COMMAND, ClickEvent.Action.SUGGEST_COMMAND, ClickEvent.Action.COPY_TO_CLIPBOARD);
 
     /**
      * Newer Adventure (Paper 1.21.6+) marks these String forms deprecated in favor of
-     * {@code ClickEvent.Payload}, which Paper 1.21.4 does not have; the String forms work on both.
+     * {@code ClickEvent.Payload}, which Paper 1.20.4 to 1.21.4 do not have; the String forms work on all of them.
      */
     @SuppressWarnings("deprecation")
     private static String clickValue(ClickEvent click) {
