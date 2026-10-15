@@ -16,15 +16,18 @@ import com.rs.lib.db.DbConfig;
 import com.rs.lib.db.RsDb;
 import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
+import com.rs.lib.economy.EconomyBridge;
 import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.gui.GuiManager;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemActions;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
+import com.rs.lib.leaderboard.LeaderboardCache;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.UpdateChecker;
 import com.rs.lib.yml.YmlManager;
 
@@ -46,6 +49,9 @@ public final class Rs {
     private final ActionEngine actions;
     private final RsLang lang;
     private final Cooldowns cooldowns;
+    private final EconomyBridge economy;
+    private final LeaderboardCache leaderboards;
+    private final Teleports teleports;
     private final RsDb db;
     private final RsCommands commands;
     private final ReloadManager reload;
@@ -68,6 +74,8 @@ public final class Rs {
         this.actions = new ActionEngine(this);
         this.lang = spec.lang() ? new RsLang(this, yml == null ? null : yml.config()) : null;
         this.cooldowns = new Cooldowns(this);
+        this.economy = new EconomyBridge(this);
+        this.leaderboards = new LeaderboardCache(this);
         this.db = spec.db() ? new RsDb(this, DbConfig.load(plugin,
                 yml == null ? null : yml.config().getSection("database"))) : null;
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
@@ -82,6 +90,7 @@ public final class Rs {
                 plugin.getLogger().warning("RsSpec items(\"" + spec.items() + "\") needs config(...); no items loaded.");
             }
         }
+        this.teleports = spec.teleports() ? new Teleports(this) : null;
         this.inputs = new Inputs(this);
         this.guis = spec.guis() ? new GuiManager(this) : null;
         if (guis != null) {
@@ -138,6 +147,24 @@ public final class Rs {
     /** Cooldowns per category and player. */
     public Cooldowns cooldowns() {
         return cooldowns;
+    }
+
+    /** Money: Vault, console commands or a backend of the plugin. */
+    public EconomyBridge economy() {
+        return economy;
+    }
+
+    /** Leaderboards refreshed by async queries. */
+    public LeaderboardCache leaderboards() {
+        return leaderboards;
+    }
+
+    /** Teleports with a wait. Needs {@code RsSpec.builder().teleports()}. */
+    public Teleports teleports() {
+        if (teleports == null) {
+            throw missing("teleports()", "teleports()");
+        }
+        return teleports;
     }
 
     /** The plugin's database. Needs {@code RsSpec.builder().db()}. */
@@ -253,6 +280,10 @@ public final class Rs {
         if (yml != null) {
             step("pending file writes", yml::flushAll);
         }
+        if (teleports != null) {
+            step("teleports", teleports::shutdown);
+        }
+        step("leaderboards", leaderboards::shutdown);
         step("tasks", scheduler::cancelAll);
         step("pending main-thread results", () -> MainHops.release(plugin));
         if (db != null) {
