@@ -50,6 +50,7 @@ public final class ReloadManager {
         if (rs.langOrNull() != null) {
             step("messages", () -> rs.langOrNull().reload());
         }
+        step("items", () -> rs.items().reload());
         step("commands", () -> {
             rs.commands().reRegisterAll();
             rs.commands().applyLang();

@@ -16,6 +16,7 @@ import com.rs.lib.db.RsDb;
 import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
+import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.reload.ReloadManager;
@@ -44,6 +45,7 @@ public final class Rs {
     private final RsCommands commands;
     private final ReloadManager reload;
     private final UpdateChecker updates;
+    private final ItemRegistry items;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -63,6 +65,14 @@ public final class Rs {
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
         this.reload = new ReloadManager(this);
         this.updates = new UpdateChecker(this);
+        this.items = new ItemRegistry(this);
+        if (spec.items() != null) {
+            if (yml != null) {
+                items.loadAll(yml.managed(spec.items()));
+            } else {
+                plugin.getLogger().warning("RsSpec items(\"" + spec.items() + "\") needs config(...); no items loaded.");
+            }
+        }
     }
 
     public JavaPlugin plugin() {
@@ -125,6 +135,11 @@ public final class Rs {
     /** Update checks; idle unless the spec declares {@code updates()} or the plugin calls it. */
     public UpdateChecker updates() {
         return updates;
+    }
+
+    /** Registered physical items. */
+    public ItemRegistry items() {
+        return items;
     }
 
     /** Reloads config, messages, commands and every registered {@code Reloadable}. */
@@ -193,6 +208,7 @@ public final class Rs {
         shuttingDown = true;
         step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
+        step("items", items::shutdown);
         if (yml != null) {
             step("pending file writes", yml::flushAll);
         }
