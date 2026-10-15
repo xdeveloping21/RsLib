@@ -83,6 +83,16 @@ public final class RsScheduler {
         return backend.entity(Objects.requireNonNull(entity, "entity"), task);
     }
 
+    /**
+     * Same as {@link #entity(Entity, Runnable)}, and {@code retired} runs instead of
+     * {@code task} when the task can never run: on Folia when the entity is removed first (or,
+     * on the calling thread, when it is already gone now). On Paper the task always runs, so it
+     * must check that the entity is still there.
+     */
+    public TaskHandle entity(Entity entity, Runnable task, Runnable retired) {
+        return backend.entity(Objects.requireNonNull(entity, "entity"), task, Objects.requireNonNull(retired, "retired"));
+    }
+
     /** Same as {@link #entity} after {@code delayTicks} (at least one). */
     public TaskHandle entityLater(Entity entity, long delayTicks, Runnable task) {
         return backend.entityLater(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks), task);
@@ -196,6 +206,8 @@ public final class RsScheduler {
 
         TaskHandle entity(Entity entity, Runnable task);
 
+        TaskHandle entity(Entity entity, Runnable task, Runnable retired);
+
         TaskHandle entityLater(Entity entity, long delay, Runnable task);
 
         TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task);
@@ -247,6 +259,11 @@ public final class RsScheduler {
 
         @Override
         public TaskHandle entity(Entity entity, Runnable task) {
+            return sync(task);
+        }
+
+        @Override
+        public TaskHandle entity(Entity entity, Runnable task, Runnable retired) {
             return sync(task);
         }
 
@@ -314,6 +331,16 @@ public final class RsScheduler {
         public TaskHandle entity(Entity entity, Runnable task) {
             ScheduledTask scheduled = entity.getScheduler().run(plugin, t -> task.run(), null);
             return scheduled == null ? Handle.NONE : handle(scheduled);
+        }
+
+        @Override
+        public TaskHandle entity(Entity entity, Runnable task, Runnable retired) {
+            ScheduledTask scheduled = entity.getScheduler().run(plugin, t -> task.run(), retired);
+            if (scheduled == null) {
+                retired.run();
+                return Handle.NONE;
+            }
+            return handle(scheduled);
         }
 
         @Override
