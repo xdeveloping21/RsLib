@@ -9,6 +9,10 @@ package com.rs.lib.util;
  * {@code ms} is milliseconds and a number without a unit is seconds. Other words are ignored.
  * {@code m} is always minutes (also {@code mo}/{@code month}): existing configs rely on it.
  * Null or text without numbers reads as 0; the result is never negative. Pure, any thread.</p>
+ *
+ * <p>{@link #humanize(long)} and {@link #humanizeShort(long)} write a duration back:
+ * {@code 1 day 2 hours 30 minutes 15 seconds} and {@code 1d 2h 30m 15s}. Milliseconds are
+ * dropped, zero parts are left out and nothing at all reads {@code 0 seconds} / {@code 0s}.</p>
  */
 public final class TimeUtil {
 
@@ -61,6 +65,102 @@ public final class TimeUtil {
             return 0L;
         }
         return total >= Long.MAX_VALUE ? Long.MAX_VALUE : (long) total;
+    }
+
+    /** The parts a duration is written with, largest first. */
+    public enum Unit {
+        DAY(TimeUtil.DAY), HOUR(TimeUtil.HOUR), MINUTE(TimeUtil.MINUTE), SECOND(TimeUtil.SECOND);
+
+        private static final Unit[] ALL = values();
+
+        private final long millis;
+
+        Unit(long millis) {
+            this.millis = millis;
+        }
+    }
+
+    /** Words for each {@link Unit}; plugins pass their own to write durations in another language. */
+    public interface Labels {
+
+        /** The full word: {@code day} or, with {@code plural}, {@code days}. */
+        String longLabel(Unit unit, boolean plural);
+
+        /** The letter written right after the number: {@code d}. */
+        String shortLabel(Unit unit);
+    }
+
+    /** English labels: {@code day/days}, {@code d}. */
+    public static final Labels ENGLISH = new Labels() {
+        @Override
+        public String longLabel(Unit unit, boolean plural) {
+            String word = switch (unit) {
+                case DAY -> "day";
+                case HOUR -> "hour";
+                case MINUTE -> "minute";
+                case SECOND -> "second";
+            };
+            return plural ? word + "s" : word;
+        }
+
+        @Override
+        public String shortLabel(Unit unit) {
+            return switch (unit) {
+                case DAY -> "d";
+                case HOUR -> "h";
+                case MINUTE -> "m";
+                case SECOND -> "s";
+            };
+        }
+    };
+
+    /** {@code 1 day 2 hours 30 minutes 15 seconds}; {@code 0 seconds} below one second. */
+    public static String humanize(long millis) {
+        return humanize(millis, ENGLISH);
+    }
+
+    /** Same as {@link #humanize(long)} with the given words. */
+    public static String humanize(long millis, Labels labels) {
+        return write(millis, labels, false);
+    }
+
+    /** {@code 1d 2h 30m 15s}; {@code 0s} below one second. */
+    public static String humanizeShort(long millis) {
+        return humanizeShort(millis, ENGLISH);
+    }
+
+    /** Same as {@link #humanizeShort(long)} with the given letters. */
+    public static String humanizeShort(long millis, Labels labels) {
+        return write(millis, labels, true);
+    }
+
+    private static String write(long millis, Labels labels, boolean compact) {
+        StringBuilder out = new StringBuilder(24);
+        long left = Math.max(0L, millis);
+        for (Unit unit : Unit.ALL) {
+            long amount = left / unit.millis;
+            if (amount == 0) {
+                continue;
+            }
+            left -= amount * unit.millis;
+            append(out, amount, unit, labels, compact);
+        }
+        if (out.isEmpty()) {
+            append(out, 0, Unit.SECOND, labels, compact);
+        }
+        return out.toString();
+    }
+
+    private static void append(StringBuilder out, long amount, Unit unit, Labels labels, boolean compact) {
+        if (!out.isEmpty()) {
+            out.append(' ');
+        }
+        out.append(amount);
+        if (compact) {
+            out.append(labels.shortLabel(unit));
+        } else {
+            out.append(' ').append(labels.longLabel(unit, amount != 1));
+        }
     }
 
     /** Ticks in {@code text} (milliseconds / 50, rounded down). */

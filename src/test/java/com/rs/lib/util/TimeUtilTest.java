@@ -27,4 +27,43 @@ class TimeUtilTest {
         assertEquals(0L, TimeUtil.parseMillis("5x"));
         assertEquals(Long.MAX_VALUE, TimeUtil.parseMillis("99999999999999999999d"));
     }
+
+    @Test
+    void humanizeLeavesOutZeroParts() {
+        long ms = 86_400_000L + 7_200_000L + 1_800_000L + 15_000L + 999L;
+        assertEquals("1d 2h 30m 15s", TimeUtil.humanizeShort(ms));
+        assertEquals("1 day 2 hours 30 minutes 15 seconds", TimeUtil.humanize(ms));
+        assertEquals("2d 5s", TimeUtil.humanizeShort(2 * 86_400_000L + 5_000L));
+        assertEquals("1 minute 1 second", TimeUtil.humanize(61_000L));
+    }
+
+    @Test
+    void humanizeBelowOneSecondIsZero() {
+        assertEquals("0s", TimeUtil.humanizeShort(999L));
+        assertEquals("0 seconds", TimeUtil.humanize(0L));
+        assertEquals("0 seconds", TimeUtil.humanize(-5_000L));
+    }
+
+    @Test
+    void humanizeUsesTheGivenLabels() {
+        TimeUtil.Labels spanish = new TimeUtil.Labels() {
+            @Override
+            public String longLabel(TimeUtil.Unit unit, boolean plural) {
+                return switch (unit) {
+                    case DAY -> plural ? "días" : "día";
+                    case HOUR -> plural ? "horas" : "hora";
+                    case MINUTE -> plural ? "minutos" : "minuto";
+                    case SECOND -> plural ? "segundos" : "segundo";
+                };
+            }
+
+            @Override
+            public String shortLabel(TimeUtil.Unit unit) {
+                return unit == TimeUtil.Unit.SECOND ? "seg" : longLabel(unit, false).substring(0, 1);
+            }
+        };
+        assertEquals("1 día 3 horas", TimeUtil.humanize(97_200_000L, spanish));
+        assertEquals("3h 4seg", TimeUtil.humanizeShort(10_804_000L, spanish));
+        assertEquals("1 hour 30 minutes", TimeUtil.humanize(TimeUtil.parseMillis(TimeUtil.humanize(5_400_000L))));
+    }
 }
