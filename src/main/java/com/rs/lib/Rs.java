@@ -18,6 +18,7 @@ import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.input.Inputs;
+import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.reload.ReloadManager;
@@ -48,6 +49,7 @@ public final class Rs {
     private final ReloadManager reload;
     private final UpdateChecker updates;
     private final Inputs inputs;
+    private final ItemRegistry items;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -68,6 +70,14 @@ public final class Rs {
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
         this.reload = new ReloadManager(this);
         this.updates = new UpdateChecker(this);
+        this.items = new ItemRegistry(this);
+        if (spec.items() != null) {
+            if (yml != null) {
+                items.loadAll(yml.managed(spec.items()));
+            } else {
+                plugin.getLogger().warning("RsSpec items(\"" + spec.items() + "\") needs config(...); no items loaded.");
+            }
+        }
         this.inputs = new Inputs(this);
     }
 
@@ -143,6 +153,11 @@ public final class Rs {
         return updates;
     }
 
+    /** Registered physical items. */
+    public ItemRegistry items() {
+        return items;
+    }
+
     /** Reloads config, messages, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
@@ -211,6 +226,7 @@ public final class Rs {
         step("chat questions", inputs::shutdown);
         step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
+        step("items", items::shutdown);
         if (yml != null) {
             step("pending file writes", yml::flushAll);
         }

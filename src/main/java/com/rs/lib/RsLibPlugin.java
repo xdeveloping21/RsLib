@@ -15,6 +15,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.internal.ListenerHub;
+import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
@@ -54,6 +55,7 @@ public final class RsLibPlugin extends JavaPlugin {
         instance = this;
         getLogger().info("Server " + RsVersion.describe() + (RsVersion.isFolia() ? " (Folia)" : ""));
         ListenerHub.registerAll(this);
+        ItemRegistry.startShared(this);
         try {
             PlayerNames.start(this);
         } catch (RuntimeException e) {
@@ -80,6 +82,7 @@ public final class RsLibPlugin extends JavaPlugin {
             selfUpdater = null;
         }
         RsLib.shutdownAll();
+        ItemRegistry.shutdownShared();
         PlayerNames.shutdown();
         UpdateHub.shutdown();
         RsText.clearCache();

@@ -418,6 +418,28 @@ public final class RsYml {
         }
     }
 
+    /**
+     * Resolves a raw text read from {@link #getSection} the way the text getters do: this file's
+     * placeholders, then {@code locals} (null means none), then PlaceholderAPI on the main
+     * thread. For definitions parsed once and rendered many times, such as menu items.
+     */
+    public String resolveText(String text, Player viewer, Function<String, String> locals) {
+        if (text == null) {
+            return null;
+        }
+        String out = text;
+        if (!this.locals.isEmpty() && (out.indexOf('{') >= 0 || out.indexOf('%') >= 0)) {
+            out = RsText.applyLocals(out, this::local);
+        }
+        if (locals != null) {
+            out = RsText.applyLocals(out, locals);
+        }
+        if (out.indexOf('%') >= 0 && host.isPrimaryThread()) {
+            out = host.papi(viewer, out);
+        }
+        return out;
+    }
+
     private String resolve(String key, String text, Player viewer, Ph[] phs) {
         String out = text;
         if (!locals.isEmpty() && (out.indexOf('{') >= 0 || out.indexOf('%') >= 0)) {

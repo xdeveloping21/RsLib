@@ -17,6 +17,7 @@ public final class RsSpec {
     private final boolean db;
     private final boolean updates;
     private final String updatesProduct;
+    private final String items;
 
     private RsSpec(Builder b) {
         this.config = b.config;
@@ -26,6 +27,7 @@ public final class RsSpec {
         this.db = b.db;
         this.updates = b.updates;
         this.updatesProduct = b.updatesProduct;
+        this.items = b.items;
     }
 
     public static Builder builder() {
@@ -72,6 +74,11 @@ public final class RsSpec {
         return updatesProduct;
     }
 
+    /** The items file registered on start ({@code rs().items().loadAll}), or null. */
+    public String items() {
+        return items;
+    }
+
     public static final class Builder {
 
         private String config;
@@ -81,6 +88,7 @@ public final class RsSpec {
         private boolean db;
         private boolean updates;
         private String updatesProduct;
+        private String items;
 
         private Builder() {
         }
@@ -148,6 +156,19 @@ public final class RsSpec {
             }
             this.updates = true;
             this.updatesProduct = id;
+            return this;
+        }
+
+        /**
+         * Registers every top-level section of {@code fileName} (seeded from the jar and merged
+         * like the config) as an item of {@code rs().items()} on start and on reload. Needs
+         * {@link #config(String)}.
+         */
+        public Builder items(String fileName) {
+            if (fileName == null || fileName.isBlank()) {
+                throw new IllegalArgumentException("items file name is blank");
+            }
+            this.items = fileName.trim();
             return this;
         }
 
