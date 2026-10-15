@@ -13,6 +13,7 @@ import com.rs.lib.action.ActionEngine;
 import com.rs.lib.bossbar.BossBarUtil;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
+import com.rs.lib.cron.RsCron;
 import com.rs.lib.db.DbConfig;
 import com.rs.lib.db.RsDb;
 import com.rs.lib.db.internal.MainHops;
@@ -56,6 +57,7 @@ public final class Rs {
     private final Cooldowns cooldowns;
     private final EconomyBridge economy;
     private final LeaderboardCache leaderboards;
+    private final RsCron cron;
     private final Teleports teleports;
     private final BossBarUtil bossbars;
     private final HologramUtil holograms;
@@ -86,6 +88,7 @@ public final class Rs {
         this.cooldowns = new Cooldowns(this);
         this.economy = new EconomyBridge(this);
         this.leaderboards = new LeaderboardCache(this);
+        this.cron = new RsCron(this);
         this.bossbars = new BossBarUtil(this);
         this.holograms = new HologramUtil(this);
         this.discord = new DiscordWebhook(this);
@@ -177,6 +180,11 @@ public final class Rs {
     /** Leaderboards refreshed by async queries. */
     public LeaderboardCache leaderboards() {
         return leaderboards;
+    }
+
+    /** Jobs at calendar times ({@code "0 4 * * *"}, {@code "daily 04:00"}), on the main thread. */
+    public RsCron cron() {
+        return cron;
     }
 
     /** Teleports with a wait. Needs {@code RsSpec.builder().teleports()}. */
@@ -325,6 +333,7 @@ public final class Rs {
             step("teleports", teleports::shutdown);
         }
         step("leaderboards", leaderboards::shutdown);
+        step("cron jobs", cron::shutdown);
         step("snapshots", snapshots::shutdown);
         step("tasks", scheduler::cancelAll);
         step("pending main-thread results", () -> MainHops.release(plugin));

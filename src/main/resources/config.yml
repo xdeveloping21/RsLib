@@ -1,5 +1,14 @@
 # RsLib settings.
 
+# RsLib's own debug output (also switched on and off with /rslib debug, no restart needed).
+debug:
+  # Master switch of the debug output.
+  enabled: false
+  # How much prints: OFF, INFO, DEBUG or TRACE.
+  level: DEBUG
+  # Only these categories (for example update); an empty list lets every one through.
+  categories: []
+
 # RsLib updates itself from rsdevelopment.dev. A new version is downloaded, checked
 # and placed in plugins/; it applies on the next restart.
 auto-update:

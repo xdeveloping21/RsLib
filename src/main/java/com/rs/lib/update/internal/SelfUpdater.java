@@ -15,6 +15,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.RsLibPlugin;
+import com.rs.lib.debug.RsDebug;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
@@ -33,7 +35,9 @@ import com.rs.lib.yml.YamlUpdater;
 public final class SelfUpdater {
 
     public static final String PERMISSION = "rslib.admin.update";
-    static final String CONFIG = "config.yml";
+    /** RsLib's own config file. */
+    public static final String CONFIG_FILE = "config.yml";
+    static final String CONFIG = CONFIG_FILE;
     static final long FIRST_PASS_TICKS = 2L * 60L * 20L;
     static final long TICKS_PER_HOUR = 60L * 60L * 20L;
     static final int MIN_HOURS = 1;
@@ -183,9 +187,15 @@ public final class SelfUpdater {
         }
     }
 
+    /** A step goes to whoever forced the pass; on an automatic pass, to RsLib's debug output. */
     private static void tell(CommandSender sender, String message) {
         if (sender != null) {
             sender.sendMessage(TAG + message);
+            return;
+        }
+        RsDebug debug = RsLibPlugin.libDebug();
+        if (debug != null) {
+            debug.log("update", () -> TAG + message);
         }
     }
 

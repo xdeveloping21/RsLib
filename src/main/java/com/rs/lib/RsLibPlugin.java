@@ -14,6 +14,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.compat.RsVersion;
+import com.rs.lib.debug.RsDebug;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.text.RsText;
@@ -23,13 +24,16 @@ import com.rs.lib.util.PlayerNames;
 
 /**
  * The RsLib plugin itself: loads at STARTUP, registers the listeners every Rs plugin shares,
- * keeps itself up to date ({@link SelfUpdater}) and offers {@code /rslib}.
+ * keeps itself up to date ({@link SelfUpdater}) and offers {@code /rslib}. It has a small
+ * context of its own for {@code plugins/RsLib/config.yml}, whose {@code debug} section drives
+ * {@link #libDebug()}.
  */
 public final class RsLibPlugin extends JavaPlugin {
 
     private static volatile RsLibPlugin instance;
 
     private SelfUpdater selfUpdater;
+    private Rs own;
 
     /** The running RsLib; throws if RsLib is not enabled. */
     public static RsLibPlugin get() {
@@ -45,6 +49,16 @@ public final class RsLibPlugin extends JavaPlugin {
         return instance;
     }
 
+    /**
+     * RsLib's own debug output ({@code debug} in plugins/RsLib/config.yml, {@code /rslib debug}),
+     * or null while RsLib is not enabled. For RsLib's internals.
+     */
+    public static RsDebug libDebug() {
+        RsLibPlugin current = instance;
+        Rs context = current == null ? null : current.own;
+        return context == null ? null : context.debug();
+    }
+
     /** The API level of this jar. */
     public int apiLevel() {
         return RsApi.LEVEL;
@@ -53,6 +67,11 @@ public final class RsLibPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+        try {
+            own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).build());
+        } catch (RuntimeException e) {
+            getLogger().log(Level.WARNING, "RsLib's config.yml could not be loaded; debug output stays off", e);
+        }
         getLogger().info("Server " + RsVersion.describe() + (RsVersion.isFolia() ? " (Folia)" : ""));
         ListenerHub.registerAll(this);
         ItemRegistry.startShared(this);
@@ -85,6 +104,11 @@ public final class RsLibPlugin extends JavaPlugin {
         ItemRegistry.shutdownShared();
         PlayerNames.shutdown();
         UpdateHub.shutdown();
+        if (own != null) {
+            own.beginTeardown();
+            own.shutdown();
+            own = null;
+        }
         RsText.clearCache();
         instance = null;
     }
@@ -101,7 +125,12 @@ public final class RsLibPlugin extends JavaPlugin {
                         return true;
                     }
                     if (args.length < 2) {
-                        sender.sendMessage("Usage: /" + label + " reload <plugin>");
+                        if (own == null) {
+                            sender.sendMessage("RsLib's config.yml is not loaded.");
+                            return true;
+                        }
+                        own.reloadAll();
+                        sender.sendMessage("RsLib's config.yml reloaded.");
                         return true;
                     }
                     Plugin target = Bukkit.getPluginManager().getPlugin(args[1]);
@@ -134,7 +163,19 @@ public final class RsLibPlugin extends JavaPlugin {
                     }
                     selfUpdater.runNow(sender);
                 }
-                default -> sender.sendMessage("Usage: /" + label + " <version|reload <plugin>|update>");
+                case "debug" -> {
+                    if (!sender.hasPermission("rslib.admin.debug")) {
+                        sender.sendMessage("You do not have permission.");
+                        return true;
+                    }
+                    RsDebug debug = libDebug();
+                    if (debug == null) {
+                        sender.sendMessage("RsLib's config.yml is not loaded.");
+                        return true;
+                    }
+                    sender.sendMessage("RsLib debug: " + (debug.toggle() ? "ON" : "OFF"));
+                }
+                default -> sender.sendMessage("Usage: /" + label + " <version|reload [plugin]|update|debug>");
             }
             return true;
         }
@@ -142,7 +183,7 @@ public final class RsLibPlugin extends JavaPlugin {
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             if (args.length == 1) {
-                return filter(List.of("version", "reload", "update"), args[0]);
+                return filter(List.of("version", "reload", "update", "debug"), args[0]);
             }
             if (args.length == 2 && args[0].equalsIgnoreCase("reload")) {
                 return filter(RsLib.contexts().stream().map(rs -> rs.plugin().getName()).toList(), args[1]);

@@ -35,10 +35,13 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
   mensajes a webhooks de Discord en segundo plano, respetando sus límites (`rs().discord()`).
 - Regiones cúbicas y varita de selección con partículas (`rs().selections()`), y eventos propios:
   equipar armadura, cambiar de chunk caminando y completar una selección.
+- Tareas a horas del reloj en el hilo principal (`rs().cron()`, por ejemplo `"0 4 * * *"` o
+  `"daily 04:00"`), con recuperación opcional de una ejecución perdida con el servidor apagado.
 - Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
   inventario, ubicaciones y experiencia.
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se
-  actualiza sola (`auto-update` en su config.yml).
+  actualiza sola (`auto-update` en su config.yml). Su propia depuración se activa con `debug`
+  en ese mismo archivo o con `/rslib debug`.
 
 ## Compilar
 
