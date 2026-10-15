@@ -14,11 +14,14 @@ import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.db.PlayerDataCache;
+import com.rs.lib.event.internal.ArmourEquipListener;
+import com.rs.lib.event.internal.ChunkMoveListener;
 import com.rs.lib.gui.GuiManager;
 import com.rs.lib.hologram.HologramUtil;
 import com.rs.lib.hook.HookListener;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
+import com.rs.lib.region.SelectionManager;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.internal.UpdateHub;
@@ -44,6 +47,9 @@ public final class ListenerHub {
         pm.registerEvents(GuiManager.protectionListener(), rslib);
         pm.registerEvents(Teleports.sharedListener(), rslib);
         pm.registerEvents(HologramUtil.chunkListener(), rslib);
+        pm.registerEvents(ArmourEquipListener.shared(), rslib);
+        pm.registerEvents(ChunkMoveListener.shared(), rslib);
+        pm.registerEvents(SelectionManager.wandListener(), rslib);
     }
 
     private static final class Shared implements Listener {

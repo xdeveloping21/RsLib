@@ -24,6 +24,13 @@ rslib:
     warmup: "&7Teleporting in &e{time}&7. Do not move."
     cancelled-move: "&cTeleport cancelled - you moved."
     cancelled-damage: "&cTeleport cancelled - you took damage."
+  selection:
+    pos1-set: "&7First position set to &f{x}, {y}, {z} &7in &f{world}&7."
+    pos2-set: "&7Second position set to &f{x}, {y}, {z} &7in &f{world}&7."
+    different-worlds: "&cThe two positions are in different worlds."
+    too-big: "&cThat selection is too big: &f{volume}&c blocks (at most &f{max}&c)."
+    no-permission: "&cYou are not allowed to use this wand."
+    timeout: "&cYour selection expired."
   help:
     header: "&6&l{plugin} &8» &7Commands"
     entry: "[noprefix]&e{usage} &8- &7{description}"

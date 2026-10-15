@@ -3,6 +3,9 @@ package com.rs.lib.util;
 import java.util.Objects;
 
 import org.bukkit.Location;
+import org.bukkit.World;
+
+import com.rs.lib.region.Cuboid;
 
 /**
  * Small location geometry. Pure apart from reading the locations; safe from any thread.
@@ -62,6 +65,23 @@ public final class LocationUtil {
             return Double.POSITIVE_INFINITY;
         }
         return distanceToBoxSquared(minX, minY, minZ, maxX, maxY, maxZ, point.getX(), point.getY(), point.getZ());
+    }
+
+    /**
+     * Squared distance from {@code point} to the nearest point of {@code box} (its blocks
+     * included); 0 inside, {@link Double#POSITIVE_INFINITY} for a null box or point, or a point
+     * in another (or no, or an unloaded) world.
+     */
+    public static double distanceToBoxSquared(Cuboid box, Location point) {
+        if (box == null || point == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        Object world = worldOf(point);
+        if (!(world instanceof World w) || !w.getName().equals(box.worldName())) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return distanceToBoxSquared(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ(),
+                point.getX(), point.getY(), point.getZ());
     }
 
     static double distanceToBoxSquared(int x1, int y1, int z1, int x2, int y2, int z2,
