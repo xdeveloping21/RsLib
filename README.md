@@ -33,6 +33,8 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Barras de jefe por id con temporizador (`rs().bossbars()`), hologramas de texto que no se
   guardan en el mundo y vuelven al cargar su chunk (`rs().holograms()`; no tocan los de SnLib) y
   mensajes a webhooks de Discord en segundo plano, respetando sus límites (`rs().discord()`).
+- Regiones cúbicas y varita de selección con partículas (`rs().selections()`), y eventos propios:
+  equipar armadura, cambiar de chunk caminando y completar una selección.
 - Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
   inventario, ubicaciones y experiencia.
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se

@@ -20,7 +20,9 @@ package com.rs.lib;
  *     ({@code rs().guis()}: {@code guis/*.yml}, sessions, templates, regions, pages, item offers
  *     and anti-theft); money ({@code rs().economy()}: Vault, console commands or the plugin's
  *     own backend), cached leaderboards, teleports with a wait, player snapshots on disk, boss
- *     bars, text holograms and Discord webhooks.</li>
+ *     bars, text holograms and Discord webhooks; cuboids and the selection wand
+ *     ({@code rs().selections()}), RsLib's own events (armour equip, chunk move, selection
+ *     complete) and, on Velocity, the proxy base ({@code com.rs.lib.velocity}).</li>
  * </ul>
  */
 public final class RsApi {
