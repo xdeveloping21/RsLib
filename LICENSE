@@ -15,8 +15,21 @@ A license key may cover a single plugin or a bundle of plugins. The scope of
 what a given key authorizes is determined by the license records held by the
 copyright holder.
 
-No other right is granted. Use of the Software without a valid license key is
-unlicensed use.
+No other right is granted. Except as provided in section 1A, use of the
+Software without a valid license key is unlicensed use.
+
+1A. FREE USE WITH RSDEVELOPMENT PLUGINS
+
+The Software is the shared library that plugins published by RsDevelopment need
+in order to run. As an exception to section 1, anyone may install and run the
+Software free of charge, without a license key, on any Minecraft server, for the
+sole purpose of running plugins published by RsDevelopment, whether those
+plugins are free or paid.
+
+This exception covers only installing and running the Software unmodified, as
+distributed by the copyright holder. Every restriction in section 2 still
+applies, and each paid RsDevelopment plugin still requires its own valid
+license key under that plugin's license.
 
 2. RESTRICTIONS
 
