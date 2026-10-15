@@ -144,6 +144,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
+                <configuration>
+                    <!-- Las pruebas comprueban que RsLib funciona sin Vault instalado. -->
+                    <classpathDependencyExcludes>
+                        <classpathDependencyExclude>com.github.MilkBowl:VaultAPI</classpathDependencyExclude>
+                    </classpathDependencyExcludes>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

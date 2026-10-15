@@ -81,7 +81,8 @@ class RsLibJarsTest {
 
     @Test
     void unknownCodeSourceFallsBackToTheOnlyRsLibJar() throws Exception {
-        Path installed = rsLibJar(plugins().resolve("rslib.jar"), "1.0.0");
+        // Not "rslib.jar": on Windows that is the same file as the "RsLib.jar" written below.
+        Path installed = rsLibJar(plugins().resolve("rslib-core.jar"), "1.0.0");
         TestJars.write(plugins().resolve("Other.jar"), TestJars.jar(TestJars.pluginYml("Other", "o.Main", "1"), 10));
         Files.writeString(plugins().resolve("notes.jar"), "not a jar");
         assertEquals(installed, RsLibJars.resolveInstalled(plugins(), dir.resolve("cache/x/RsLib.jar")));
