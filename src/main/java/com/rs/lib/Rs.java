@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.action.ActionEngine;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
 import com.rs.lib.db.DbConfig;
@@ -16,6 +17,7 @@ import com.rs.lib.db.RsDb;
 import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
+import com.rs.lib.input.Inputs;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.reload.ReloadManager;
@@ -38,12 +40,14 @@ public final class Rs {
     private final RsPapi papi;
     private final YmlManager yml;
     private final RsDebug debug;
+    private final ActionEngine actions;
     private final RsLang lang;
     private final Cooldowns cooldowns;
     private final RsDb db;
     private final RsCommands commands;
     private final ReloadManager reload;
     private final UpdateChecker updates;
+    private final Inputs inputs;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -56,6 +60,7 @@ public final class Rs {
         this.papi = new RsPapi(plugin);
         this.yml = spec.config() == null ? null : new YmlManager(this, spec.config());
         this.debug = new RsDebug(plugin, yml == null ? null : yml.config());
+        this.actions = new ActionEngine(this);
         this.lang = spec.lang() ? new RsLang(this, yml == null ? null : yml.config()) : null;
         this.cooldowns = new Cooldowns(this);
         this.db = spec.db() ? new RsDb(this, DbConfig.load(plugin,
@@ -63,6 +68,7 @@ public final class Rs {
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
         this.reload = new ReloadManager(this);
         this.updates = new UpdateChecker(this);
+        this.inputs = new Inputs(this);
     }
 
     public JavaPlugin plugin() {
@@ -99,6 +105,16 @@ public final class Rs {
             throw missing("lang()", "lang()");
         }
         return lang;
+    }
+
+    /** Action lists ({@code [message]}, {@code [console]}, ...) and requirements. */
+    public ActionEngine actions() {
+        return actions;
+    }
+
+    /** Questions asked in chat. */
+    public Inputs inputs() {
+        return inputs;
     }
 
     /** Cooldowns per category and player. */
@@ -191,6 +207,8 @@ public final class Rs {
         }
         shutDown = true;
         shuttingDown = true;
+        // Chat questions end before menus close, so a SHUT_DOWN callback finds no menu to reopen.
+        step("chat questions", inputs::shutdown);
         step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
         if (yml != null) {
@@ -206,6 +224,7 @@ public final class Rs {
             step("database", db::shutdown);
         }
         step("soft dependencies", () -> SoftDependency.disableAllOf(plugin));
+        step("actions", actions::shutdown);
         step("placeholder expansions", papi::shutdown);
         quitCallbacks.clear();
         RsLib.detach(plugin);

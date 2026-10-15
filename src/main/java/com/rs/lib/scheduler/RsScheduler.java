@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -21,7 +22,9 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
  *
  * <p>On Paper the classic scheduler is used. On Folia "sync" means the global region and
  * "async" the async scheduler (ticks are converted to milliseconds). Every delay and period
- * is at least one tick, the same on both, so passing 0 means "the next tick". Like Bukkit,
+ * is at least one tick, the same on both, so passing 0 means "the next tick". Work on one
+ * player or entity goes through {@link #entity} and {@link #ownsHere}: the main thread on Paper,
+ * the entity's region on Folia. Like Bukkit,
  * scheduling for a plugin that is already disabled throws
  * {@link org.bukkit.plugin.IllegalPluginAccessException}.</p>
  */
@@ -61,6 +64,28 @@ public final class RsScheduler {
 
     public TaskHandle timerAsync(long delayTicks, long periodTicks, Runnable task) {
         return backend.timerAsync(atLeastOne(delayTicks), atLeastOne(periodTicks), task);
+    }
+
+    /**
+     * True when the calling thread may touch {@code entity} now: the main thread on Paper, the
+     * thread that owns the entity's region on Folia.
+     */
+    public boolean ownsHere(Entity entity) {
+        return backend.ownsHere(entity);
+    }
+
+    /**
+     * Runs on the thread that owns {@code entity}: the main thread on the next tick on Paper,
+     * the entity's own scheduler on Folia. On Folia a task for an entity that is already gone
+     * (a player who left) never runs, and the handle comes back cancelled.
+     */
+    public TaskHandle entity(Entity entity, Runnable task) {
+        return backend.entity(Objects.requireNonNull(entity, "entity"), task);
+    }
+
+    /** Same as {@link #entity} after {@code delayTicks} (at least one). */
+    public TaskHandle entityLater(Entity entity, long delayTicks, Runnable task) {
+        return backend.entityLater(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks), task);
     }
 
     /**
@@ -128,6 +153,9 @@ public final class RsScheduler {
     /** One handle shape for both schedulers' task types. */
     private record Handle(Runnable canceller, BooleanSupplier cancelled) implements TaskHandle {
 
+        /** A task that was never scheduled. */
+        static final Handle NONE = new Handle(() -> { }, () -> true);
+
         @Override
         public void cancel() {
             canceller.run();
@@ -153,6 +181,12 @@ public final class RsScheduler {
         TaskHandle timer(long delay, long period, Runnable task);
 
         TaskHandle timerAsync(long delay, long period, Runnable task);
+
+        boolean ownsHere(Entity entity);
+
+        TaskHandle entity(Entity entity, Runnable task);
+
+        TaskHandle entityLater(Entity entity, long delay, Runnable task);
 
         void cancelAll();
     }
@@ -192,6 +226,21 @@ public final class RsScheduler {
         @Override
         public TaskHandle timerAsync(long delay, long period, Runnable task) {
             return handle(Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period));
+        }
+
+        @Override
+        public boolean ownsHere(Entity entity) {
+            return Bukkit.isPrimaryThread();
+        }
+
+        @Override
+        public TaskHandle entity(Entity entity, Runnable task) {
+            return sync(task);
+        }
+
+        @Override
+        public TaskHandle entityLater(Entity entity, long delay, Runnable task) {
+            return syncLater(delay, task);
         }
 
         @Override
@@ -237,6 +286,23 @@ public final class RsScheduler {
         public TaskHandle timerAsync(long delay, long period, Runnable task) {
             return handle(Bukkit.getAsyncScheduler().runAtFixedRate(plugin, t -> task.run(),
                     delay * MILLIS_PER_TICK, period * MILLIS_PER_TICK, TimeUnit.MILLISECONDS));
+        }
+
+        @Override
+        public boolean ownsHere(Entity entity) {
+            return Bukkit.isOwnedByCurrentRegion(entity);
+        }
+
+        @Override
+        public TaskHandle entity(Entity entity, Runnable task) {
+            ScheduledTask scheduled = entity.getScheduler().run(plugin, t -> task.run(), null);
+            return scheduled == null ? Handle.NONE : handle(scheduled);
+        }
+
+        @Override
+        public TaskHandle entityLater(Entity entity, long delay, Runnable task) {
+            ScheduledTask scheduled = entity.getScheduler().runDelayed(plugin, t -> task.run(), null, delay);
+            return scheduled == null ? Handle.NONE : handle(scheduled);
         }
 
         @Override
