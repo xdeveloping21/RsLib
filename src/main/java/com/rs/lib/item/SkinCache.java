@@ -41,14 +41,14 @@ final class SkinCache {
     static final long MISSING_MILLIS = 2L * 60L * 1000L;
     static final int MAX_ENTRIES = 512;
 
-    private record Entry(PlayerProfile profile, long expires) {
+    private record Cached(PlayerProfile profile, long expires) {
     }
 
     private static final Object LOCK = new Object();
     /** Owner (lower case) to skin, least recently used first; guarded by LOCK. */
-    private static final Map<String, Entry> CACHE = new LinkedHashMap<>(64, 0.75f, true) {
+    private static final Map<String, Cached> CACHE = new LinkedHashMap<>(64, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Entry> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<String, Cached> eldest) {
             return size() > MAX_ENTRIES;
         }
     };
@@ -76,7 +76,7 @@ final class SkinCache {
         }
         long now = clock.getAsLong();
         synchronized (LOCK) {
-            Entry entry = CACHE.get(key);
+            Cached entry = CACHE.get(key);
             if (entry != null && entry.expires() > now) {
                 if (entry.profile() != null) {
                     meta.setPlayerProfile(entry.profile());
@@ -111,14 +111,14 @@ final class SkinCache {
     /** Whether a skin (or a miss) for {@code owner} is cached and fresh. */
     static boolean cached(String owner) {
         synchronized (LOCK) {
-            Entry entry = CACHE.get(owner.trim().toLowerCase(Locale.ROOT));
+            Cached entry = CACHE.get(owner.trim().toLowerCase(Locale.ROOT));
             return entry != null && entry.expires() > clock.getAsLong();
         }
     }
 
     static void remember(String key, PlayerProfile profile, long expires) {
         synchronized (LOCK) {
-            CACHE.put(key, new Entry(profile, expires));
+            CACHE.put(key, new Cached(profile, expires));
         }
     }
 
@@ -186,7 +186,7 @@ final class SkinCache {
         boolean found = error == null && profile != null && profile.hasTextures();
         synchronized (LOCK) {
             waiting = IN_FLIGHT.remove(key);
-            CACHE.put(key, found ? new Entry(profile, now + FOUND_MILLIS) : new Entry(null, now + MISSING_MILLIS));
+            CACHE.put(key, found ? new Cached(profile, now + FOUND_MILLIS) : new Cached(null, now + MISSING_MILLIS));
         }
         if (!found) {
             warn.accept("Could not find the skin of skull-owner '" + owner + "'; showing a plain head.");

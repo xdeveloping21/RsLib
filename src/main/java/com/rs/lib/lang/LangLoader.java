@@ -183,7 +183,6 @@ final class LangLoader {
         return YamlUpdater.updateFromLines(log, reference, file);
     }
 
-    /** Files from SnLib times keep their texts: the {@code snlib:} block becomes {@code rslib:} once. */
     /** True (with a warning per file) when a message file this load would read is not valid YAML. */
     private boolean anyInvalid(String wanted, Map<String, String> sources) {
         List<File> files = new ArrayList<>();
@@ -228,6 +227,7 @@ final class LangLoader {
         }
     }
 
+    /** Files from SnLib times keep their texts: the {@code snlib:} block becomes {@code rslib:} once. */
     static void renameLegacyBlock(File file, Logger log) {
         if (!file.isFile()) {
             return;
