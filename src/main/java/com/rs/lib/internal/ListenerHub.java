@@ -15,6 +15,7 @@ import com.rs.lib.RsLib;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.db.PlayerDataCache;
 import com.rs.lib.gui.GuiManager;
+import com.rs.lib.hologram.HologramUtil;
 import com.rs.lib.hook.HookListener;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
@@ -40,6 +41,7 @@ public final class ListenerHub {
         pm.registerEvents(ItemRegistry.sharedListener(), rslib);
         pm.registerEvents(GuiManager.sharedListener(), rslib);
         pm.registerEvents(GuiManager.protectionListener(), rslib);
+        pm.registerEvents(HologramUtil.chunkListener(), rslib);
     }
 
     private static final class Shared implements Listener {

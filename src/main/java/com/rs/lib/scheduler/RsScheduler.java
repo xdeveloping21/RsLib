@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -24,7 +25,8 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
  * "async" the async scheduler (ticks are converted to milliseconds). Every delay and period
  * is at least one tick, the same on both, so passing 0 means "the next tick". Work on one
  * player or entity goes through {@link #entity} and {@link #ownsHere}: the main thread on Paper,
- * the entity's region on Folia. Like Bukkit,
+ * the entity's region on Folia; work on a place (spawning, a block) through {@link #at(Location, Runnable)}.
+ * Like Bukkit,
  * scheduling for a plugin that is already disabled throws
  * {@link org.bukkit.plugin.IllegalPluginAccessException}.</p>
  */
@@ -96,6 +98,24 @@ public final class RsScheduler {
     public TaskHandle entityTimer(Entity entity, long delayTicks, long periodTicks, Runnable task) {
         return backend.entityTimer(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks),
                 atLeastOne(periodTicks), task);
+    }
+
+    /**
+     * True when the calling thread may touch the chunk at {@code location} now: the main thread
+     * on Paper, the thread that owns that chunk's region on Folia.
+     */
+    public boolean ownsHere(Location location) {
+        return backend.ownsHere(Objects.requireNonNull(location, "location"));
+    }
+
+    /**
+     * Runs on the thread that owns the chunk at {@code location} (it needs a world): the main
+     * thread on the next tick on Paper, that chunk's region on Folia.
+     */
+    public TaskHandle at(Location location, Runnable task) {
+        Objects.requireNonNull(location, "location");
+        Objects.requireNonNull(location.getWorld(), "location has no world");
+        return backend.at(location, task);
     }
 
     /**
@@ -200,6 +220,10 @@ public final class RsScheduler {
 
         TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task);
 
+        boolean ownsHere(Location location);
+
+        TaskHandle at(Location location, Runnable task);
+
         void cancelAll();
     }
 
@@ -258,6 +282,16 @@ public final class RsScheduler {
         @Override
         public TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task) {
             return timer(delay, period, task);
+        }
+
+        @Override
+        public boolean ownsHere(Location location) {
+            return Bukkit.isPrimaryThread();
+        }
+
+        @Override
+        public TaskHandle at(Location location, Runnable task) {
+            return sync(task);
         }
 
         @Override
@@ -326,6 +360,16 @@ public final class RsScheduler {
         public TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task) {
             ScheduledTask scheduled = entity.getScheduler().runAtFixedRate(plugin, t -> task.run(), null, delay, period);
             return scheduled == null ? Handle.NONE : handle(scheduled);
+        }
+
+        @Override
+        public boolean ownsHere(Location location) {
+            return Bukkit.isOwnedByCurrentRegion(location);
+        }
+
+        @Override
+        public TaskHandle at(Location location, Runnable task) {
+            return handle(Bukkit.getRegionScheduler().run(plugin, location, t -> task.run()));
         }
 
         @Override

@@ -24,6 +24,9 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Menús desde `guis/*.yml` (`RsSpec.guis()`, `rs().guis()`): un inventario por jugador,
   plantillas, regiones, paginación con flechas, ofertas de ítems del jugador y protección
   contra robo de los ítems del menú.
+- Barras de jefe por id con temporizador (`rs().bossbars()`), hologramas de texto que no se
+  guardan en el mundo y vuelven al cargar su chunk (`rs().holograms()`; no tocan los de SnLib) y
+  mensajes a webhooks de Discord en segundo plano, respetando sus límites (`rs().discord()`).
 - Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
   inventario, ubicaciones y experiencia.
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se
