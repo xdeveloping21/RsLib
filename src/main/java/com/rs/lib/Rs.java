@@ -28,6 +28,7 @@ import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.leaderboard.LeaderboardCache;
 import com.rs.lib.papi.RsPapi;
+import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.snapshot.Snapshots;
@@ -66,6 +67,7 @@ public final class Rs {
     private final Inputs inputs;
     private final Snapshots snapshots;
     private final ItemRegistry items;
+    private final SelectionManager selections;
     private final GuiManager guis;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
@@ -101,6 +103,7 @@ public final class Rs {
                 plugin.getLogger().warning("RsSpec items(\"" + spec.items() + "\") needs config(...); no items loaded.");
             }
         }
+        this.selections = new SelectionManager(this);
         this.teleports = spec.teleports() ? new Teleports(this) : null;
         this.snapshots = new Snapshots(this);
         this.inputs = new Inputs(this);
@@ -225,6 +228,11 @@ public final class Rs {
         return items;
     }
 
+    /** Selection wands and sessions ({@link com.rs.lib.region.Cuboid} regions). */
+    public SelectionManager selections() {
+        return selections;
+    }
+
     /** Menus from {@code guis/}. Needs {@code RsSpec.builder().guis()}. */
     public GuiManager guis() {
         if (guis == null) {
@@ -309,6 +317,7 @@ public final class Rs {
         step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
         step("items", items::shutdown);
+        step("selections", selections::shutdown);
         if (yml != null) {
             step("pending file writes", yml::flushAll);
         }
