@@ -278,7 +278,10 @@ public final class RsLang {
         synchronized (sources) {
             extra = new LinkedHashMap<>(sources);
         }
-        catalog = loader.load(wanted, extra);
+        Catalog next = loader.load(wanted, extra, catalog != Catalog.EMPTY);
+        if (next != null) {
+            catalog = next;
+        }
     }
 
     // ---------------------------------------------------------------- rendering

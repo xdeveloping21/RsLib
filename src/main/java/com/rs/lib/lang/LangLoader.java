@@ -55,6 +55,18 @@ final class LangLoader {
      * the config (trimmed, lower case); {@code sources} maps extra folders to their namespaces.
      */
     Catalog load(String wanted, Map<String, String> sources) {
+        return load(wanted, sources, false);
+    }
+
+    /**
+     * Same as {@link #load(String, Map)}. With {@code keepInvalid} (a reload while messages are
+     * in use), a file that is not valid YAML is left as it is and null is returned, so the caller
+     * keeps the messages it already has: one typo never swaps the owner's texts for the jar copy.
+     */
+    Catalog load(String wanted, Map<String, String> sources, boolean keepInvalid) {
+        if (keepInvalid && anyInvalid(wanted, sources)) {
+            return null;
+        }
         File folder = new File(plugin.getDataFolder(), "lang");
         if (!folder.isDirectory() && !folder.mkdirs()) {
             log.warning("Could not create " + folder);
@@ -172,6 +184,50 @@ final class LangLoader {
     }
 
     /** Files from SnLib times keep their texts: the {@code snlib:} block becomes {@code rslib:} once. */
+    /** True (with a warning per file) when a message file this load would read is not valid YAML. */
+    private boolean anyInvalid(String wanted, Map<String, String> sources) {
+        List<File> files = new ArrayList<>();
+        files.add(langFile("en"));
+        if (!wanted.equals("en")) {
+            files.add(langFile(wanted));
+        }
+        for (String folder : sources.keySet()) {
+            File dir = new File(plugin.getDataFolder(), folder);
+            files.add(new File(dir, "messages_en.yml"));
+            if (!wanted.equals("en")) {
+                files.add(new File(dir, "messages_" + wanted + ".yml"));
+            }
+        }
+        boolean invalid = false;
+        for (File file : files) {
+            String error = parseError(file);
+            if (error != null) {
+                log.warning(file.getName() + " is not valid YAML; keeping the previous messages until it is fixed. "
+                        + error);
+                invalid = true;
+            }
+        }
+        return invalid;
+    }
+
+    /** The first line of the parse error of {@code file}, or null when it is valid, missing or unreadable. */
+    static String parseError(File file) {
+        if (!file.isFile()) {
+            return null;
+        }
+        try {
+            new YamlConfiguration().loadFromString(
+                    YamlPreprocessor.preprocess(YamlPreprocessor.read(file.toPath())).cleanText());
+            return null;
+        } catch (InvalidConfigurationException e) {
+            String message = String.valueOf(e.getMessage());
+            int newline = message.indexOf('\n');
+            return newline < 0 ? message : message.substring(0, newline);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     static void renameLegacyBlock(File file, Logger log) {
         if (!file.isFile()) {
             return;

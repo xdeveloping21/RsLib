@@ -1,6 +1,8 @@
 package com.rs.lib.lang;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -44,5 +46,18 @@ class RsLangStaticTest {
         LangLoader.renameLegacyBlock(file.toFile(), LOG);
         assertEquals(text, Files.readString(file, StandardCharsets.UTF_8));
         LangLoader.renameLegacyBlock(new File(dir.toFile(), "absent.yml"), LOG);
+    }
+
+    @Test
+    void parseErrorFlagsOnlyBrokenFiles(@TempDir Path dir) throws Exception {
+        Path good = dir.resolve("good.yml");
+        Path bad = dir.resolve("bad.yml");
+        Files.writeString(good, "prefix: \"&7\"\nhello: \"Hi\"\n", StandardCharsets.UTF_8);
+        Files.writeString(bad, "hello: \"Hi\n  broken: [\n", StandardCharsets.UTF_8);
+        assertNull(LangLoader.parseError(good.toFile()));
+        assertNull(LangLoader.parseError(dir.resolve("missing.yml").toFile()));
+        String error = LangLoader.parseError(bad.toFile());
+        assertNotNull(error);
+        assertEquals(-1, error.indexOf('\n'));
     }
 }
