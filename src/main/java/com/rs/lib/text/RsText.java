@@ -42,7 +42,9 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  * </ol>
  *
  * <p>Full renders of lines up to 256 characters are kept in a shared LRU cache of 2048 lines.
- * Every method is static, pure and safe from any thread.</p>
+ * Lines that already hold per-send values (a filled template, PlaceholderAPI output) are
+ * rendered with {@link #colorUncached} instead, so they do not push config lines out. Every
+ * method is static, pure and safe from any thread.</p>
  */
 public final class RsText {
 
@@ -75,12 +77,23 @@ public final class RsText {
         return RenderCache.get(s, RsText::render);
     }
 
+    /**
+     * The same component as {@link #color}, rendered without the shared cache: for text that
+     * already holds per-player or one-off values and would only push config lines out of it.
+     */
+    public static Component colorUncached(String s) {
+        if (s == null || s.isEmpty()) {
+            return Component.empty();
+        }
+        return render(s);
+    }
+
     /** MiniMessage only: no RsLib tags and no legacy conversion. */
     public static Component mini(String s) {
         if (s == null || s.isEmpty()) {
             return Component.empty();
         }
-        return finish(parse(FULL_UNCOMPACTED, s), hasMarker(s));
+        return finish(parse(FULL_UNCOMPACTED, s), Markup.hasMarker(s));
     }
 
     /**
@@ -93,7 +106,7 @@ public final class RsText {
             return Component.empty();
         }
         String prepared = toMiniMessage(s, new LegacyConverter());
-        return finish(parse(COSMETIC, prepared), hasMarker(prepared));
+        return finish(parse(COSMETIC, prepared), Markup.hasMarker(prepared));
     }
 
     /** The visible text of the full render, without any style. */
@@ -102,6 +115,14 @@ public final class RsText {
             return "";
         }
         return PLAIN.serialize(color(s));
+    }
+
+    /** {@link #plain} without the shared cache, for text written by players. */
+    static String plainUncached(String s) {
+        if (s == null || s.isEmpty()) {
+            return "";
+        }
+        return PLAIN.serialize(render(s));
     }
 
     /** Number of code points of {@link #plain}. */
@@ -183,7 +204,7 @@ public final class RsText {
 
     /** Turns literal markers back into the characters they stand for. */
     public static String unwrapLiterals(String s) {
-        if (s == null || !hasMarker(s)) {
+        if (s == null || !Markup.hasMarker(s)) {
             return s;
         }
         char[] chars = s.toCharArray();
@@ -235,6 +256,25 @@ public final class RsText {
         return prefixPhase(LegacyConverter.normalizeSections(s));
     }
 
+    /**
+     * Puts {@code prefix} after the leading {@code [center] [rgb] [small]} tags of {@code line},
+     * so they apply to it too; a line with {@code [noprefix]} among them is returned as it is.
+     */
+    public static String insertPrefix(String line, String prefix) {
+        int i = 0;
+        while (i < line.length() && line.charAt(i) == '[') {
+            String tag = Markup.leadingTagAt(line, i);
+            if (tag == null) {
+                break;
+            }
+            if (tag.equals(Markup.NOPREFIX)) {
+                return line;
+            }
+            i += tag.length();
+        }
+        return line.substring(0, i) + prefix + line.substring(i);
+    }
+
     /** Empties the shared render cache. */
     public static void clearCache() {
         RenderCache.clear();
@@ -269,6 +309,14 @@ public final class RsText {
             return raw;
         }
 
+        /**
+         * Whether the line can hold a placeholder at all ({@code %} or <code>{</code>); a line
+         * without one renders the same whatever the values, so its render can be kept.
+         */
+        public boolean hasPlaceholders() {
+            return engine != null && engine.mayHaveTokens();
+        }
+
         /** Same result as {@code color(applyLocals(raw(), phs))}. */
         public Component render(Ph... phs) {
             return render(Locals.resolverOf(phs));
@@ -288,7 +336,7 @@ public final class RsText {
     /** The uncached full render. */
     static Component render(String s) {
         String prepared = toMiniMessage(s, new LegacyConverter());
-        return finish(parse(FULL_UNCOMPACTED, prepared), hasMarker(prepared));
+        return finish(parse(FULL_UNCOMPACTED, prepared), Markup.hasMarker(prepared));
     }
 
     /** Steps 1 to 4: the MiniMessage input for {@code s}. */
@@ -317,27 +365,29 @@ public final class RsText {
         boolean rgb = false;
         boolean small = false;
         while (i < s.length() && s.charAt(i) == '[') {
-            int len;
-            if ((len = Markup.bracketAt(s, i, "[center]")) > 0) {
-                center = true;
-            } else if ((len = Markup.bracketAt(s, i, "[rgb]")) > 0) {
-                rgb = true;
-            } else if ((len = Markup.bracketAt(s, i, "[small]")) > 0) {
-                small = true;
-            } else if ((len = Markup.bracketAt(s, i, "[noprefix]")) == 0) {
+            String tag = Markup.leadingTagAt(s, i);
+            if (tag == null) {
                 break;
             }
-            i += len;
+            switch (tag) {
+                case Markup.CENTER -> center = true;
+                case Markup.RGB -> rgb = true;
+                case Markup.SMALL -> small = true;
+                default -> {
+                    // [noprefix] only matters to lang.
+                }
+            }
+            i += tag.length();
         }
         String rest = i == 0 ? s : s.substring(i);
-        if (rest.indexOf('[') < 0 && !center && !rgb && !small) {
+        if (!center && !rgb && !small && !Markup.hasBracketTag(rest)) {
             return rest;
         }
         if (small) {
-            rest = "[small]" + rest;
+            rest = Markup.SMALL + rest;
         }
         if (rgb) {
-            rest = "[rgb]" + rest;
+            rest = Markup.RGB + rest;
         }
         rest = SmallCapsUtil.applySmallTag(rest);
         rest = RgbGradientUtil.applyRgbTag(rest);
@@ -345,15 +395,6 @@ public final class RsText {
             rest = CenterUtil.center(rest);
         }
         return rest;
-    }
-
-    static boolean hasMarker(String s) {
-        for (int i = 0; i < s.length(); i++) {
-            if (Markup.isMarker(s.charAt(i))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** Click actions whose value is text; the same set on every Paper 1.21.x. */
@@ -374,39 +415,65 @@ public final class RsText {
         return ClickEvent.clickEvent(action, value);
     }
 
-    /** Turns literal markers back in text, hover text, click values and insertions. */
+    /**
+     * Turns literal markers back in text, hover text, click values and insertions. Returns the
+     * same instance when nothing changed.
+     */
     static Component restoreLiterals(Component c) {
-        Component out = c;
+        Component out = restoreContent(c);
+        out = restoreHover(out);
+        out = restoreClick(out);
+        out = restoreInsertion(out);
+        return restoreChildren(out);
+    }
+
+    private static Component restoreContent(Component c) {
         if (c instanceof TextComponent text) {
             String content = text.content();
             String restored = unwrapLiterals(content);
             if (!restored.equals(content)) {
-                out = text.content(restored);
+                return text.content(restored);
             }
         }
-        HoverEvent<?> hover = out.hoverEvent();
+        return c;
+    }
+
+    private static Component restoreHover(Component c) {
+        HoverEvent<?> hover = c.hoverEvent();
         if (hover != null && hover.action() == HoverEvent.Action.SHOW_TEXT) {
             Component shown = (Component) hover.value();
             Component restored = restoreLiterals(shown);
             if (restored != shown) {
-                out = out.hoverEvent(HoverEvent.showText(restored));
+                return c.hoverEvent(HoverEvent.showText(restored));
             }
         }
-        ClickEvent click = out.clickEvent();
+        return c;
+    }
+
+    private static Component restoreClick(Component c) {
+        ClickEvent click = c.clickEvent();
         if (click != null && TEXT_CLICKS.contains(click.action())) {
             String value = clickValue(click);
             String restored = unwrapLiterals(value);
             if (!restored.equals(value)) {
-                out = out.clickEvent(textClick(click.action(), restored));
+                return c.clickEvent(textClick(click.action(), restored));
             }
         }
-        String insertion = out.insertion();
+        return c;
+    }
+
+    private static Component restoreInsertion(Component c) {
+        String insertion = c.insertion();
         if (insertion != null) {
             String restored = unwrapLiterals(insertion);
             if (!restored.equals(insertion)) {
-                out = out.insertion(restored);
+                return c.insertion(restored);
             }
         }
+        return c;
+    }
+
+    private static Component restoreChildren(Component out) {
         List<Component> children = out.children();
         List<Component> mapped = null;
         for (int k = 0; k < children.size(); k++) {

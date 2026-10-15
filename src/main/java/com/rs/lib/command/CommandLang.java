@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import com.rs.lib.lang.RsLang;
 
@@ -16,6 +17,11 @@ import com.rs.lib.lang.RsLang;
 final class CommandLang {
 
     static final String ROOT_KEY = "commands";
+
+    /** A key YAML reads as a plain string as it is. */
+    private static final Pattern PLAIN_KEY = Pattern.compile("[a-z_][a-z0-9_-]*");
+    /** Words YAML 1.1 reads as booleans or null. */
+    private static final Pattern RESERVED_WORD = Pattern.compile("(?i)y|n|yes|no|on|off|true|false|null");
 
     private CommandLang() {
     }
@@ -91,7 +97,7 @@ final class CommandLang {
     }
 
     private static String key(String word) {
-        return word.matches("[a-z_][a-z0-9_-]*") && !word.matches("(?i)y|n|yes|no|on|off|true|false|null")
+        return PLAIN_KEY.matcher(word).matches() && !RESERVED_WORD.matcher(word).matches()
                 ? word : quote(word);
     }
 

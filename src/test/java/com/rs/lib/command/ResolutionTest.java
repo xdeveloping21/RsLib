@@ -251,4 +251,69 @@ class ResolutionTest {
         assertEquals(List.of("accept", "accept-me"), root.suggestions(NOBODY, new String[] {"acc"}));
         assertEquals(List.of("north"), root.suggestions(NOBODY, new String[] {"n"}));
     }
+
+    @Test
+    void lostBareKeyShowsThePrefixedLabel() {
+        RootCommand root = kits();
+        RootCommand other = kits();
+        assertEquals("rk", RootCommand.shownLabel(root, "rk", "kits:", root));
+        assertEquals("kits:rk", RootCommand.shownLabel(root, "rk", "kits:", other));
+        assertEquals("kits:rk", RootCommand.shownLabel(root, "rk", "kits:", null));
+        assertEquals("rk", root.shownLabel("rk"));
+    }
+
+    @Test
+    void shownLabelReachesUsageButNotTheContext() {
+        RootCommand root = kits();
+        assertEquals("/kits:rk give <player> [amount]",
+                phs(root.resolve(ADMIN, "rk", "kits:rk", new String[] {"give"})).get("usage"));
+        assertEquals("/kits:rk admin <top>", phs(root.resolve(ADMIN, "rk", "kits:rk", new String[] {"admin"})).get("usage"));
+        assertEquals("kits:rk", phs(root.resolve(ADMIN, "rk", "kits:rk", new String[] {"nope"})).get("label"));
+        Resolution.Run run = assertInstanceOf(Resolution.Run.class,
+                root.resolve(ADMIN, "rk", "kits:rk", new String[] {"give", "Steve"}));
+        assertEquals("rk", run.context().label());
+    }
+
+    @Test
+    void hiddenNodesSuggestNothingButStillRun() {
+        RootCommand root = Trees.root(null, null, null,
+                Trees.sub("vault").visible(false)
+                        .sub("open", s -> s.arg("slot", Args.oneOf(() -> List.of("one", "two"))).executes(ctx -> { })),
+                Trees.sub("peek").visible(false).arg("who", Args.oneOf(() -> List.of("alex", "sam"))).executes(ctx -> { }),
+                Trees.sub("shop").sub("buy", s -> s.visible(false).arg("item", Args.oneOf(() -> List.of("apple")))
+                        .executes(ctx -> { })));
+        assertEquals(List.of("shop"), root.suggestions(NOBODY, new String[] {""}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"vault"}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"vault", ""}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"vault", "open", ""}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"peek", ""}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"shop", "buy", ""}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"shop", "b"}));
+        assertInstanceOf(Resolution.Run.class, root.resolve(NOBODY, "rk", new String[] {"vault", "open", "one"}));
+        assertInstanceOf(Resolution.Run.class, root.resolve(NOBODY, "rk", new String[] {"peek", "sam"}));
+        assertInstanceOf(Resolution.Run.class, root.resolve(NOBODY, "rk", new String[] {"shop", "buy", "apple"}));
+    }
+
+    @Test
+    void hiddenFallbackSuggestsNothing() {
+        RootCommand root = Trees.root(null, "go", null,
+                Trees.sub("go").visible(false).arg("where", Args.oneOf(() -> List.of("north"))).executes(ctx -> { }),
+                Trees.sub("accept").executes(ctx -> { }));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"n"}));
+        assertEquals(List.of(), root.suggestions(NOBODY, new String[] {"north", ""}));
+        assertInstanceOf(Resolution.Run.class, root.resolve(NOBODY, "rk", new String[] {"north"}));
+    }
+
+    @Test
+    void groupWithLeafPartsStaysAGroupAndIsReported() {
+        List<String> ignored = new java.util.ArrayList<>();
+        Node built = Trees.sub("admin").arg("x", Args.string()).executes(ctx -> { })
+                .sub("reset", s -> s.when(0, w -> true).sub("all", a -> a.executes(ctx -> { })))
+                .sub("top", s -> s.executes(ctx -> { }))
+                .build("", ignored::add);
+        assertTrue(built.group());
+        assertEquals(List.of("admin reset", "admin"), ignored);
+        Trees.sub("plain").arg("x", Args.string()).executes(ctx -> { }).build("", ignored::add);
+        assertEquals(2, ignored.size());
+    }
 }

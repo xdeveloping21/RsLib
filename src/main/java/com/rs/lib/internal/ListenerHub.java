@@ -12,6 +12,7 @@ import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.hook.HookListener;
+import com.rs.lib.scheduler.RsScheduler;
 
 /**
  * Registers, once, the listeners every Rs plugin shares. One listener per event serves all
@@ -32,9 +33,11 @@ public final class ListenerHub {
     private static final class Shared implements Listener {
 
         private final JavaPlugin rslib;
+        private final RsScheduler scheduler;
 
         Shared(JavaPlugin rslib) {
             this.rslib = rslib;
+            this.scheduler = new RsScheduler(rslib);
         }
 
         @EventHandler(priority = EventPriority.HIGHEST)
@@ -72,7 +75,7 @@ public final class ListenerHub {
             if (rs == null) {
                 return;
             }
-            rslib.getServer().getScheduler().runTask(rslib, () -> {
+            scheduler.sync(() -> {
                 if (RsLib.context(event.getPlugin()) == rs) {
                     rslib.getLogger().warning(event.getPlugin().getName()
                             + " was disabled without shutting down its RsLib context; cleaning up.");

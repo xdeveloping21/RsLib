@@ -43,8 +43,9 @@ final class CommandRegistry {
     }
 
     private static final Set<RootCommand> ROOTS = new LinkedHashSet<>();
-    private static boolean publishScheduled;
-    private static boolean mapChanged;
+    /** The plugin whose scheduler holds the pending publish, or null when none is pending. */
+    private static volatile Plugin publisher;
+    private static volatile boolean mapChanged;
 
     private CommandRegistry() {
     }
@@ -59,6 +60,11 @@ final class CommandRegistry {
 
     static String prefix(RootCommand root) {
         return root.owner().getName().toLowerCase(Locale.ROOT) + ":";
+    }
+
+    /** The command at {@code key} in the server's command map, or null. */
+    static Command holderOf(String key) {
+        return known().get(key);
     }
 
     // ---------------------------------------------------------------- connect and disconnect
@@ -129,8 +135,28 @@ final class CommandRegistry {
     }
 
     static void disconnect(RootCommand root) {
+        if (detach(root)) {
+            reconcileSiblings(root.owner());
+        }
+    }
+
+    /** Takes out every root in {@code roots}, then lets the siblings left take the freed keys once. */
+    static void disconnectAll(Collection<RootCommand> roots) {
+        Set<JavaPlugin> owners = new LinkedHashSet<>();
+        for (RootCommand root : roots) {
+            if (detach(root)) {
+                owners.add(root.owner());
+            }
+        }
+        for (JavaPlugin owner : owners) {
+            reconcileSiblings(owner);
+        }
+    }
+
+    /** Takes the root and its keys out of the map; false when it was not in it. */
+    private static boolean detach(RootCommand root) {
         if (!root.registered) {
-            return;
+            return false;
         }
         String prefix = prefix(root);
         for (String alias : List.copyOf(root.activeAliases)) {
@@ -155,11 +181,21 @@ final class CommandRegistry {
         root.activeAliases.clear();
         root.prefixedOnly.clear();
         root.displaced.clear();
+        root.wantedAliases = Set.of();
         root.registered = false;
         ROOTS.remove(root);
         changed();
+        return true;
+    }
+
+    /** The roots of {@code owner} still registered take the keys its other roots let go. */
+    private static void reconcileSiblings(JavaPlugin owner) {
+        if (!owner.isEnabled()) {
+            // Shutting down: its other roots are about to go too.
+            return;
+        }
         for (RootCommand sibling : List.copyOf(ROOTS)) {
-            if (sibling.owner() == root.owner()) {
+            if (sibling.owner() == owner) {
                 reconcileAliases(sibling);
                 if (sibling.priority) {
                     recover(sibling);
@@ -171,7 +207,7 @@ final class CommandRegistry {
     // ---------------------------------------------------------------- aliases
 
     /** Aliases the root should have now: from config when set, else the builder's. */
-    static Set<String> desiredAliases(RootCommand root) {
+    private static Set<String> desiredAliases(RootCommand root) {
         Collection<String> source = null;
         if (root.aliasSupplier != null) {
             try {
@@ -212,6 +248,7 @@ final class CommandRegistry {
 
     static void reconcileAliases(RootCommand root) {
         Set<String> wanted = desiredAliases(root);
+        root.wantedAliases = Set.copyOf(wanted);
         String prefix = prefix(root);
         for (String alias : List.copyOf(root.activeAliases)) {
             if (!wanted.contains(alias)) {
@@ -438,27 +475,54 @@ final class CommandRegistry {
      */
     private static void changed() {
         mapChanged = true;
-        if (Bukkit.isStopping()) {
+        Plugin pending = publisher;
+        if (Bukkit.isStopping() || pending != null && pending.isEnabled()) {
             return;
         }
-        RsLibPlugin lib = RsLibPlugin.running();
-        if (publishScheduled && lib != null && lib.isEnabled()) {
-            return;
-        }
-        if (lib == null || !lib.isEnabled() || !Bukkit.isPrimaryThread()) {
-            publish();
+        publisher = null;
+        boolean main = Bukkit.isPrimaryThread();
+        Plugin via = scheduler(main);
+        if (via == null) {
+            if (main) {
+                publish();
+            } else {
+                Bukkit.getLogger().log(Level.FINE, "[RsLib] No enabled plugin to publish the command list from; "
+                        + "it goes out with the next change on the main thread.");
+            }
             return;
         }
         try {
-            Bukkit.getScheduler().runTask(lib, CommandRegistry::publish);
-            publishScheduled = true;
+            Bukkit.getScheduler().runTask(via, CommandRegistry::publish);
+            publisher = via;
         } catch (RuntimeException cannotSchedule) {
-            publish();
+            if (main) {
+                publish();
+            }
         }
     }
 
+    /**
+     * RsLib when it is enabled. Off the main thread, players can only be updated from a task, so
+     * any enabled plugin that owns a root will do; null when there is none.
+     */
+    private static Plugin scheduler(boolean main) {
+        RsLibPlugin lib = RsLibPlugin.running();
+        if (lib != null && lib.isEnabled()) {
+            return lib;
+        }
+        if (main) {
+            return null;
+        }
+        for (RootCommand root : List.copyOf(ROOTS)) {
+            if (root.owner().isEnabled()) {
+                return root.owner();
+            }
+        }
+        return null;
+    }
+
     private static void publish() {
-        publishScheduled = false;
+        publisher = null;
         if (!mapChanged || Bukkit.isStopping()) {
             return;
         }

@@ -183,7 +183,7 @@ public final class StylePolicy {
         if (violations(text).isEmpty()) {
             return text;
         }
-        return onDisallowed == OnDisallowed.STRIP ? strip(text) : RsText.plain(text);
+        return onDisallowed == OnDisallowed.STRIP ? strip(text) : RsText.plainUncached(text);
     }
 
     /**
@@ -213,57 +213,47 @@ public final class StylePolicy {
         void accept(String piece, Capability capability, boolean cosmetic);
     }
 
+    /** A code or tag found by {@link #scan}: its length and what it needs. */
+    private record Piece(int length, Capability capability, boolean cosmetic) {
+    }
+
+    /** The kind of a MiniMessage tag, with the capability it needs. */
+    private enum TagKind {
+        RESET(null, true),
+        GRADIENT(Capability.GRADIENT, true),
+        COSMETIC(Capability.MINIMESSAGE, true),
+        /** Click, hover, an unknown tag...: never allowed. */
+        OTHER(Capability.MINIMESSAGE, false);
+
+        final Capability capability;
+        final boolean cosmetic;
+
+        TagKind(Capability capability, boolean cosmetic) {
+            this.capability = capability;
+            this.cosmetic = cosmetic;
+        }
+    }
+
     /** Splits {@code s} into plain pieces, codes and tags, reporting what each one needs. */
     private static void scan(String s, PieceSink sink) {
         int n = s.length();
         int plainStart = 0;
         int i = 0;
         while (i < n) {
-            char c = s.charAt(i);
-            int len = 0;
-            Capability capability = null;
-            boolean cosmetic = true;
-            if (c == '&') {
-                len = Markup.codeLength(s, i, '&');
-                if (len > 0) {
-                    capability = codeCapability(s, i, len);
-                }
-            } else if (c == '\\' && i + 1 < n && (s.charAt(i + 1) == '<' || s.charAt(i + 1) == '\\')) {
+            if (Markup.escapeAt(s, i)) {
                 i += 2;
                 continue;
-            } else if (c == '<') {
-                int end = Markup.tagEnd(s, i);
-                if (end > 0) {
-                    len = end - i;
-                    String kind = tagKind(s.substring(i + 1, end - 1));
-                    switch (kind) {
-                        case "reset" -> capability = null;
-                        case "gradient" -> capability = Capability.GRADIENT;
-                        case "cosmetic" -> capability = Capability.MINIMESSAGE;
-                        default -> {
-                            capability = Capability.MINIMESSAGE;
-                            cosmetic = false;
-                        }
-                    }
-                }
-            } else if (c == '[') {
-                len = Markup.bracketAt(s, i, "[rgb]");
-                if (len == 0) {
-                    len = Markup.bracketAt(s, i, "[/rgb]");
-                }
-                if (len > 0) {
-                    capability = Capability.GRADIENT;
-                }
             }
-            if (len == 0) {
+            Piece piece = pieceAt(s, i);
+            if (piece == null) {
                 i++;
                 continue;
             }
             if (plainStart < i) {
                 sink.accept(s.substring(plainStart, i), null, true);
             }
-            sink.accept(s.substring(i, i + len), capability, cosmetic);
-            i += len;
+            sink.accept(s.substring(i, i + piece.length()), piece.capability(), piece.cosmetic());
+            i += piece.length();
             plainStart = i;
         }
         if (plainStart < n) {
@@ -271,8 +261,36 @@ public final class StylePolicy {
         }
     }
 
+    /** The code, tag or {@code [rgb]} bracket at {@code i}, or null for plain text. */
+    private static Piece pieceAt(String s, int i) {
+        switch (s.charAt(i)) {
+            case '&' -> {
+                int len = Markup.codeLength(s, i, '&');
+                return len == 0 ? null : new Piece(len, codeCapability(s, i, len), true);
+            }
+            case '<' -> {
+                int end = Markup.tagEnd(s, i);
+                if (end <= 0) {
+                    return null;
+                }
+                TagKind kind = tagKind(s.substring(i + 1, end - 1));
+                return new Piece(end - i, kind.capability, kind.cosmetic);
+            }
+            case '[' -> {
+                int len = Markup.bracketAt(s, i, Markup.RGB);
+                if (len == 0) {
+                    len = Markup.bracketAt(s, i, Markup.RGB_CLOSE);
+                }
+                return len == 0 ? null : new Piece(len, Capability.GRADIENT, true);
+            }
+            default -> {
+                return null;
+            }
+        }
+    }
+
     private static Capability codeCapability(String s, int i, int len) {
-        if (len != 2) {
+        if (len != Markup.CODE_LENGTH) {
             return Capability.HEX;
         }
         char code = Character.toLowerCase(s.charAt(i + 1));
@@ -287,8 +305,8 @@ public final class StylePolicy {
         };
     }
 
-    /** "reset", "gradient", "cosmetic" or "other" for the inside of a tag. */
-    private static String tagKind(String body) {
+    /** The kind of tag for the inside of a tag. */
+    private static TagKind tagKind(String body) {
         String b = body.toLowerCase(Locale.ROOT);
         if (b.startsWith("/") || b.startsWith("!")) {
             b = b.substring(1);
@@ -296,19 +314,19 @@ public final class StylePolicy {
         int colon = b.indexOf(':');
         String name = colon < 0 ? b : b.substring(0, colon);
         if (name.equals("reset")) {
-            return "reset";
+            return TagKind.RESET;
         }
         if (name.equals("gradient") || name.equals("rainbow")) {
-            return "gradient";
+            return TagKind.GRADIENT;
         }
         if (COLOR_NAMES.contains(name) || DECORATIONS.contains(name) || isHexName(name)) {
-            return "cosmetic";
+            return TagKind.COSMETIC;
         }
         if ((name.equals("color") || name.equals("colour") || name.equals("c")) && colon > 0) {
             String arg = b.substring(colon + 1);
-            return COLOR_NAMES.contains(arg) || isHexName(arg) ? "cosmetic" : "other";
+            return COLOR_NAMES.contains(arg) || isHexName(arg) ? TagKind.COSMETIC : TagKind.OTHER;
         }
-        return "other";
+        return TagKind.OTHER;
     }
 
     private static boolean isHexName(String name) {

@@ -143,12 +143,23 @@ public final class SubCommandBuilder {
     }
 
     Node build(String parentPath) {
+        return build(parentPath, path -> { });
+    }
+
+    /**
+     * The node of this subcommand. A subcommand with children is a group, so its executor,
+     * arguments and conditions are dropped; {@code ignored} gets the path of each such one.
+     */
+    Node build(String parentPath, Consumer<String> ignored) {
         String path = parentPath.isEmpty() ? name : parentPath + " " + name;
         List<Node> built = new ArrayList<>(children.size());
         Set<String> taken = new HashSet<>();
         for (SubCommandBuilder child : children) {
             RsCommands.claimWords(taken, child.name, child.aliases, path);
-            built.add(child.build(path));
+            built.add(child.build(path, ignored));
+        }
+        if (!built.isEmpty() && (executor != null || !args.isEmpty() || !conditions.isEmpty())) {
+            ignored.accept(path);
         }
         return new Node(name, aliases, path, permission, usage, description, visible, helpVisible, groupHelp,
                 args, conditions, executor, built);

@@ -55,10 +55,12 @@ import com.rs.lib.yml.internal.YamlText;
  *
  * <h2>Files</h2>
  * <p>Before rewriting a file, it is copied to {@code old-<name>-<yyyyMMdd-HHmmss>.yml} in the
- * same folder and only the three newest backups of that exact name are kept. A disk file that
- * is not valid YAML (even after repairing tabs) is moved to {@code <name>.backup-N} and seeded
- * again from the jar, with a warning. Files are written with {@code '\n'} line endings through
- * a temporary file. I/O errors are logged as SEVERE with the prefix {@code [config-updater]};
+ * same folder and only the three newest backups of that exact name are kept. When a file is
+ * first mounted, a disk file that is not valid YAML (even after repairing tabs) is moved to
+ * {@code <name>.backup-N} (the three newest are kept) and seeded again from the jar, with a
+ * warning. On a reload of a file already in use it is left untouched instead, with a warning,
+ * and the content read before stays in use until it is fixed. Files are written with
+ * {@code '\n'} line endings through a temporary file. I/O errors are logged as SEVERE with the prefix {@code [config-updater]};
  * nothing here throws.</p>
  *
  * <h2>Tabs</h2>
@@ -97,9 +99,13 @@ public final class YamlUpdater {
 
     static List<String> merge(List<String> resourceLines, List<String> diskLines, Consumer<String> fine) {
         List<String> res = List.copyOf(resourceLines);
+        return merge(res, YamlOutline.parse(res), diskLines, YamlOutline.parse(diskLines), fine);
+    }
+
+    /** Same as {@link #merge(List, List, Consumer)} with both outlines already parsed. */
+    private static List<String> merge(List<String> res, Node resRoot, List<String> diskLines, Node diskRoot,
+                                      Consumer<String> fine) {
         List<String> disk = new ArrayList<>(diskLines);
-        Node resRoot = YamlOutline.parse(res);
-        Node diskRoot = YamlOutline.parse(disk);
         List<Insertion> insertions = new ArrayList<>();
         mergeSection(res, resRoot, diskRoot, insertions, fine);
         insertions.sort(Comparator.comparingInt(Insertion::position).thenComparingInt(Insertion::order)
@@ -200,9 +206,14 @@ public final class YamlUpdater {
      * every top-level key when either side is marked extensible-root, are left alone.
      */
     public static List<String> prune(List<String> resourceLines, List<String> lines) {
+        return prune(YamlOutline.parse(List.copyOf(resourceLines)), lines);
+    }
+
+    /** Same as {@link #prune(List, List)} with the resource outline already parsed. */
+    private static List<String> prune(Node resRoot, List<String> lines) {
         List<String> out = new ArrayList<>(lines);
         List<int[]> removals = new ArrayList<>();
-        pruneSection(YamlOutline.parse(List.copyOf(resourceLines)), YamlOutline.parse(out), removals);
+        pruneSection(resRoot, YamlOutline.parse(out), removals);
         removals.sort(Comparator.comparingInt((int[] r) -> r[0]).reversed());
         for (int[] range : removals) {
             out.subList(range[0], range[1]).clear();
@@ -230,15 +241,15 @@ public final class YamlUpdater {
      */
     public static List<String> markerWarnings(List<String> lines) {
         List<String> out = new ArrayList<>();
-        for (Node node : uselessMarkers(lines)) {
+        for (Node node : uselessMarkers(YamlOutline.parse(List.copyOf(lines)))) {
             out.add(markerMessage(node));
         }
         return out;
     }
 
-    private static List<Node> uselessMarkers(List<String> lines) {
+    private static List<Node> uselessMarkers(Node root) {
         List<Node> out = new ArrayList<>();
-        for (Node node : YamlOutline.descendants(YamlOutline.parse(List.copyOf(lines)))) {
+        for (Node node : YamlOutline.descendants(root)) {
             if (node.marked() && node.isSimpleValue()) {
                 out.add(node);
             }
@@ -255,11 +266,16 @@ public final class YamlUpdater {
      * True when Bukkit can load {@code yamlText} as a configuration (an empty text is valid).
      */
     public static boolean isParseable(String yamlText) {
+        return parseError(yamlText) == null;
+    }
+
+    /** Why Bukkit cannot load {@code yamlText} (never null), or null when it can. */
+    static String parseError(String yamlText) {
         try {
             new YamlConfiguration().loadFromString(yamlText == null ? "" : yamlText);
-            return true;
+            return null;
         } catch (InvalidConfigurationException | RuntimeException e) {
-            return false;
+            return e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
         }
     }
 
@@ -269,10 +285,16 @@ public final class YamlUpdater {
      * lines left behind.
      */
     static List<String> removeObsoleteKey(List<String> resourceLines, List<String> diskLines) {
-        if (YamlOutline.parse(List.copyOf(resourceLines)).child(OBSOLETE_KEY) != null) {
+        return removeObsoleteKey(YamlOutline.parse(List.copyOf(resourceLines)), diskLines,
+                YamlOutline.parse(List.copyOf(diskLines)));
+    }
+
+    /** Same as {@link #removeObsoleteKey(List, List)} with both outlines already parsed. */
+    private static List<String> removeObsoleteKey(Node resRoot, List<String> diskLines, Node diskRoot) {
+        if (resRoot.child(OBSOLETE_KEY) != null) {
             return diskLines;
         }
-        Node node = YamlOutline.parse(List.copyOf(diskLines)).child(OBSOLETE_KEY);
+        Node node = diskRoot.child(OBSOLETE_KEY);
         if (node == null) {
             return diskLines;
         }
@@ -313,29 +335,7 @@ public final class YamlUpdater {
 
     /** Same as {@link #updateFromLines(JavaPlugin, List, File)} with an explicit logger. */
     public static boolean updateFromLines(Logger logger, List<String> referenceLines, File diskFile) {
-        return updateLines(logger, referenceLines, diskFile, false, false);
-    }
-
-    /**
-     * Kept for plugins compiled against the four-argument form.
-     *
-     * @param ignored no longer used
-     * @deprecated use {@link #updateFromLines(JavaPlugin, List, File)}
-     */
-    @Deprecated
-    public static boolean updateFromLines(JavaPlugin plugin, List<String> referenceLines, File diskFile, File ignored) {
-        return updateFromLines(plugin, referenceLines, diskFile);
-    }
-
-    /**
-     * Kept for plugins compiled against the four-argument form.
-     *
-     * @param ignored no longer used
-     * @deprecated use {@link #updateFromLines(Logger, List, File)}
-     */
-    @Deprecated
-    public static boolean updateFromLines(Logger logger, List<String> referenceLines, File diskFile, File ignored) {
-        return updateFromLines(logger, referenceLines, diskFile);
+        return updateLines(logger, referenceLines, diskFile, false, false, false) == Outcome.WRITTEN;
     }
 
     /** Reads a resource; null (with a warning) when the jar lacks it. */
@@ -355,11 +355,30 @@ public final class YamlUpdater {
 
     static boolean updateResource(Logger logger, Function<String, InputStream> resources, String resourcePath,
                                   File diskFile, boolean prune, boolean dropObsolete) {
+        return updateResource(logger, resources, resourcePath, diskFile, prune, dropObsolete, false)
+                == Outcome.WRITTEN;
+    }
+
+    /**
+     * What {@link #updateLines} did: nothing, wrote the file, or left an invalid file alone
+     * (only with {@code keepInvalid}).
+     */
+    enum Outcome { UNCHANGED, WRITTEN, KEPT_INVALID }
+
+    /**
+     * Seeds or merges {@code diskFile} from the jar resource.
+     *
+     * @param keepInvalid true on a reload of a file already in use: a disk file that is not valid
+     *                    YAML is then left as it is (with a warning) instead of being moved aside
+     *                    and seeded again, so one typo never swaps the owner's file for the jar copy
+     */
+    static Outcome updateResource(Logger logger, Function<String, InputStream> resources, String resourcePath,
+                                  File diskFile, boolean prune, boolean dropObsolete, boolean keepInvalid) {
         List<String> reference = readResource(logger, resources, resourcePath);
         if (reference == null) {
-            return false;
+            return Outcome.UNCHANGED;
         }
-        return updateLines(logger, reference, diskFile, prune, dropObsolete);
+        return updateLines(logger, reference, diskFile, prune, dropObsolete, keepInvalid);
     }
 
     /** Writes {@code lines} to {@code file} as they are, creating folders. */
@@ -367,39 +386,25 @@ public final class YamlUpdater {
         YamlText.write(file, YamlText.join(lines));
     }
 
-    static boolean updateLines(Logger logger, List<String> referenceLines, File diskFile,
-                               boolean prune, boolean dropObsolete) {
+    static Outcome updateLines(Logger logger, List<String> referenceLines, File diskFile,
+                               boolean prune, boolean dropObsolete, boolean keepInvalid) {
         Path path = diskFile.toPath();
         String name = diskFile.getName();
         try {
             if (!Files.exists(path)) {
                 seed(path, referenceLines);
-                return true;
+                return Outcome.WRITTEN;
             }
             String raw = YamlText.read(path);
             YamlPreprocessor.Result repaired = YamlPreprocessor.preprocess(raw);
-            if (!isParseable(repaired.cleanText())) {
-                Path moved = MergeBackups.moveCorrupt(path);
-                seed(path, referenceLines);
-                logger.warning(PREFIX + name + " is not valid YAML; it was moved to " + moved.getFileName()
-                        + " and created again from the jar. Copy your changes back from the backup.");
-                return true;
+            String error = parseError(repaired.cleanText());
+            if (error != null) {
+                return invalidFile(logger, referenceLines, path, error, keepInvalid);
             }
-            List<String> reference = YamlText.lines(
-                    YamlPreprocessor.preprocess(String.join("\n", referenceLines)).cleanText());
-            List<String> original = YamlText.lines(raw);
-            List<String> lines = YamlText.lines(repaired.cleanText());
-            if (dropObsolete) {
-                lines = removeObsoleteKey(reference, lines);
-            }
-            reportMarkers(logger, name, reference, lines);
-            List<String> merged = merge(reference, lines,
-                    note -> logger.fine(PREFIX + name + ": " + note));
-            if (prune) {
-                merged = prune(reference, merged);
-            }
-            if (merged.equals(original)) {
-                return false;
+            List<String> merged = mergedLines(logger, name, referenceLines,
+                    YamlText.lines(repaired.cleanText()), prune, dropObsolete);
+            if (merged.equals(YamlText.lines(raw))) {
+                return Outcome.UNCHANGED;
             }
             if (!repaired.fixedLines().isEmpty()) {
                 logger.warning(PREFIX + "Indentation tabs fixed in " + name + " (lines "
@@ -407,20 +412,72 @@ public final class YamlUpdater {
             }
             MergeBackups.backup(path);
             YamlText.write(path, YamlText.join(merged));
-            return true;
+            return Outcome.WRITTEN;
         } catch (IOException | RuntimeException e) {
             logger.log(Level.SEVERE, PREFIX + "Could not update " + diskFile.getPath(), e);
-            return false;
+            return Outcome.UNCHANGED;
         }
     }
 
-    private static void reportMarkers(Logger logger, String name, List<String> reference, List<String> disk) {
+    /**
+     * A disk file that is not valid YAML. On a reload it is kept as it is, so the content read
+     * before stays in use until the owner fixes it; otherwise it is moved to
+     * {@code <name>.backup-N} (only the newest {@link MergeBackups#KEEP} are kept) and seeded
+     * again from the jar.
+     */
+    private static Outcome invalidFile(Logger logger, List<String> referenceLines, Path path, String error,
+                                       boolean keepInvalid) throws IOException {
+        String name = path.getFileName().toString();
+        if (keepInvalid) {
+            logger.warning(PREFIX + name + " is not valid YAML; keeping the previous content until it is fixed. "
+                    + firstLine(error));
+            return Outcome.KEPT_INVALID;
+        }
+        Path moved = MergeBackups.moveCorrupt(path);
+        seed(path, referenceLines);
+        logger.warning(PREFIX + name + " is not valid YAML; it was moved to " + moved.getFileName()
+                + " and created again from the jar. Copy your changes back from the backup.");
+        return Outcome.WRITTEN;
+    }
+
+    /**
+     * The disk lines (tab-free) with the obsolete key dropped (when asked), the reference merged
+     * in and, with {@code prune}, the keys the reference lacks removed. Each side is parsed once
+     * and the outlines are shared by every step that reads the same lines.
+     */
+    private static List<String> mergedLines(Logger logger, String name, List<String> referenceLines,
+                                            List<String> diskLines, boolean prune, boolean dropObsolete) {
+        List<String> reference = YamlText.lines(
+                YamlPreprocessor.preprocess(String.join("\n", referenceLines)).cleanText());
+        Node resRoot = YamlOutline.parse(reference);
+        List<String> lines = diskLines;
+        Node diskRoot = YamlOutline.parse(lines);
+        if (dropObsolete) {
+            List<String> dropped = removeObsoleteKey(resRoot, lines, diskRoot);
+            if (dropped != lines) {
+                lines = dropped;
+                diskRoot = YamlOutline.parse(lines);
+            }
+        }
+        reportMarkers(logger, name, resRoot, diskRoot);
+        List<String> merged = merge(reference, resRoot, lines, diskRoot,
+                note -> logger.fine(PREFIX + name + ": " + note));
+        return prune ? prune(resRoot, merged) : merged;
+    }
+
+    private static String firstLine(String message) {
+        String trimmed = message.strip();
+        int newline = trimmed.indexOf('\n');
+        return newline < 0 ? trimmed : trimmed.substring(0, newline);
+    }
+
+    private static void reportMarkers(Logger logger, String name, Node resRoot, Node diskRoot) {
         Set<String> known = new HashSet<>();
-        for (Node node : uselessMarkers(reference)) {
+        for (Node node : uselessMarkers(resRoot)) {
             known.add(node.path());
             logger.warning(PREFIX + name + " (jar copy): " + markerMessage(node));
         }
-        for (Node node : uselessMarkers(disk)) {
+        for (Node node : uselessMarkers(diskRoot)) {
             if (!known.contains(node.path())) {
                 logger.warning(PREFIX + name + ": " + markerMessage(node));
             }

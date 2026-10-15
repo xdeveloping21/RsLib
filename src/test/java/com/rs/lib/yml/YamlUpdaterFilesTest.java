@@ -165,19 +165,50 @@ class YamlUpdaterFilesTest {
     }
 
     @Test
-    void updateFromLinesSeedsMergesAndAcceptsTheLegacyFourthArgument() throws IOException {
+    void updateFromLinesSeedsAndMerges() throws IOException {
         Path file = dir.resolve("lang/messages_es.yml");
         assertTrue(YamlUpdater.updateFromLines(log.logger, List.of("a: Hola"), file.toFile()));
         assertEquals("a: Hola\n", read(file));
-        @SuppressWarnings("deprecation")
-        boolean changed = YamlUpdater.updateFromLines(log.logger, List.of("a: Hello", "b: Bye"), file.toFile(),
-                (File) null);
-        assertTrue(changed);
+        assertTrue(YamlUpdater.updateFromLines(log.logger, List.of("a: Hello", "b: Bye"), file.toFile()));
         assertEquals("a: Hola\nb: Bye\n", read(file));
-        @SuppressWarnings("deprecation")
-        boolean again = YamlUpdater.updateFromLines(log.logger, List.of("a: Hello", "b: Bye"), file.toFile(),
-                (File) null);
-        assertFalse(again);
+        assertFalse(YamlUpdater.updateFromLines(log.logger, List.of("a: Hello", "b: Bye"), file.toFile()));
+    }
+
+    @Test
+    void invalidFileIsKeptUntouchedWhenAsked() throws IOException {
+        Path file = dir.resolve("config.yml");
+        Files.writeString(file, "a: [unclosed\n");
+        assertEquals(YamlUpdater.Outcome.KEPT_INVALID, YamlUpdater.updateResource(log.logger,
+                jar(Map.of("config.yml", "a: 1\n")), "config.yml", file.toFile(), false, false, true));
+        assertEquals("a: [unclosed\n", read(file));
+        assertEquals(List.of("config.yml"), List.of(dir.toFile().list()));
+        assertEquals(1, log.warnings().size(), log.warnings().toString());
+        String warning = log.warnings().get(0);
+        assertTrue(warning.startsWith("[config-updater] config.yml is not valid YAML; keeping the previous content"
+                + " until it is fixed. "), warning);
+        assertFalse(warning.contains("\n"), warning);
+    }
+
+    @Test
+    void onlyThreeNewestCorruptBackupsOfThatNameAreKept() throws IOException {
+        Path file = dir.resolve("config.yml");
+        for (String name : List.of("config.yml.backup-1", "config.yml.backup-2", "config.yml.backup-3",
+                "config-extra.yml.backup-1", "config.yml.backup-x")) {
+            Files.writeString(dir.resolve(name), name);
+        }
+        Files.writeString(file, "a: [unclosed\n");
+        assertTrue(update("a: 1\n", file.toFile(), false));
+        assertEquals("a: 1\n", read(file));
+        assertEquals("a: [unclosed\n", read(dir.resolve("config.yml.backup-4")));
+        String[] names = dir.toFile().list();
+        Arrays.sort(names);
+        assertEquals(List.of("config-extra.yml.backup-1", "config.yml", "config.yml.backup-2", "config.yml.backup-3",
+                "config.yml.backup-4", "config.yml.backup-x"), List.of(names));
+        // Numbering continues after the highest even when lower numbers are gone.
+        Files.writeString(file, "b: {\n");
+        update("a: 1\n", file.toFile(), false);
+        assertEquals("b: {\n", read(dir.resolve("config.yml.backup-5")));
+        assertFalse(Files.exists(dir.resolve("config.yml.backup-2")));
     }
 
     @Test

@@ -48,9 +48,9 @@ public final class CenterUtil {
                 int len = Markup.codeLength(text, i, c);
                 if (len > 0) {
                     char code = Character.toLowerCase(text.charAt(i + 1));
-                    if (len == 2 && code == 'l') {
+                    if (len == Markup.CODE_LENGTH && code == 'l') {
                         bold = true;
-                    } else if (len != 2 || code == 'r' || Markup.isColorChar(code)) {
+                    } else if (len != Markup.CODE_LENGTH || code == 'r' || Markup.isColorChar(code)) {
                         bold = false;
                     }
                     i += len;
@@ -64,7 +64,7 @@ public final class CenterUtil {
                     continue;
                 }
             }
-            if (c == '\\' && i + 1 < n && (text.charAt(i + 1) == '<' || text.charAt(i + 1) == '\\')) {
+            if (Markup.escapeAt(text, i)) {
                 i++;
                 c = text.charAt(i);
             }

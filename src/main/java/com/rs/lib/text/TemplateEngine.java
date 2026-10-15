@@ -36,17 +36,23 @@ import net.kyori.adventure.text.TextComponent;
  * except for the text inside those components, and compaction does not depend on non-blank
  * text, so putting the values into the uncompacted skeleton and compacting gives the same
  * component as the slow path.</p>
+ *
+ * <p>The slow path keeps the line in the shared render cache only while it is the line as
+ * written; a line with values put in is rendered without the cache.</p>
  */
 final class TemplateEngine {
 
     private static final Object UNSAFE = new Object();
     private static final int MAX_SLOTS = Markup.SENTINEL_LAST - Markup.SENTINEL_FIRST + 1;
     private static final int MAX_SKELETONS = 8;
+    /** How far back an unclosed {@code [} is looked for: the longest bracket tag, {@code [noprefix]}. */
+    private static final int BRACKET_LOOK_BACK = 10;
     private static final String[] SLOW_WORDS = {
         "[rgb]", "[/rgb]", "[small]", "[/small]", "[center]", "gradient", "rainbow", "pride"
     };
 
     private final String raw;
+    private final boolean tokens;
     private final boolean slowOnly;
     private final Map<String, Object> skeletons = new LinkedHashMap<>(8, 0.75f, true) {
         @Override
@@ -57,7 +63,13 @@ final class TemplateEngine {
 
     TemplateEngine(String raw) {
         this.raw = raw;
-        this.slowOnly = !Locals.mayHaveTokens(raw) || hasSentinel(raw) || needsSlowShape(raw);
+        this.tokens = Locals.mayHaveTokens(raw);
+        this.slowOnly = !tokens || Markup.hasSentinel(raw) || needsSlowShape(raw);
+    }
+
+    /** Whether the line may hold a token at all. */
+    boolean mayHaveTokens() {
+        return tokens;
     }
 
     /** Whether the fast path can ever be used for this line (for tests). */
@@ -70,16 +82,18 @@ final class TemplateEngine {
             return RsText.color(raw);
         }
         if (slowOnly) {
-            return RsText.color(Locals.apply(raw, resolver));
+            String filled = Locals.apply(raw, resolver);
+            return filled.equals(raw) ? RsText.color(raw) : RsText.colorUncached(filled);
         }
         Pieces pieces = new Pieces(raw.length());
         Locals.scan(raw, resolver, pieces);
-        String joined = pieces.joined.toString();
-        if (pieces.values.isEmpty() || pieces.values.size() > MAX_SLOTS || !allPlain(pieces.values)) {
-            return RsText.color(joined);
+        if (pieces.values.isEmpty()) {
+            // Nothing was put in: the line is the one as written.
+            return RsText.color(raw);
         }
-        Component fast = fast(pieces.skeleton.toString(), pieces.values);
-        return fast != null ? fast : RsText.color(joined);
+        Component fast = pieces.values.size() <= MAX_SLOTS && allPlain(pieces.values)
+                ? fast(pieces.skeleton.toString(), pieces.values) : null;
+        return fast != null ? fast : RsText.colorUncached(pieces.joined.toString());
     }
 
     /** The fast render, or null when this shape or these values need the slow path. */
@@ -133,7 +147,7 @@ final class TemplateEngine {
                 return UNSAFE;
             }
         }
-        return new Skeleton(tree, RsText.hasMarker(prepared));
+        return new Skeleton(tree, Markup.hasMarker(prepared));
     }
 
     /** No construct begun before {@code j} could be finished by the value at {@code j}. */
@@ -154,7 +168,7 @@ final class TemplateEngine {
         if (hex < 6 && k >= 1 && s.charAt(k) == '#' && s.charAt(k - 1) == '&') {
             return false;
         }
-        for (k = j - 1; k >= 0 && k >= j - 10; k--) {
+        for (k = j - 1; k >= 0 && k >= j - BRACKET_LOOK_BACK; k--) {
             char c = s.charAt(k);
             if (c == ']') {
                 break;
@@ -232,7 +246,7 @@ final class TemplateEngine {
 
     private static Component fill(Component c, List<String> values, boolean[] blank) {
         Component out = c;
-        if (c instanceof TextComponent text && hasSentinel(text.content())) {
+        if (c instanceof TextComponent text && Markup.hasSentinel(text.content())) {
             String content = text.content();
             StringBuilder filled = new StringBuilder(content.length() + 16);
             for (int i = 0; i < content.length(); i++) {
@@ -304,15 +318,6 @@ final class TemplateEngine {
             }
         }
         return true;
-    }
-
-    private static boolean hasSentinel(String s) {
-        for (int i = 0; i < s.length(); i++) {
-            if (Markup.isSentinel(s.charAt(i))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean needsSlowShape(String raw) {

@@ -58,6 +58,8 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
     final Set<String> activeAliases = new LinkedHashSet<>();
     /** Aliases that lost their bare key but hold {@code plugin:alias}. */
     final Set<String> prefixedOnly = new LinkedHashSet<>();
+    /** The aliases wanted when they were last reconciled; {@link #wants} reads only this. */
+    volatile Set<String> wantedAliases = Set.of();
     /** Commands this one took a key from, to give the key back when it lets it go. */
     final Map<String, CommandRegistry.Displaced> displaced = new HashMap<>();
 
@@ -122,9 +124,9 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
         }
     }
 
-    /** Lowercase command words this root wants: its name and its desired aliases. */
+    /** Lowercase command words this root wants: its name and the aliases wanted at the last reconcile. */
     boolean wants(String key) {
-        return getName().equals(key) || CommandRegistry.desiredAliases(this).contains(key);
+        return getName().equals(key) || wantedAliases.contains(key);
     }
 
     // ---------------------------------------------------------------- running
@@ -188,6 +190,11 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
     }
 
     Resolution resolve(CommandSender sender, String label, String[] args) {
+        return resolve(sender, label, shownLabel(label), args);
+    }
+
+    /** {@code label} goes to the context; {@code shown} is the command usage lines tell the player to type. */
+    Resolution resolve(CommandSender sender, String label, String shown, String[] args) {
         if (rootPermission != null && !sender.hasPermission(rootPermission)) {
             return new Resolution.Message("rslib.no-permission");
         }
@@ -197,45 +204,46 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
         Node first = child(args[0]);
         if (first == null) {
             if (fallback != null && fallback.permitted(sender)) {
-                return leaf(sender, label, fallback, args, 0, true);
+                return leaf(sender, label, shown, fallback, args, 0, true);
             }
-            return new Resolution.Message("rslib.unknown-subcommand", Ph.literal("value", args[0]), Ph.of("label", label));
+            return new Resolution.Message("rslib.unknown-subcommand", Ph.literal("value", args[0]), Ph.of("label", shown));
         }
-        return dispatch(sender, label, first, args, 1);
+        return dispatch(sender, label, shown, first, args, 1);
     }
 
-    private Resolution dispatch(CommandSender sender, String label, Node node, String[] args, int index) {
+    private Resolution dispatch(CommandSender sender, String label, String shown, Node node, String[] args, int index) {
         if (!node.permitted(sender)) {
             return new Resolution.Message("rslib.no-permission");
         }
         if (!node.group()) {
-            return leaf(sender, label, node, args, index, false);
+            return leaf(sender, label, shown, node, args, index, false);
         }
         if (index >= args.length) {
             if (node.groupHelp) {
                 return new Resolution.GroupHelp(node, 1);
             }
-            return usage("/" + label + " " + node.path + " <" + childChoices(node, sender) + ">");
+            return usage("/" + shown + " " + node.path + " <" + childChoices(node, sender) + ">");
         }
         Node next = node.child(args[index]);
         if (next == null) {
             if (node.groupHelp && args[index].equalsIgnoreCase("help")) {
-                return new Resolution.GroupHelp(node, pageOf(args, index + 1));
+                return new Resolution.GroupHelp(node, pageOf(index + 1 < args.length ? args[index + 1] : null));
             }
             return new Resolution.Message("rslib.unknown-subcommand", Ph.literal("value", node.path + " " + args[index]),
-                    Ph.of("label", label));
+                    Ph.of("label", shown));
         }
-        return dispatch(sender, label, next, args, index + 1);
+        return dispatch(sender, label, shown, next, args, index + 1);
     }
 
-    private Resolution leaf(CommandSender sender, String label, Node leaf, String[] args, int from, boolean viaFallback) {
+    private Resolution leaf(CommandSender sender, String label, String shown, Node leaf, String[] args, int from,
+            boolean viaFallback) {
         List<String> words = List.of(args).subList(from, args.length);
         if (words.size() < leaf.required) {
-            return usage(usageOf(leaf, label, viaFallback));
+            return usage(usageOf(leaf, shown, viaFallback));
         }
         for (Node.Condition condition : leaf.conditions) {
             if (condition.index() < words.size() && !condition.test().test(words.get(condition.index()))) {
-                return usage(usageOf(leaf, label, viaFallback));
+                return usage(usageOf(leaf, shown, viaFallback));
             }
         }
         Map<String, Object> values = new LinkedHashMap<>();
@@ -252,9 +260,9 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
             }
         }
         if (leaf.executor == null) {
-            return usage(usageOf(leaf, label, viaFallback));
+            return usage(usageOf(leaf, shown, viaFallback));
         }
-        return new Resolution.Run(leaf, new CommandContext(sender, label, values, words));
+        return new Resolution.Run(leaf, new CommandContext(this, sender, label, values, words));
     }
 
     private static Resolution usage(String usage) {
@@ -307,12 +315,26 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
         return label.toLowerCase(Locale.ROOT);
     }
 
-    private static int pageOf(String[] args, int index) {
-        if (index >= args.length) {
+    /**
+     * The command players are told to type: {@code plugin:label} when the bare word runs another
+     * command (this root lost it to another plugin), else {@code label} as it is.
+     */
+    String shownLabel(String label) {
+        return registered ? shownLabel(this, label, CommandRegistry.prefix(this), CommandRegistry.holderOf(label)) : label;
+    }
+
+    /** {@code label} when {@code holder}, the command at the bare key, runs {@code root}; else prefixed. */
+    static String shownLabel(RootCommand root, String label, String prefix, Command holder) {
+        return holder != null && RsCommands.rootOf(holder) == root ? label : prefix + label;
+    }
+
+    /** The help page a word asks for: 1 when it is missing or not a number. */
+    static int pageOf(String word) {
+        if (word == null) {
             return 1;
         }
         try {
-            return Integer.parseInt(args[index].trim());
+            return Integer.parseInt(word.trim());
         } catch (NumberFormatException notANumber) {
             return 1;
         }
@@ -334,9 +356,10 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
         if (args.length == 0 || rootPermission != null && !sender.hasPermission(rootPermission)) {
             return List.of();
         }
+        boolean fallbackShown = fallback != null && fallback.visible && fallback.permitted(sender);
         if (args.length == 1) {
             List<String> out = childNames(top, sender, args[0], false);
-            if (fallback != null && fallback.permitted(sender)) {
+            if (fallbackShown) {
                 Set<String> seen = new HashSet<>();
                 out.forEach(s -> seen.add(s.toLowerCase(Locale.ROOT)));
                 for (String option : argSuggestions(fallback, sender, args)) {
@@ -349,11 +372,12 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
         }
         Node node = child(args[0]);
         if (node == null) {
-            return fallback != null && fallback.permitted(sender) ? argSuggestions(fallback, sender, args) : List.of();
+            return fallbackShown ? argSuggestions(fallback, sender, args) : List.of();
         }
         int index = 1;
         while (true) {
-            if (!node.permitted(sender)) {
+            // A hidden node suggests nothing, not even when its name is typed in full.
+            if (!node.visible || !node.permitted(sender)) {
                 return List.of();
             }
             if (!node.group()) {
@@ -412,34 +436,36 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
             commands.send(sender, "rslib.no-permission");
             return;
         }
+        String shown = shownLabel(label);
         List<HelpEntry> entries = new ArrayList<>();
-        collect(top, sender, label, rootPermission, entries);
-        Page<HelpEntry> pages = Page.of(entries, HELP_PAGE_SIZE);
-        int shown = pages.clamp(page);
-        commands.send(sender, "rslib.help.header", Ph.of("plugin", owner().getName()), Ph.of("command", "/" + label));
-        for (HelpEntry entry : pages.page(shown)) {
-            sendEntry(sender, entry);
-        }
-        if (pages.totalPages() > 1) {
-            commands.send(sender, "rslib.help.footer", Ph.of("page", shown), Ph.of("total", pages.totalPages()),
-                    Ph.of("command", "/" + label + " help"));
-        }
+        collect(top, sender, shown, rootPermission, entries);
+        sendPaged(sender, entries, page, "rslib.help.header",
+                new Ph[] {Ph.of("plugin", owner().getName()), Ph.of("command", "/" + shown)},
+                "rslib.help.footer", Ph.of("command", "/" + shown + " help"));
     }
 
     void sendGroupHelp(CommandSender sender, String label, Node group, int page) {
+        String shown = shownLabel(label);
         List<HelpEntry> entries = new ArrayList<>();
-        collect(group.children, sender, label, inheritedPermission(group), entries);
+        collect(group.children, sender, shown, inheritedPermission(group), entries);
+        String path = "/" + shown + " " + group.path;
+        sendPaged(sender, entries, page, "rslib.help.group-header",
+                new Ph[] {Ph.of("group", group.name), Ph.of("path", path), Ph.of("description", group.description()),
+                        Ph.of("plugin", owner().getName())},
+                "rslib.help.group-footer", Ph.of("path", path));
+    }
+
+    /** One page of {@code entries} under its header; the footer, naming {@code target}, only when there are more. */
+    private void sendPaged(CommandSender sender, List<HelpEntry> entries, int page, String headerKey, Ph[] header,
+            String footerKey, Ph target) {
         Page<HelpEntry> pages = Page.of(entries, HELP_PAGE_SIZE);
         int shown = pages.clamp(page);
-        String path = "/" + label + " " + group.path;
-        commands.send(sender, "rslib.help.group-header", Ph.of("group", group.name), Ph.of("path", path),
-                Ph.of("description", group.description()), Ph.of("plugin", owner().getName()));
+        commands.send(sender, headerKey, header);
         for (HelpEntry entry : pages.page(shown)) {
             sendEntry(sender, entry);
         }
         if (pages.totalPages() > 1) {
-            commands.send(sender, "rslib.help.group-footer", Ph.of("page", shown), Ph.of("total", pages.totalPages()),
-                    Ph.of("path", path));
+            commands.send(sender, footerKey, Ph.of("page", shown), Ph.of("total", pages.totalPages()), target);
         }
     }
 
@@ -451,16 +477,14 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
     /** One entry per leaf the sender can use; a group with its own help counts as one entry. */
     private void collect(List<Node> nodes, CommandSender sender, String label, String inherited, List<HelpEntry> out) {
         for (Node node : nodes) {
-            if (!node.visible || !node.helpVisible || !node.permitted(sender)) {
+            if (!inHelp(node, sender)) {
                 continue;
             }
             String permission = node.permission != null ? node.permission : inherited;
             if (!node.group()) {
                 out.add(new HelpEntry(usageOf(node, label, false), node.description(), permission == null ? "" : permission));
             } else if (node.groupHelp) {
-                List<HelpEntry> inside = new ArrayList<>();
-                collect(node.children, sender, label, permission, inside);
-                if (!inside.isEmpty()) {
+                if (hasHelpEntry(node, sender)) {
                     out.add(new HelpEntry("/" + label + " " + node.path + " help", node.description(),
                             permission == null ? "" : permission));
                 }
@@ -468,6 +492,20 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
                 collect(node.children, sender, label, permission, out);
             }
         }
+    }
+
+    private static boolean inHelp(Node node, CommandSender sender) {
+        return node.visible && node.helpVisible && node.permitted(sender);
+    }
+
+    /** True when {@link #collect} would list at least one entry under {@code group}; stops at the first. */
+    private static boolean hasHelpEntry(Node group, CommandSender sender) {
+        for (Node node : group.children) {
+            if (inHelp(node, sender) && (!node.group() || hasHelpEntry(node, sender))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The permission shown for entries under {@code group}: the closest one declared on its path. */

@@ -65,12 +65,12 @@ final class LegacyConverter {
             char c = s.charAt(i);
             if (c == '§') {
                 int len = Markup.codeLength(s, i, '§');
-                if (len == 14 || len == 8) {
+                if (Markup.isHexCode(len)) {
                     out.append("&#").append(Markup.hexOf(s, i, len));
                     i += len;
                     continue;
                 }
-                if (len == 2) {
+                if (len == Markup.CODE_LENGTH) {
                     out.append('&').append(s.charAt(i + 1));
                     i += 2;
                     continue;
@@ -96,14 +96,14 @@ final class LegacyConverter {
         int i = 0;
         while (i < n) {
             int len = Markup.codeLength(s, i, '&');
-            if (len == 14 || len == 8) {
+            if (Markup.isHexCode(len)) {
                 out.append("§x");
                 String hex = Markup.hexOf(s, i, len).toLowerCase(Locale.ROOT);
                 for (int k = 0; k < 6; k++) {
                     out.append('§').append(hex.charAt(k));
                 }
                 i += len;
-            } else if (len == 2) {
+            } else if (len == Markup.CODE_LENGTH) {
                 out.append('§').append(Character.toLowerCase(s.charAt(i + 1)));
                 i += 2;
             } else {
@@ -133,7 +133,7 @@ final class LegacyConverter {
                 i++;
                 continue;
             }
-            if (c == '\\' && i + 1 < n && (s.charAt(i + 1) == '<' || s.charAt(i + 1) == '\\')) {
+            if (Markup.escapeAt(s, i)) {
                 out.append(c).append(s.charAt(i + 1));
                 i += 2;
                 continue;
@@ -215,63 +215,34 @@ final class LegacyConverter {
      * index after the run ({@code i} when there is no code).
      */
     private int run(String s, int i, StringBuilder out) {
-        boolean reset = false;
-        String color = null;
-        int formats = 0;
-        StringBuilder order = new StringBuilder(4);
-        int j = i;
-        while (j < s.length()) {
-            int len = Markup.codeLength(s, j, '&');
-            if (len == 0) {
-                break;
-            }
-            if (len == 14 || len == 8) {
-                color = "#" + Markup.hexOf(s, j, len);
-                formats = 0;
-                order.setLength(0);
-            } else {
-                char code = Character.toLowerCase(s.charAt(j + 1));
-                if (code == 'r') {
-                    reset = true;
-                    color = null;
-                    formats = 0;
-                    order.setLength(0);
-                } else if (Markup.isColorChar(code)) {
-                    color = COLOR_TAGS[Character.digit(code, 16)];
-                    formats = 0;
-                    order.setLength(0);
-                } else {
-                    int bit = bitOf(code);
-                    if ((formats & bit) == 0) {
-                        formats |= bit;
-                        order.append(code);
-                    }
-                }
-            }
-            j += len;
+        Run run = new Run();
+        int end = run.read(s, i);
+        if (end > i) {
+            write(run, out);
         }
-        if (j == i) {
-            return i;
-        }
-        if (reset) {
+        return end;
+    }
+
+    /** Writes the tags of a run and updates the decorations that stay on. */
+    private void write(Run run, StringBuilder out) {
+        if (run.reset) {
             out.append("<reset>");
             active = 0;
         }
-        if (color != null) {
-            out.append('<').append(color).append('>');
+        if (run.color != null) {
+            out.append('<').append(run.color).append('>');
             for (int k = 0; k < DECO_BITS.length; k++) {
-                if ((active & DECO_BITS[k]) != 0 && (formats & DECO_BITS[k]) == 0) {
+                if ((active & DECO_BITS[k]) != 0 && (run.formats & DECO_BITS[k]) == 0) {
                     out.append("<!").append(DECO_TAGS[k]).append('>');
                 }
             }
             active = 0;
         }
-        for (int k = 0; k < order.length(); k++) {
-            int bit = bitOf(order.charAt(k));
+        for (int k = 0; k < run.order.length(); k++) {
+            int bit = bitOf(run.order.charAt(k));
             out.append('<').append(DECO_TAGS[Integer.numberOfTrailingZeros(bit)]).append('>');
             active |= bit;
         }
-        return j;
     }
 
     private static int bitOf(char code) {
@@ -282,5 +253,55 @@ final class LegacyConverter {
             case 'm' -> STRIKETHROUGH;
             default -> OBFUSCATED;
         };
+    }
+
+    /**
+     * What a run of consecutive legacy codes ends up meaning: a later color or {@code &r}
+     * drops the formats written before it in the same run.
+     */
+    private static final class Run {
+        boolean reset;
+        String color;
+        int formats;
+        final StringBuilder order = new StringBuilder(4);
+
+        /** Reads the codes from {@code i}; returns the index after the last one ({@code i} when none). */
+        int read(String s, int i) {
+            int j = i;
+            while (j < s.length()) {
+                int len = Markup.codeLength(s, j, '&');
+                if (len == 0) {
+                    break;
+                }
+                if (Markup.isHexCode(len)) {
+                    setColor("#" + Markup.hexOf(s, j, len));
+                } else {
+                    code(Character.toLowerCase(s.charAt(j + 1)));
+                }
+                j += len;
+            }
+            return j;
+        }
+
+        private void code(char code) {
+            if (code == 'r') {
+                reset = true;
+                setColor(null);
+            } else if (Markup.isColorChar(code)) {
+                setColor(COLOR_TAGS[Character.digit(code, 16)]);
+            } else {
+                int bit = bitOf(code);
+                if ((formats & bit) == 0) {
+                    formats |= bit;
+                    order.append(code);
+                }
+            }
+        }
+
+        private void setColor(String value) {
+            color = value;
+            formats = 0;
+            order.setLength(0);
+        }
     }
 }

@@ -27,9 +27,10 @@ import com.rs.lib.yml.RsYml;
  * called when the line will print.</p>
  *
  * <p>Lines go to the server's root logger as {@code [Plugin][DEBUG] [category] message}. The
- * state is read once from the config ({@code debug.enabled}, {@code debug.level},
- * {@code debug.categories}) and every {@link #toggle} or {@link #setLevel} writes the three keys
- * back and saves. Without a config everything stays in memory.</p>
+ * state is read from the config ({@code debug.enabled}, {@code debug.level},
+ * {@code debug.categories}) at creation and again on every reload of the config, so hand edits
+ * apply on reload; every {@link #toggle} or {@link #setLevel} writes the three keys back and
+ * saves. Without a config everything stays in memory.</p>
  */
 public final class RsDebug {
 
@@ -62,16 +63,25 @@ public final class RsDebug {
             level = Level.DEBUG;
             categories = Set.of();
         } else {
-            master = config.getBoolean(KEY_ENABLED, false);
-            Level read = config.getEnum(KEY_LEVEL, Level.class, Level.DEBUG);
-            level = read == null ? Level.DEBUG : read;
-            Set<String> fromConfig = new TreeSet<>();
-            for (String category : config.getStringList(KEY_CATEGORIES, List.of())) {
-                String normalized = normalize(category);
-                if (!normalized.isEmpty()) {
-                    fromConfig.add(normalized);
-                }
+            readConfig();
+            config.onReload(this::readConfig);
+        }
+    }
+
+    /** Takes the three keys from the config, replacing what is in memory. */
+    private void readConfig() {
+        boolean enabled = config.getBoolean(KEY_ENABLED, false);
+        Level read = config.getEnum(KEY_LEVEL, Level.class, Level.DEBUG);
+        Set<String> fromConfig = new TreeSet<>();
+        for (String category : config.getStringList(KEY_CATEGORIES, List.of())) {
+            String normalized = normalize(category);
+            if (!normalized.isEmpty()) {
+                fromConfig.add(normalized);
             }
+        }
+        synchronized (lock) {
+            master = enabled;
+            level = read == null ? Level.DEBUG : read;
             categories = Collections.unmodifiableSet(fromConfig);
         }
     }

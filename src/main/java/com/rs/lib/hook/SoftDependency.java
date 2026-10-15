@@ -1,6 +1,5 @@
 package com.rs.lib.hook;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,10 +21,15 @@ import org.bukkit.plugin.java.JavaPlugin;
  * compiled against a different API, is reported once and leaves the hook unavailable.
  * The answer is kept until the target is enabled or disabled again (RsLib listens for both)
  * or {@link #invalidate()} is called.</p>
+ *
+ * <p>When the owner is disabled (RsLib listens for that too, whether or not the owner is an
+ * {@code RsPlugin}) its hooks are switched off and forgotten. A hook kept in a field comes
+ * back by itself the next time {@link #get()} is called after the same owner is enabled
+ * again.</p>
  */
 public final class SoftDependency<T> {
 
-    private static final List<SoftDependency<?>> REGISTERED = new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<SoftDependency<?>> REGISTERED = new CopyOnWriteArrayList<>();
 
     private final JavaPlugin owner;
     private final String pluginName;
@@ -70,6 +74,12 @@ public final class SoftDependency<T> {
 
     public Optional<T> get() {
         synchronized (lock) {
+            if (disabledForGood && owner.isEnabled()) {
+                // The owner was disabled and enabled again: this hook is live once more.
+                disabledForGood = false;
+                resolved = false;
+                REGISTERED.addIfAbsent(this);
+            }
             if (!resolved) {
                 instance = disabledForGood ? null : resolve();
                 resolved = true;
@@ -86,7 +96,10 @@ public final class SoftDependency<T> {
         }
     }
 
-    /** Turns the hook off for good (used when the owner is disabled). */
+    /**
+     * Turns the hook off and stops tracking it (used when the owner is disabled). It turns on
+     * again by itself on the first {@link #get()} after the owner is enabled again.
+     */
     public void forceDisable() {
         synchronized (lock) {
             disabledForGood = true;
@@ -109,7 +122,7 @@ public final class SoftDependency<T> {
         REGISTERED.forEach(action);
     }
 
-    /** Turns off every hook of an owner that is being disabled. */
+    /** Turns off every hook of an owner that is being disabled, and stops tracking them. */
     public static void disableAllOf(Plugin owner) {
         for (SoftDependency<?> dep : REGISTERED) {
             if (dep.owner == owner) {
