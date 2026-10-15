@@ -1,6 +1,7 @@
 package com.rs.lib.command;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -28,6 +29,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.RsLibPlugin;
+import com.rs.lib.compat.RsVersion;
 
 /**
  * Puts roots in the server's command map and takes them out, for every plugin at once.
@@ -527,9 +529,60 @@ final class CommandRegistry {
             return;
         }
         mapChanged = false;
+        if (NEEDS_SYNC && syncCommands()) {
+            return;
+        }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.updateCommands();
         }
+    }
+
+    /**
+     * Before Paper 1.20.6 players run commands through a dispatcher the server builds once at
+     * start, so a key added later cannot be run until the server's {@code syncCommands()}
+     * rebuilds it (and sends every player the new tree). From 1.20.6 on the map forwards to
+     * the dispatcher by itself and {@link Player#updateCommands()} is enough.
+     */
+    private static final boolean NEEDS_SYNC = !RsVersion.supports(20, 6);
+
+    /** The server's {@code syncCommands()}, looked up once; null when it has none. */
+    private static Method syncMethod;
+    private static boolean syncLooked;
+
+    /** True when the server rebuilt its dispatcher and sent the tree to every player. */
+    private static boolean syncCommands() {
+        if (!syncLooked) {
+            syncLooked = true;
+            syncMethod = findSync(Bukkit.getServer().getClass());
+            if (syncMethod == null) {
+                Bukkit.getLogger().log(Level.WARNING, "[RsLib] This server has no syncCommands(); commands added"
+                        + " after start may need a restart to run.");
+            }
+        }
+        if (syncMethod == null) {
+            return false;
+        }
+        try {
+            syncMethod.invoke(Bukkit.getServer());
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException failed) {
+            Bukkit.getLogger().log(Level.FINE, "[RsLib] syncCommands() failed; sending the list to each player", failed);
+            syncMethod = null;
+            return false;
+        }
+    }
+
+    private static Method findSync(Class<?> type) {
+        for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
+            try {
+                Method method = c.getDeclaredMethod("syncCommands");
+                method.setAccessible(true);
+                return method;
+            } catch (NoSuchMethodException | RuntimeException absent) {
+                // keep looking up the hierarchy
+            }
+        }
+        return null;
     }
 
     /** Hands a plugin.yml command over to its root. */
