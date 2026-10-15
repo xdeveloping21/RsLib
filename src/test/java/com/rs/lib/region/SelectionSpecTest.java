@@ -98,8 +98,10 @@ class SelectionSpecTest {
         assertNull(SelectionSpec.parseColor("1, 2, 3, 4"));
         assertNull(SelectionSpec.parseColor("#FFF"));
         assertNull(SelectionSpec.parseColor("orange"));
-        SelectionSpec kept = SelectionSpec.builder("a").dustColor("orange").build();
+        List<String> warnings = new ArrayList<>();
+        SelectionSpec kept = SelectionSpec.builder("a").warnings(warnings::add).dustColor("orange").build();
         assertEquals(140, kept.dustGreen(), "a bad colour keeps the previous one");
+        assertEquals(1, warnings.size(), "and says so once");
     }
 
     @Test

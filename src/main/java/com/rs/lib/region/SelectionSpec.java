@@ -420,6 +420,12 @@ public final class SelectionSpec {
             return b;
         }
 
+        /** Where this builder reports bad values (the RsLib log by default); for tests. */
+        Builder warnings(Consumer<String> warn) {
+            this.warn = Objects.requireNonNull(warn, "warn");
+            return this;
+        }
+
         /** The wand's look (a copy is kept); the wand mark is added on top. Default: BLAZE_ROD {@code "&6&lRegion Wand"}. */
         public Builder wandItem(ItemStack item) {
             this.wandStack = item == null ? null : item.clone();
