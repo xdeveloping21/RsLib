@@ -41,7 +41,8 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
   inventario, ubicaciones y experiencia.
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se
   actualiza sola (`auto-update` en su config.yml). Su propia depuración se activa con `debug`
-  en ese mismo archivo o con `/rslib debug`.
+  en ese mismo archivo o con `/rslib debug`, y `update-configs: false` deja de agregar claves
+  nuevas a los .yml de todos los plugins (solo las informa en la consola).
 
 ## Compilar
 

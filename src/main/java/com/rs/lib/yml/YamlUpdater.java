@@ -64,6 +64,13 @@ import com.rs.lib.yml.internal.YamlText;
  * {@code '\n'} line endings through a temporary file. I/O errors are logged as SEVERE with the prefix {@code [config-updater]};
  * nothing here throws.</p>
  *
+ * <h2>The {@code update-configs} switch</h2>
+ * <p>{@code update-configs} in {@code plugins/RsLib/config.yml} (true by default) turns merging
+ * on and off for every plugin at once ({@link #setMergeEnabled}). When it is false, an existing
+ * file is never written: the keys it lacks are counted and reported in one warning per file,
+ * and RsLib's own config.yml is still merged so the switch itself can arrive. Missing files are
+ * still created from the jar, and a file that is not valid YAML is still handled as below.</p>
+ *
  * <h2>Tabs</h2>
  * <p>The structure is computed on spaces only, so a disk file indented with tabs is repaired
  * with {@link YamlPreprocessor} <em>before</em> merging (an RsLib decision): validity and
@@ -84,7 +91,43 @@ public final class YamlUpdater {
     static final String PREFIX = "[config-updater] ";
     static final String OBSOLETE_KEY = "update-configs";
 
+    private static volatile boolean mergeEnabled = true;
+    private static volatile Path mergeExempt;
+
     private YamlUpdater() {
+    }
+
+    // ------------------------------------------------------------------ the update-configs switch
+
+    /**
+     * Turns merging into existing files on or off for every plugin; {@code exempt} (RsLib's own
+     * config.yml) is merged either way. Set by RsLib from {@code update-configs}.
+     */
+    public static void setMergeEnabled(boolean enabled, File exempt) {
+        mergeExempt = exempt == null ? null : exempt.toPath().toAbsolutePath().normalize();
+        mergeEnabled = enabled;
+    }
+
+    /** True when files are merged (the default). */
+    public static boolean mergeEnabled() {
+        return mergeEnabled;
+    }
+
+    private static boolean mayMerge(Path path) {
+        if (mergeEnabled) {
+            return true;
+        }
+        Path exempt = mergeExempt;
+        return exempt != null && exempt.equals(path.toAbsolutePath().normalize());
+    }
+
+    /** How many keys of {@code referenceLines} the disk lines (tab-free) lack. */
+    static int missingKeys(List<String> referenceLines, List<String> diskLines) {
+        List<String> reference = YamlText.lines(
+                YamlPreprocessor.preprocess(String.join("\n", referenceLines)).cleanText());
+        List<String> merged = merge(reference, diskLines);
+        return YamlOutline.descendants(YamlOutline.parse(merged)).size()
+                - YamlOutline.descendants(YamlOutline.parse(diskLines)).size();
     }
 
     // ------------------------------------------------------------------ pure line functions
@@ -309,6 +352,15 @@ public final class YamlUpdater {
             String error = parseError(repaired.cleanText());
             if (error != null) {
                 return invalidFile(logger, referenceLines, path, error, keepInvalid);
+            }
+            if (!mayMerge(path)) {
+                int missing = missingKeys(referenceLines, YamlText.lines(repaired.cleanText()));
+                if (missing > 0) {
+                    logger.warning(PREFIX + name + " lacks " + missing + " key" + (missing == 1 ? "" : "s")
+                            + " of the plugin's version; not added because update-configs is false in"
+                            + " plugins/RsLib/config.yml.");
+                }
+                return Outcome.UNCHANGED;
             }
             List<String> merged = mergedLines(logger, name, referenceLines,
                     YamlText.lines(repaired.cleanText()), prune, dropObsolete);

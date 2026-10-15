@@ -1,5 +1,6 @@
 package com.rs.lib;
 
+import java.io.File;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -21,6 +22,8 @@ import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
 import com.rs.lib.util.PlayerNames;
+import com.rs.lib.yml.RsYml;
+import com.rs.lib.yml.YamlUpdater;
 
 /**
  * The RsLib plugin itself: loads at STARTUP, registers the listeners every Rs plugin shares,
@@ -69,6 +72,9 @@ public final class RsLibPlugin extends JavaPlugin {
         instance = this;
         try {
             own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).build());
+            RsYml config = own.yml().config();
+            applyMergeSwitch(config);
+            config.onReload(() -> applyMergeSwitch(config));
         } catch (RuntimeException e) {
             getLogger().log(Level.WARNING, "RsLib's config.yml could not be loaded; debug output stays off", e);
         }
@@ -94,6 +100,15 @@ public final class RsLibPlugin extends JavaPlugin {
         getLogger().info("RsLib " + getPluginMeta().getVersion() + " enabled (API level " + RsApi.LEVEL + ").");
     }
 
+    /** {@code update-configs} (true by default): whether every plugin's YAML files get the keys they lack. */
+    private void applyMergeSwitch(RsYml config) {
+        boolean enabled = config.getBoolean("update-configs", true);
+        YamlUpdater.setMergeEnabled(enabled, new File(getDataFolder(), SelfUpdater.CONFIG_FILE));
+        if (!enabled) {
+            getLogger().info("update-configs is false: missing keys are reported, not added to the files.");
+        }
+    }
+
     @Override
     public void onDisable() {
         if (selfUpdater != null) {
@@ -110,6 +125,7 @@ public final class RsLibPlugin extends JavaPlugin {
             own = null;
         }
         RsText.clearCache();
+        YamlUpdater.setMergeEnabled(true, null);
         instance = null;
     }
 
