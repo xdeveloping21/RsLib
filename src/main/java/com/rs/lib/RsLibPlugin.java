@@ -18,6 +18,7 @@ import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
+import com.rs.lib.util.PlayerNames;
 
 /**
  * The RsLib plugin itself: loads at STARTUP, registers the listeners every Rs plugin shares,
@@ -53,6 +54,11 @@ public final class RsLibPlugin extends JavaPlugin {
         instance = this;
         getLogger().info("Server " + RsVersion.describe() + (RsVersion.isFolia() ? " (Folia)" : ""));
         ListenerHub.registerAll(this);
+        try {
+            PlayerNames.start(this);
+        } catch (RuntimeException e) {
+            getLogger().log(Level.WARNING, "The player name directory could not start", e);
+        }
         PluginCommand command = getCommand("rslib");
         if (command != null) {
             AdminCommand admin = new AdminCommand();
@@ -74,6 +80,7 @@ public final class RsLibPlugin extends JavaPlugin {
             selfUpdater = null;
         }
         RsLib.shutdownAll();
+        PlayerNames.shutdown();
         UpdateHub.shutdown();
         RsText.clearCache();
         instance = null;
