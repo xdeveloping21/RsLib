@@ -1,4 +1,4 @@
-# RsLib
+# RsLib 1.1.0
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -57,7 +57,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -130,3 +130,14 @@ para seguir funcionando con RsLib: conserva los métodos que RsLib llama por nom
 (`requiredApiLevel`, `buildSpec`, `onPreEnable`, `onInnerEnable`, `onInnerDisable`), los
 `@EventHandler`, los eventos, los enums que se leen por nombre, el paquete `.api` y lo que
 Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
+
+## Historial de versiones
+
+- **1.1.0:** regiones con varita de selección (`rs().selections()`, textos y valores como
+  SnLib), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
+  en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib
+  (`debug` en su config.yml y `/rslib debug`), `/rslib reload` sin plugin para su config.yml,
+  `update-configs` y reglas de ProGuard para plugins ofuscados. Nivel de API 2.
+- **1.0.0:** primera versión: núcleo, YAML, mensajes, texto, comandos, base de datos,
+  cooldowns, PlaceholderAPI, menús, ítems, acciones, economía, tops, teletransportes, copias de
+  jugador, barras de jefe, hologramas, Discord y actualizador propio. Nivel de API 1.
