@@ -49,7 +49,8 @@ class SelectionSpecTest {
         assertFalse(spec.silent());
         assertTrue(spec.completeEnds());
         assertNull(spec.wandItem());
-        assertThrows(IllegalArgumentException.class, () -> SelectionSpec.builder(" "));
+        assertEquals("default", SelectionSpec.builder(" ").build().id(), "a blank id falls back to default");
+        assertEquals("default", SelectionSpec.builder(null).build().id());
     }
 
     @Test
@@ -64,7 +65,9 @@ class SelectionSpecTest {
         assertEquals(255, spec.dustRed());
         assertEquals(0, spec.dustGreen());
         assertEquals(7, spec.dustBlue());
-        assertEquals(1.2f, spec.dustSize());
+        assertEquals(0.1f, spec.dustSize(), "dust size is kept between 0.1 and 4.0");
+        assertEquals(4.0f, SelectionSpec.builder("a").dustSize(9).build().dustSize());
+        assertEquals(1.2f, SelectionSpec.builder("a").dustSize(Float.NaN).build().dustSize());
         assertEquals(0, spec.renderDistance());
     }
 

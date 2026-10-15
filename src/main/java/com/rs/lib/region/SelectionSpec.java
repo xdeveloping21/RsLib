@@ -33,7 +33,7 @@ import com.rs.lib.yml.RsYml;
  * selection-wand:
  *   item: {material: GOLDEN_AXE, display-name: "&amp;6&amp;lRegion Wand"}
  *   permission: ""           # empty = no permission needed
- *   particle: {type: DUST, color: "255, 140, 0", size: 1.2}   # color also "#RRGGBB"
+ *   particle: {type: DUST, color: "255, 140, 0", size: 1.2}   # color also "#RRGGBB"; size 0.1 to 4
  *   step: 0.5                # at least 0.1
  *   interval-ticks: 5        # at least 1
  *   render-distance: 64
@@ -41,7 +41,7 @@ import com.rs.lib.yml.RsYml;
  *   particle-budget: 2000
  *   max-render-volume: 250000
  *   max-volume: 0            # 0 = no limit
- *   timeout-ticks: 0         # 0 = never expires
+ *   timeout-ticks: 0         # ticks without a new position; 0 = never expires
  *   silent: false
  * </pre>
  *
@@ -60,6 +60,8 @@ public final class SelectionSpec {
     }
 
     static final double MIN_STEP = 0.1;
+    static final float MIN_DUST_SIZE = 0.1f;
+    static final float MAX_DUST_SIZE = 4.0f;
     private static final Logger RSLIB = Logger.getLogger("RsLib");
     private static final Map<String, String> ALIASES = Map.of("REDSTONE", "DUST", "DUST", "REDSTONE");
 
@@ -116,7 +118,7 @@ public final class SelectionSpec {
         this.source = b.copy();
     }
 
-    /** A builder for the spec named {@code id}; the id is what a wand stores. */
+    /** A builder for the spec named {@code id} ({@code "default"} when null or blank); the id is what a wand stores. */
     public static Builder builder(String id) {
         return new Builder(id);
     }
@@ -244,12 +246,12 @@ public final class SelectionSpec {
         return maxVolume;
     }
 
-    /** Ticks a session lives after it starts; 0 for no limit. */
+    /** Ticks a session may go without a new position before it expires; 0 for no limit. */
     public long timeoutTicks() {
         return timeoutTicks;
     }
 
-    /** True when the selection sends no messages besides the missing-permission one. */
+    /** True when the selection sends none of its messages. */
     public boolean silent() {
         return silent;
     }
@@ -388,10 +390,7 @@ public final class SelectionSpec {
         private Consumer<String> warn = message -> RSLIB.warning("[RsLib] " + message);
 
         private Builder(String id) {
-            if (id == null || id.isBlank()) {
-                throw new IllegalArgumentException("A selection spec needs an id");
-            }
-            this.id = id.trim();
+            this.id = id == null || id.isBlank() ? "default" : id.trim();
         }
 
         Builder copy() {
@@ -471,10 +470,10 @@ public final class SelectionSpec {
             return this;
         }
 
-        /** The dust size; values of 0 or less keep the current one. */
+        /** The dust size, kept between 0.1 and 4.0; NaN keeps the current one. */
         public Builder dustSize(float size) {
-            if (size > 0 && Float.isFinite(size)) {
-                this.dustSize = size;
+            if (!Float.isNaN(size)) {
+                this.dustSize = Math.max(MIN_DUST_SIZE, Math.min(MAX_DUST_SIZE, size));
             }
             return this;
         }
@@ -519,13 +518,13 @@ public final class SelectionSpec {
             return this;
         }
 
-        /** Ticks a session lives; 0 or less for no limit. */
+        /** Ticks a session may go without a new position; 0 or less for no limit. */
         public Builder timeoutTicks(long ticks) {
             this.timeoutTicks = Math.max(0L, ticks);
             return this;
         }
 
-        /** No messages besides the missing-permission one. */
+        /** No selection messages at all, the missing permission included. */
         public Builder silent(boolean silent) {
             this.silent = silent;
             return this;

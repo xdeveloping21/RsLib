@@ -149,13 +149,20 @@ class SelectionManagerTest {
         SelectionManager manager = manager(host);
         manager.registerSpec(recording("arena").permission("arena.wand").silent(true).build());
         manager.handleWandClick(steve.player, "arena", true, block(WORLD, 0, 0, 0));
-        assertEquals(List.of("no-permission"), host.sent, "shown even for a silent spec");
+        assertTrue(host.sent.isEmpty(), "a silent spec sends no message at all");
         assertNull(manager.current(steve.id));
         steve.perms.add("arena.wand");
         manager.handleWandClick(steve.player, "arena", true, block(WORLD, 0, 0, 0));
         manager.handleWandClick(steve.player, "arena", false, block(WORLD, 1, 0, 0));
-        assertEquals(List.of("no-permission"), host.sent, "a silent spec sends nothing else");
+        assertTrue(host.sent.isEmpty());
         assertEquals(1, host.events.size());
+
+        Fakes.Host loudHost = new Fakes.Host("rsother");
+        SelectionManager loud = manager(loudHost);
+        loud.registerSpec(recording("arena").permission("other.wand").build());
+        loud.handleWandClick(steve.player, "arena", true, block(WORLD, 0, 0, 0));
+        assertEquals(List.of("no-permission"), loudHost.sent);
+        assertNull(loud.current(steve.id));
     }
 
     @Test
@@ -216,6 +223,38 @@ class SelectionManagerTest {
     }
 
     @Test
+    void theTimeoutCountsFromTheLastPosition() {
+        SelectionManager manager = manager(host);
+        host.online.put(steve.id, steve.player);
+        manager.registerSpec(recording("arena").timeoutTicks(20).completeEnds(false).build());
+        manager.handleWandClick(steve.player, "arena", true, block(WORLD, 0, 0, 0));
+        host.now += 900;
+        manager.handleWandClick(steve.player, "arena", true, block(WORLD, 1, 0, 0));
+        host.now += 900;
+        host.lastTimer().fire();
+        assertNotNull(manager.current(steve.id), "an active session does not expire");
+        host.now += 100;
+        host.lastTimer().fire();
+        assertNull(manager.current(steve.id));
+    }
+
+    @Test
+    void theSessionSettersWorkLikeTheWand() {
+        SelectionManager manager = manager(host);
+        host.online.put(steve.id, steve.player);
+        SelectionSession session = manager.begin(steve.player, recording("arena").permission("nobody.has.this").build());
+        session.setPos1(block(WORLD, 0, 0, 0));
+        assertEquals(List.of("pos1-set x=0 y=0 z=0 world=world"), host.sent, "no permission check from code");
+        session.setPos2(block(WORLD, 2, 2, 2));
+        assertEquals(List.of("update", "update", "select world;0;0;0;2;2;2"), calls);
+        assertEquals(1, host.events.size());
+        assertNull(manager.current(steve.id), "completed and ended");
+        session.setPos1(block(WORLD, 9, 9, 9));
+        assertEquals(2, host.sent.size(), "an ended session only stores");
+        assertEquals(9.0, session.pos1().getY());
+    }
+
+    @Test
     void shuttingDownEndsSessionsWithoutCallbacks() {
         SelectionManager manager = manager(host);
         manager.begin(steve.player, recording("arena").build());
@@ -237,7 +276,10 @@ class SelectionManagerTest {
         session.pos1().setX(70);
         assertEquals(1.0, session.pos1().getX());
         assertFalse(session.hasBothPositions());
+        session.setPos2(new Location(NETHER, 4, 5, 6));
+        assertFalse(session.hasBothPositions(), "different worlds do not count");
         session.setPos2(new Location(WORLD, 4, 5, 6));
+        assertTrue(session.hasBothPositions());
         assertEquals(Cuboid.of("world", 1, 2, 3, 4, 5, 6), session.cuboid());
         session.clearPositions();
         assertNull(session.pos1());

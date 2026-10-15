@@ -13,14 +13,19 @@ import com.rs.lib.scheduler.TaskHandle;
  * click. Never saved to disk; a config reload does not touch it.
  *
  * <p>The positions are copies: changing a location after setting it, or one read back, changes
- * nothing here. The setters only store the position; the wand pipeline (messages, particles,
- * completion) runs on wand clicks.</p>
+ * nothing here. On a session from {@link SelectionManager} (main thread), {@link #setPos1} and
+ * {@link #setPos2} do what a left or right click of the wand does (particles, messages,
+ * {@code onUpdate}, completion), without the permission check; with the player offline, or
+ * once the session ended, they only store the position.</p>
  */
 public final class SelectionSession {
 
     private final UUID playerId;
     private final SelectionSpec spec;
     private final long createdAtMillis;
+    /** The manager that runs the wand pipeline for the setters; null in tests. */
+    private final SelectionManager manager;
+    private volatile long lastActivityMillis;
     private volatile Location pos1;
     private volatile Location pos2;
     /** The drawing task while one runs; touched on the player's thread. */
@@ -29,9 +34,15 @@ public final class SelectionSession {
     private volatile boolean ended;
 
     SelectionSession(UUID playerId, SelectionSpec spec, long createdAtMillis) {
+        this(playerId, spec, createdAtMillis, null);
+    }
+
+    SelectionSession(UUID playerId, SelectionSpec spec, long createdAtMillis, SelectionManager manager) {
         this.playerId = Objects.requireNonNull(playerId, "playerId");
         this.spec = Objects.requireNonNull(spec, "spec");
         this.createdAtMillis = createdAtMillis;
+        this.lastActivityMillis = createdAtMillis;
+        this.manager = manager;
     }
 
     public UUID playerId() {
@@ -47,6 +58,15 @@ public final class SelectionSession {
         return createdAtMillis;
     }
 
+    /** When a position was last set (or the session started), in {@link System#currentTimeMillis()} time; the timeout counts from here. */
+    public long lastActivityMillis() {
+        return lastActivityMillis;
+    }
+
+    void touch(long nowMillis) {
+        this.lastActivityMillis = nowMillis;
+    }
+
     /** A copy of the first position, or null. */
     public Location pos1() {
         Location at = pos1;
@@ -59,18 +79,33 @@ public final class SelectionSession {
         return at == null ? null : at.clone();
     }
 
-    /** Stores a copy of {@code location} (null clears it). */
+    /** Sets the first position like a left click (see the class notes); null only clears it. */
     public void setPos1(Location location) {
+        if (location == null || manager == null || !manager.applyPosition(this, true, location)) {
+            store1(location);
+        }
+    }
+
+    /** Sets the second position like a right click (see the class notes); null only clears it. */
+    public void setPos2(Location location) {
+        if (location == null || manager == null || !manager.applyPosition(this, false, location)) {
+            store2(location);
+        }
+    }
+
+    void store1(Location location) {
         this.pos1 = location == null ? null : location.clone();
     }
 
-    /** Stores a copy of {@code location} (null clears it). */
-    public void setPos2(Location location) {
+    void store2(Location location) {
         this.pos2 = location == null ? null : location.clone();
     }
 
+    /** True when both positions are set and in the same world. */
     public boolean hasBothPositions() {
-        return pos1 != null && pos2 != null;
+        Location a = pos1;
+        Location b = pos2;
+        return a != null && b != null && sameWorld(a, b);
     }
 
     /** True when at least one position is set. */

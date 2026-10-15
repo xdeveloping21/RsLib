@@ -48,7 +48,8 @@ import com.rs.lib.util.LocationUtil;
  *
  * <h2>Setting a position</h2>
  * <ol>
- *   <li>A player without the spec's permission gets {@code rslib.selection.no-permission}.</li>
+ *   <li>A player without the spec's permission gets {@code rslib.selection.no-permission}
+ *   (unless the spec is silent) and nothing is stored.</li>
  *   <li>The block is stored, the particles are drawn again, {@code rslib.selection.pos1-set}
  *   (or {@code pos2-set}) is sent with {@code {x} {y} {z} {world}}, then
  *   {@code rslib.selection.different-worlds} when the two positions are in different worlds,
@@ -59,12 +60,14 @@ import com.rs.lib.util.LocationUtil;
  *   with the box and, if the spec says so ({@link SelectionSpec#completeEnds()}), the session
  *   ends.</li>
  * </ol>
- * <p>A silent spec sends none of these messages except the missing permission.</p>
+ * <p>A silent spec sends none of these messages. {@link SelectionSession#setPos1} and
+ * {@link SelectionSession#setPos2} run steps 2 and 3 the same way.</p>
  *
  * <h2>Sessions</h2>
  * <p>One session per player and plugin, never saved. While it has a position (or a timeout) a
  * task on the player's thread draws it every {@code interval-ticks}, ends it with
- * {@code rslib.selection.timeout} once the spec's timeout passes, and ends it when the player is
+ * {@code rslib.selection.timeout} once the spec's timeout passes without a new position (no
+ * message when the spec is silent), and ends it when the player is
  * gone. A session that ends without completing (cancelled, replaced by {@link #begin}, timed out,
  * player left) runs the spec's {@code onCancel}; shutting the plugin down ends every session
  * without callbacks.</p>
@@ -175,7 +178,7 @@ public final class SelectionManager {
             throw new IllegalStateException("The selections of " + namespace + " are shut down");
         }
         registerSpec(spec);
-        SelectionSession next = new SelectionSession(player.getUniqueId(), spec, host.nowMillis());
+        SelectionSession next = new SelectionSession(player.getUniqueId(), spec, host.nowMillis(), this);
         SelectionSession previous = sessions.put(player.getUniqueId(), next);
         if (previous != null && end(previous)) {
             runCancel(previous);
@@ -268,7 +271,9 @@ public final class SelectionManager {
             return;
         }
         if (!spec.permission().isEmpty() && !player.hasPermission(spec.permission())) {
-            send(player, NO_PERMISSION);
+            if (!spec.silent()) {
+                send(player, NO_PERMISSION);
+            }
             return;
         }
         if (!same) {
@@ -277,15 +282,33 @@ public final class SelectionManager {
         setPosition(player, session, left, block);
     }
 
+    /**
+     * {@link SelectionSession#setPos1}/{@code setPos2} from a plugin: the click pipeline without
+     * the permission check. False (nothing done) when the session ended, is not this player's
+     * current one, or the player is offline; the session then only stores the position.
+     */
+    boolean applyPosition(SelectionSession session, boolean left, Location block) {
+        if (stopped || session.ended() || sessions.get(session.playerId()) != session) {
+            return false;
+        }
+        Player player = host.online(session.playerId());
+        if (player == null) {
+            return false;
+        }
+        setPosition(player, session, left, block);
+        return true;
+    }
+
     private void setPosition(Player player, SelectionSession session, boolean left, Location block) {
         SelectionSpec spec = session.spec();
         World world = SelectionSession.worldOf(block);
         Location at = new Location(world, block.getBlockX(), block.getBlockY(), block.getBlockZ());
         if (left) {
-            session.setPos1(at);
+            session.store1(at);
         } else {
-            session.setPos2(at);
+            session.store2(at);
         }
+        session.touch(host.nowMillis());
         startRenderer(player, session);
         draw(player, session);
         boolean silent = spec.silent();
@@ -294,7 +317,7 @@ public final class SelectionManager {
                     Ph.of("z", at.getBlockZ()), Ph.of("world", world == null ? "" : world.getName()));
         }
         Cuboid box = session.cuboid();
-        if (session.hasBothPositions() && box == null && !silent) {
+        if (session.rawPos1() != null && session.rawPos2() != null && box == null && !silent) {
             send(player, DIFFERENT_WORLDS);
         }
         run(spec.onUpdate(), session, "onUpdate");
@@ -341,7 +364,7 @@ public final class SelectionManager {
             return;
         }
         long timeout = session.spec().timeoutTicks();
-        if (timeout > 0 && host.nowMillis() - session.createdAtMillis() >= timeout * MILLIS_PER_TICK) {
+        if (timeout > 0 && host.nowMillis() - session.lastActivityMillis() >= timeout * MILLIS_PER_TICK) {
             handleRendererTimeout(session);
             return;
         }

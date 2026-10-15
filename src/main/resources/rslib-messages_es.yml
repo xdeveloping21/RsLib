@@ -25,12 +25,12 @@ rslib:
     cancelled-move: "&cTeletransporte cancelado: te moviste."
     cancelled-damage: "&cTeletransporte cancelado: recibiste daño."
   selection:
-    pos1-set: "&7Primera posición en &f{x}, {y}, {z} &7de &f{world}&7."
-    pos2-set: "&7Segunda posición en &f{x}, {y}, {z} &7de &f{world}&7."
-    different-worlds: "&cLas dos posiciones están en mundos distintos."
-    too-big: "&cEsa selección es demasiado grande: &f{volume}&c bloques (máximo &f{max}&c)."
-    no-permission: "&cNo tienes permiso para usar esta varita."
-    timeout: "&cTu selección caducó."
+    pos1-set: "&aPos1 marcada: &f{x}, {y}, {z} &7({world})"
+    pos2-set: "&aPos2 marcada: &f{x}, {y}, {z} &7({world})"
+    different-worlds: "&cAmbas posiciones deben estar en el mismo mundo."
+    too-big: "&cSelección demasiado grande: &f{volume} &7(máx. {max})"
+    no-permission: "&cNo puedes usar esta varita."
+    timeout: "&7La selección caducó."
   help:
     header: "&6&l{plugin} &8» &7Comandos"
     entry: "[noprefix]&e{usage} &8- &7{description}"
