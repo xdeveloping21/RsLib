@@ -1,0 +1,10 @@
+{
+  "id": "rslib",
+  "name": "RsLib",
+  "version": "${project.version}",
+  "description": "Librería base de los plugins Rs.",
+  "url": "https://rsdevelopment.dev",
+  "authors": ["Raul Sanhueza (RsDevelopment)"],
+  "dependencies": [],
+  "main": "com.rs.lib.velocity.RsLibVelocity"
+}
