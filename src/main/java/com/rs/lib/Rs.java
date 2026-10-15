@@ -10,6 +10,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.command.RsCommands;
+import com.rs.lib.cooldown.Cooldowns;
+import com.rs.lib.db.DbConfig;
+import com.rs.lib.db.RsDb;
+import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.lang.RsLang;
@@ -35,6 +39,8 @@ public final class Rs {
     private final YmlManager yml;
     private final RsDebug debug;
     private final RsLang lang;
+    private final Cooldowns cooldowns;
+    private final RsDb db;
     private final RsCommands commands;
     private final ReloadManager reload;
     private final UpdateChecker updates;
@@ -51,6 +57,9 @@ public final class Rs {
         this.yml = spec.config() == null ? null : new YmlManager(this, spec.config());
         this.debug = new RsDebug(plugin, yml == null ? null : yml.config());
         this.lang = spec.lang() ? new RsLang(this, yml == null ? null : yml.config()) : null;
+        this.cooldowns = new Cooldowns(this);
+        this.db = spec.db() ? new RsDb(this, DbConfig.load(plugin,
+                yml == null ? null : yml.config().getSection("database"))) : null;
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
         this.reload = new ReloadManager(this);
         this.updates = new UpdateChecker(this);
@@ -90,6 +99,19 @@ public final class Rs {
             throw missing("lang()", "lang()");
         }
         return lang;
+    }
+
+    /** Cooldowns per category and player. */
+    public Cooldowns cooldowns() {
+        return cooldowns;
+    }
+
+    /** The plugin's database. Needs {@code RsSpec.builder().db()}. */
+    public RsDb db() {
+        if (db == null) {
+            throw missing("db()", "db()");
+        }
+        return db;
     }
 
     public RsCommands commands() {
@@ -133,6 +155,10 @@ public final class Rs {
         return debug;
     }
 
+    public RsDb dbOrNull() {
+        return db;
+    }
+
     /** Arms the update watch the spec declares; called once the plugin has enabled. */
     void armUpdates() {
         if (spec.updatesRepo() != null) {
@@ -171,6 +197,14 @@ public final class Rs {
             step("pending file writes", yml::flushAll);
         }
         step("tasks", scheduler::cancelAll);
+        step("pending main-thread results", () -> MainHops.release(plugin));
+        if (db != null) {
+            step("player data", db::flushPlayerCaches);
+        }
+        step("cooldowns", cooldowns::shutdown);
+        if (db != null) {
+            step("database", db::shutdown);
+        }
         step("soft dependencies", () -> SoftDependency.disableAllOf(plugin));
         quitCallbacks.clear();
         RsLib.detach(plugin);

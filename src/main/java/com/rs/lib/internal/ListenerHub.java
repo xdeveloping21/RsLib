@@ -13,6 +13,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.command.RsCommands;
+import com.rs.lib.db.PlayerDataCache;
 import com.rs.lib.hook.HookListener;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.update.internal.UpdateHub;
@@ -31,6 +32,7 @@ public final class ListenerHub {
         pm.registerEvents(new HookListener(), rslib);
         pm.registerEvents(new Shared(rslib), rslib);
         pm.registerEvents(RsCommands.priorityListener(), rslib);
+        pm.registerEvents(PlayerDataCache.joinListener(), rslib);
     }
 
     private static final class Shared implements Listener {
