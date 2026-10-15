@@ -3,6 +3,7 @@ package com.rs.lib.scheduler;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -29,63 +30,37 @@ public final class RsScheduler {
     private static final long MILLIS_PER_TICK = 50L;
 
     private final JavaPlugin plugin;
-    private final boolean folia;
+    private final Backend backend;
 
     public RsScheduler(JavaPlugin plugin) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
-        this.folia = RsVersion.isFolia();
+        this.backend = RsVersion.isFolia() ? new FoliaBackend(plugin) : new PaperBackend(plugin);
     }
 
     /** Runs on the main thread (global region on Folia) on the next tick. */
     public TaskHandle sync(Runnable task) {
-        if (folia) {
-            return wrap(Bukkit.getGlobalRegionScheduler().run(plugin, t -> task.run()));
-        }
-        return wrap(Bukkit.getScheduler().runTask(plugin, task));
+        return backend.sync(task);
     }
 
     /** Runs off the main thread. */
     public TaskHandle async(Runnable task) {
-        if (folia) {
-            return wrap(Bukkit.getAsyncScheduler().runNow(plugin, t -> task.run()));
-        }
-        return wrap(Bukkit.getScheduler().runTaskAsynchronously(plugin, task));
+        return backend.async(task);
     }
 
     public TaskHandle syncLater(long delayTicks, Runnable task) {
-        long delay = atLeastOne(delayTicks);
-        if (folia) {
-            return wrap(Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> task.run(), delay));
-        }
-        return wrap(Bukkit.getScheduler().runTaskLater(plugin, task, delay));
+        return backend.syncLater(atLeastOne(delayTicks), task);
     }
 
     public TaskHandle asyncLater(long delayTicks, Runnable task) {
-        long delay = atLeastOne(delayTicks);
-        if (folia) {
-            return wrap(Bukkit.getAsyncScheduler().runDelayed(plugin, t -> task.run(),
-                    delay * MILLIS_PER_TICK, TimeUnit.MILLISECONDS));
-        }
-        return wrap(Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delay));
+        return backend.asyncLater(atLeastOne(delayTicks), task);
     }
 
     public TaskHandle timer(long delayTicks, long periodTicks, Runnable task) {
-        long delay = atLeastOne(delayTicks);
-        long period = atLeastOne(periodTicks);
-        if (folia) {
-            return wrap(Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> task.run(), delay, period));
-        }
-        return wrap(Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period));
+        return backend.timer(atLeastOne(delayTicks), atLeastOne(periodTicks), task);
     }
 
     public TaskHandle timerAsync(long delayTicks, long periodTicks, Runnable task) {
-        long delay = atLeastOne(delayTicks);
-        long period = atLeastOne(periodTicks);
-        if (folia) {
-            return wrap(Bukkit.getAsyncScheduler().runAtFixedRate(plugin, t -> task.run(),
-                    delay * MILLIS_PER_TICK, period * MILLIS_PER_TICK, TimeUnit.MILLISECONDS));
-        }
-        return wrap(Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period));
+        return backend.timerAsync(atLeastOne(delayTicks), atLeastOne(periodTicks), task);
     }
 
     /**
@@ -133,12 +108,7 @@ public final class RsScheduler {
 
     /** Cancels every task of this plugin, on both schedulers on Folia. */
     public void cancelAll() {
-        if (folia) {
-            Bukkit.getGlobalRegionScheduler().cancelTasks(plugin);
-            Bukkit.getAsyncScheduler().cancelTasks(plugin);
-        } else {
-            Bukkit.getScheduler().cancelTasks(plugin);
-        }
+        backend.cancelAll();
     }
 
     private static long atLeastOne(long ticks) {
@@ -155,31 +125,124 @@ public final class RsScheduler {
         return root.getClass().getSimpleName() + (message == null || message.isBlank() ? "" : ": " + message);
     }
 
-    private static TaskHandle wrap(BukkitTask task) {
-        return new TaskHandle() {
-            @Override
-            public void cancel() {
-                task.cancel();
-            }
+    /** One handle shape for both schedulers' task types. */
+    private record Handle(Runnable canceller, BooleanSupplier cancelled) implements TaskHandle {
 
-            @Override
-            public boolean isCancelled() {
-                return task.isCancelled();
-            }
-        };
+        @Override
+        public void cancel() {
+            canceller.run();
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled.getAsBoolean();
+        }
     }
 
-    private static TaskHandle wrap(ScheduledTask task) {
-        return new TaskHandle() {
-            @Override
-            public void cancel() {
-                task.cancel();
-            }
+    /** Where tasks go; delays and periods arrive in ticks, already at least one. */
+    private interface Backend {
 
-            @Override
-            public boolean isCancelled() {
-                return task.isCancelled();
-            }
-        };
+        TaskHandle sync(Runnable task);
+
+        TaskHandle async(Runnable task);
+
+        TaskHandle syncLater(long delay, Runnable task);
+
+        TaskHandle asyncLater(long delay, Runnable task);
+
+        TaskHandle timer(long delay, long period, Runnable task);
+
+        TaskHandle timerAsync(long delay, long period, Runnable task);
+
+        void cancelAll();
+    }
+
+    /** The classic Bukkit scheduler. */
+    private record PaperBackend(JavaPlugin plugin) implements Backend {
+
+        private static TaskHandle handle(BukkitTask task) {
+            return new Handle(task::cancel, task::isCancelled);
+        }
+
+        @Override
+        public TaskHandle sync(Runnable task) {
+            return handle(Bukkit.getScheduler().runTask(plugin, task));
+        }
+
+        @Override
+        public TaskHandle async(Runnable task) {
+            return handle(Bukkit.getScheduler().runTaskAsynchronously(plugin, task));
+        }
+
+        @Override
+        public TaskHandle syncLater(long delay, Runnable task) {
+            return handle(Bukkit.getScheduler().runTaskLater(plugin, task, delay));
+        }
+
+        @Override
+        public TaskHandle asyncLater(long delay, Runnable task) {
+            return handle(Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delay));
+        }
+
+        @Override
+        public TaskHandle timer(long delay, long period, Runnable task) {
+            return handle(Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period));
+        }
+
+        @Override
+        public TaskHandle timerAsync(long delay, long period, Runnable task) {
+            return handle(Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period));
+        }
+
+        @Override
+        public void cancelAll() {
+            Bukkit.getScheduler().cancelTasks(plugin);
+        }
+    }
+
+    /** Folia: "sync" is the global region, "async" the async scheduler (ticks become milliseconds). */
+    private record FoliaBackend(JavaPlugin plugin) implements Backend {
+
+        private static TaskHandle handle(ScheduledTask task) {
+            return new Handle(task::cancel, task::isCancelled);
+        }
+
+        @Override
+        public TaskHandle sync(Runnable task) {
+            return handle(Bukkit.getGlobalRegionScheduler().run(plugin, t -> task.run()));
+        }
+
+        @Override
+        public TaskHandle async(Runnable task) {
+            return handle(Bukkit.getAsyncScheduler().runNow(plugin, t -> task.run()));
+        }
+
+        @Override
+        public TaskHandle syncLater(long delay, Runnable task) {
+            return handle(Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> task.run(), delay));
+        }
+
+        @Override
+        public TaskHandle asyncLater(long delay, Runnable task) {
+            return handle(Bukkit.getAsyncScheduler().runDelayed(plugin, t -> task.run(),
+                    delay * MILLIS_PER_TICK, TimeUnit.MILLISECONDS));
+        }
+
+        @Override
+        public TaskHandle timer(long delay, long period, Runnable task) {
+            return handle(Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> task.run(), delay, period));
+        }
+
+        @Override
+        public TaskHandle timerAsync(long delay, long period, Runnable task) {
+            return handle(Bukkit.getAsyncScheduler().runAtFixedRate(plugin, t -> task.run(),
+                    delay * MILLIS_PER_TICK, period * MILLIS_PER_TICK, TimeUnit.MILLISECONDS));
+        }
+
+        @Override
+        public void cancelAll() {
+            Bukkit.getGlobalRegionScheduler().cancelTasks(plugin);
+            Bukkit.getAsyncScheduler().cancelTasks(plugin);
+        }
     }
 }

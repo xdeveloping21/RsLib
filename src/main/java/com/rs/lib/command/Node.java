@@ -94,7 +94,7 @@ final class Node {
 
     /** The last argument takes the rest of the line. */
     boolean greedyTail() {
-        return !args.isEmpty() && args.get(args.size() - 1).arg() instanceof Args.RsArg<?> arg && arg.greedy();
+        return !args.isEmpty() && args.get(args.size() - 1).arg().greedy();
     }
 
     String description() {
@@ -105,10 +105,6 @@ final class Node {
     String argLabel(String argName) {
         String translated = labels.args().get(argName);
         return translated == null || translated.isBlank() ? argName : translated;
-    }
-
-    Labels labels() {
-        return labels;
     }
 
     void labels(Labels labels) {

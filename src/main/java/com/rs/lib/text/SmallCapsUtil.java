@@ -91,8 +91,8 @@ public final class SmallCapsUtil {
         int n = s.length();
         while (i < n) {
             if (s.charAt(i) == '[') {
-                int open = Markup.bracketAt(s, i, "[small]");
-                int close = open > 0 ? 0 : Markup.bracketAt(s, i, "[/small]");
+                int open = Markup.bracketAt(s, i, Markup.SMALL);
+                int close = open > 0 ? 0 : Markup.bracketAt(s, i, Markup.SMALL_CLOSE);
                 if (open > 0 || close > 0) {
                     String piece = s.substring(segment, i);
                     out.append(inSmall ? smallCaps(piece) : piece);
@@ -126,7 +126,7 @@ public final class SmallCapsUtil {
             int end = Markup.tagEnd(s, i);
             return end > 0 ? end - i : 0;
         }
-        if (c == '\\' && i + 1 < s.length() && (s.charAt(i + 1) == '<' || s.charAt(i + 1) == '\\')) {
+        if (Markup.escapeAt(s, i)) {
             return 2;
         }
         if (c == '[') {

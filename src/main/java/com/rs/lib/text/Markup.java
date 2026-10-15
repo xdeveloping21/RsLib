@@ -23,8 +23,23 @@ final class Markup {
     /** Last template sentinel. */
     static final char SENTINEL_LAST = '﷯';
 
+    /** Length of a {@code &x&R&R&G&G&B&B} hex code. */
+    static final int BUNGEE_HEX_LENGTH = 14;
+    /** Length of a {@code &#RRGGBB} hex code. */
+    static final int HASH_HEX_LENGTH = 8;
+    /** Length of a {@code &X} code. */
+    static final int CODE_LENGTH = 2;
+
+    static final String CENTER = "[center]";
+    static final String RGB = "[rgb]";
+    static final String SMALL = "[small]";
+    static final String NOPREFIX = "[noprefix]";
+    static final String RGB_CLOSE = "[/rgb]";
+    static final String SMALL_CLOSE = "[/small]";
+    /** The tags that can lead a line, lower case. */
+    static final String[] LEADING_TAGS = {CENTER, RGB, SMALL, NOPREFIX};
     /** The bracket tags RsLib reads, lower case. */
-    static final String[] BRACKET_TAGS = {"[center]", "[rgb]", "[small]", "[noprefix]", "[/rgb]", "[/small]"};
+    static final String[] BRACKET_TAGS = {CENTER, RGB, SMALL, NOPREFIX, RGB_CLOSE, SMALL_CLOSE};
 
     private Markup() {
     }
@@ -35,6 +50,31 @@ final class Markup {
 
     static boolean isSentinel(char c) {
         return c >= SENTINEL_FIRST && c <= SENTINEL_LAST;
+    }
+
+    /** Whether {@code s} holds a literal marker. */
+    static boolean hasMarker(String s) {
+        return hasCharIn(s, MARKER_FIRST, MARKER_LAST);
+    }
+
+    /** Whether {@code s} holds a template sentinel. */
+    static boolean hasSentinel(String s) {
+        return hasCharIn(s, SENTINEL_FIRST, SENTINEL_LAST);
+    }
+
+    private static boolean hasCharIn(String s, char first, char last) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= first && c <= last) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether an escape {@code \<} or {@code \\} starts at {@code i}. */
+    static boolean escapeAt(String s, int i) {
+        return s.charAt(i) == '\\' && i + 1 < s.length() && (s.charAt(i + 1) == '<' || s.charAt(i + 1) == '\\');
     }
 
     /** Whether {@code c} can open a MiniMessage tag right after {@code <}. */
@@ -60,8 +100,9 @@ final class Markup {
 
     /**
      * Length of the legacy code that starts at {@code i} with the code character {@code sign}
-     * ({@code &} or {@code §}): 14 for {@code &x&R&R&G&G&B&B}, 8 for {@code &#RRGGBB},
-     * 2 for {@code &X}, 0 when there is no code.
+     * ({@code &} or {@code §}): {@value #BUNGEE_HEX_LENGTH} for {@code &x&R&R&G&G&B&B},
+     * {@value #HASH_HEX_LENGTH} for {@code &#RRGGBB}, {@value #CODE_LENGTH} for {@code &X},
+     * 0 when there is no code.
      */
     static int codeLength(String s, int i, char sign) {
         int n = s.length();
@@ -70,38 +111,43 @@ final class Markup {
         }
         char next = s.charAt(i + 1);
         if (next == '#') {
-            if (i + 8 <= n) {
-                for (int k = i + 2; k < i + 8; k++) {
+            if (i + HASH_HEX_LENGTH <= n) {
+                for (int k = i + 2; k < i + HASH_HEX_LENGTH; k++) {
                     if (!isHexDigit(s.charAt(k))) {
                         return 0;
                     }
                 }
-                return 8;
+                return HASH_HEX_LENGTH;
             }
             return 0;
         }
-        if ((next == 'x' || next == 'X') && i + 14 <= n) {
+        if ((next == 'x' || next == 'X') && i + BUNGEE_HEX_LENGTH <= n) {
             boolean hex = true;
-            for (int k = i + 2; k < i + 14; k += 2) {
+            for (int k = i + 2; k < i + BUNGEE_HEX_LENGTH; k += 2) {
                 if (s.charAt(k) != sign || !isHexDigit(s.charAt(k + 1))) {
                     hex = false;
                     break;
                 }
             }
             if (hex) {
-                return 14;
+                return BUNGEE_HEX_LENGTH;
             }
         }
-        return isCodeChar(next) ? 2 : 0;
+        return isCodeChar(next) ? CODE_LENGTH : 0;
     }
 
-    /** The six hex digits of a 14 or 8 character hex code at {@code i}, upper case. */
+    /** Whether a {@link #codeLength} is one of the two hex forms. */
+    static boolean isHexCode(int length) {
+        return length == BUNGEE_HEX_LENGTH || length == HASH_HEX_LENGTH;
+    }
+
+    /** The six hex digits of a hex code of {@code length} at {@code i}, upper case. */
     static String hexOf(String s, int i, int length) {
         StringBuilder hex = new StringBuilder(6);
-        if (length == 8) {
-            hex.append(s, i + 2, i + 8);
+        if (length == HASH_HEX_LENGTH) {
+            hex.append(s, i + 2, i + HASH_HEX_LENGTH);
         } else {
-            for (int k = i + 3; k < i + 14; k += 2) {
+            for (int k = i + 3; k < i + BUNGEE_HEX_LENGTH; k += 2) {
                 hex.append(s.charAt(k));
             }
         }
@@ -156,6 +202,16 @@ final class Markup {
     /** Length of the bracket tag {@code tag} (lower case) at {@code i}, ignoring case, or 0. */
     static int bracketAt(String s, int i, String tag) {
         return s.regionMatches(true, i, tag, 0, tag.length()) ? tag.length() : 0;
+    }
+
+    /** The leading tag (one of {@link #LEADING_TAGS}) at {@code i}, ignoring case, or null. */
+    static String leadingTagAt(String s, int i) {
+        for (String tag : LEADING_TAGS) {
+            if (bracketAt(s, i, tag) > 0) {
+                return tag;
+            }
+        }
+        return null;
     }
 
     /** Whether {@code s} contains any RsLib bracket tag, ignoring case. */

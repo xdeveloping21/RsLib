@@ -84,9 +84,8 @@ public final class RsCommands {
 
     /** Takes every root of this plugin out of the server (the plugin is shutting down). */
     public void unregisterAll() {
-        for (RootCommand root : roots()) {
-            onMain(() -> CommandRegistry.disconnect(root));
-        }
+        List<RootCommand> all = roots();
+        onMain(() -> CommandRegistry.disconnectAll(all));
         synchronized (roots) {
             roots.clear();
         }
@@ -307,31 +306,36 @@ public final class RsCommands {
         }
 
         public RootCommand register() {
-            List<Node> top = new ArrayList<>();
             Set<String> taken = new HashSet<>();
+            List<Node> top = buildTop(taken);
+            addDefaults(top, taken);
+            RootCommand root = new RootCommand(RsCommands.this, name, permission, description, aliases, aliasSupplier,
+                    dynamic, commandPriority, onEmpty, top, findFallback(top));
+            RsCommands.this.register(root);
+            return root;
+        }
+
+        /** The declared subcommands, warning once about each group that also declared what only leaves use. */
+        private List<Node> buildTop(Set<String> taken) {
+            List<Node> top = new ArrayList<>();
             for (SubCommandBuilder sub : subs) {
                 claimWords(taken, sub.name(), sub.aliases(), name);
-                top.add(sub.build(""));
+                top.add(sub.build("", path -> logOnce("ignored:" + name + " " + path, Level.WARNING, "/" + name + " "
+                        + path + " has subcommands, so its executes()/arg()/when() are ignored.")));
             }
-            RootCommand[] self = new RootCommand[1];
+            return top;
+        }
+
+        /** {@code reload}, {@code help} and {@code debug}, each unless the root declared that word. */
+        private void addDefaults(List<Node> top, Set<String> taken) {
             String pluginId = rs.plugin().getName().toLowerCase(Locale.ROOT);
             if (!withoutDefaults) {
                 addDefault(top, taken, "reload", pluginId + ".admin.reload", "Reload the configuration", ctx -> {
                     rs.reloadAll();
                     send(ctx.sender(), "rslib.reload-done");
                 });
-                addDefault(top, taken, "help", null, "Show this help", ctx -> {
-                    String page = ctx.raw(0);
-                    int number = 1;
-                    if (page != null) {
-                        try {
-                            number = Integer.parseInt(page.trim());
-                        } catch (NumberFormatException notANumber) {
-                            number = 1;
-                        }
-                    }
-                    self[0].sendHelp(ctx.sender(), ctx.label(), number);
-                });
+                addDefault(top, taken, "help", null, "Show this help",
+                        ctx -> ctx.root().sendHelp(ctx.sender(), ctx.label(), RootCommand.pageOf(ctx.raw(0))));
             }
             if (debugCommand) {
                 addDefault(top, taken, "debug", pluginId + ".admin.debug", "Turn debug messages on or off", ctx -> {
@@ -339,24 +343,23 @@ public final class RsCommands {
                     send(ctx.sender(), on ? "rslib.debug-on" : "rslib.debug-off", Ph.of("plugin", rs.plugin().getName()));
                 });
             }
-            Node fallback = null;
-            if (fallbackSub != null) {
-                for (Node node : top) {
-                    if (node.answersTo(fallbackSub)) {
-                        fallback = node;
+        }
+
+        /** The node named by {@link #fallbackSub(String)}, or null when there is none. */
+        private Node findFallback(List<Node> top) {
+            if (fallbackSub == null) {
+                return null;
+            }
+            for (Node node : top) {
+                if (node.answersTo(fallbackSub)) {
+                    if (node.group()) {
                         break;
                     }
-                }
-                if (fallback == null || fallback.group()) {
-                    throw new IllegalStateException("fallbackSub('" + fallbackSub + "') of /" + name
-                            + " must name a first-level subcommand without children");
+                    return node;
                 }
             }
-            RootCommand root = new RootCommand(RsCommands.this, name, permission, description, aliases, aliasSupplier,
-                    dynamic, commandPriority, onEmpty, top, fallback);
-            self[0] = root;
-            RsCommands.this.register(root);
-            return root;
+            throw new IllegalStateException("fallbackSub('" + fallbackSub + "') of /" + name
+                    + " must name a first-level subcommand without children");
         }
 
         private void addDefault(List<Node> top, Set<String> taken, String word, String perm, String text,

@@ -1,6 +1,5 @@
 package com.rs.lib.yml.internal;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,6 +20,9 @@ import java.util.regex.Pattern;
  * only the three newest of that exact name are kept, so {@code config.yml} never rotates away
  * the backups of {@code config-extra.yml}. Anything that lists a folder of YAML files (menus,
  * kits, ...) must ignore names for which {@link #isMergeBackup(String)} is true.</p>
+ *
+ * <p>A file that is not valid YAML when it is first mounted is moved to
+ * {@code <name>.backup-N}; the same {@link #KEEP} limit applies to those, newest by N.</p>
  */
 public final class MergeBackups {
 
@@ -30,6 +32,8 @@ public final class MergeBackups {
     /** How many backups of one file are kept. */
     public static final int KEEP = 3;
 
+    private static final String CORRUPT_SUFFIX = ".backup-";
+    private static final int MAX_DIGITS = 9;
     private static final Pattern ANY = Pattern.compile("old-.+-\\d{8}-\\d{6}\\.yml",
             Pattern.CASE_INSENSITIVE);
     private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern(STAMP, Locale.ROOT);
@@ -55,8 +59,11 @@ public final class MergeBackups {
 
     /** True when {@code candidate} is a backup of exactly {@code fileName} (case-sensitive). */
     public static boolean isBackupOf(String fileName, String candidate) {
-        return Pattern.compile("old-" + Pattern.quote(baseName(fileName)) + "-\\d{8}-\\d{6}\\.yml")
-                .matcher(candidate).matches();
+        return backupPattern(fileName).matcher(candidate).matches();
+    }
+
+    private static Pattern backupPattern(String fileName) {
+        return Pattern.compile("old-" + Pattern.quote(baseName(fileName)) + "-\\d{8}-\\d{6}\\.yml");
     }
 
     /**
@@ -75,37 +82,63 @@ public final class MergeBackups {
 
     /** Deletes backups of {@code file} beyond the {@link #KEEP} newest. */
     public static void rotate(Path file) throws IOException {
-        String name = file.getFileName().toString();
-        File dir = file.toAbsolutePath().getParent().toFile();
-        String[] all = dir.list();
+        Pattern mineOnly = backupPattern(file.getFileName().toString());
+        Path dir = file.toAbsolutePath().getParent();
+        String[] all = dir.toFile().list();
         if (all == null) {
             return;
         }
         List<String> mine = new ArrayList<>();
         for (String candidate : all) {
-            if (isBackupOf(name, candidate)) {
+            if (mineOnly.matcher(candidate).matches()) {
                 mine.add(candidate);
             }
         }
         // The stamp sorts chronologically as text.
         mine.sort(Collections.reverseOrder());
         for (int i = KEEP; i < mine.size(); i++) {
-            Files.deleteIfExists(dir.toPath().resolve(mine.get(i)));
+            Files.deleteIfExists(dir.resolve(mine.get(i)));
         }
     }
 
     /**
-     * Moves an unreadable file aside to {@code <name>.backup-N}, using the first free N from 1.
+     * Moves an unreadable file aside to {@code <name>.backup-N}, N being one more than the
+     * highest already there (from 1), and deletes the {@code .backup-N} files of that name
+     * beyond the {@link #KEEP} newest.
      *
      * @return where it was moved
      */
     public static Path moveCorrupt(Path file) throws IOException {
         String name = file.getFileName().toString();
-        for (int n = 1; ; n++) {
-            Path target = file.resolveSibling(name + ".backup-" + n);
-            if (!Files.exists(target)) {
-                return Files.move(file, target);
+        List<Integer> taken = corruptNumbers(file);
+        int next = taken.isEmpty() ? 1 : taken.get(0) + 1;
+        Path target = file.resolveSibling(name + CORRUPT_SUFFIX + next);
+        Path moved = Files.move(file, target);
+        taken.add(0, next);
+        for (int i = KEEP; i < taken.size(); i++) {
+            Files.deleteIfExists(file.resolveSibling(name + CORRUPT_SUFFIX + taken.get(i)));
+        }
+        return moved;
+    }
+
+    /** The N of every {@code <name>.backup-N} next to {@code file}, highest (newest) first. */
+    private static List<Integer> corruptNumbers(Path file) {
+        String prefix = file.getFileName().toString() + CORRUPT_SUFFIX;
+        String[] all = file.toAbsolutePath().getParent().toFile().list();
+        List<Integer> out = new ArrayList<>();
+        if (all == null) {
+            return out;
+        }
+        for (String candidate : all) {
+            if (candidate.startsWith(prefix) && candidate.length() > prefix.length()
+                    && candidate.length() - prefix.length() <= MAX_DIGITS) {
+                String digits = candidate.substring(prefix.length());
+                if (digits.chars().allMatch(c -> c >= '0' && c <= '9')) {
+                    out.add(Integer.parseInt(digits));
+                }
             }
         }
+        out.sort(Collections.reverseOrder());
+        return out;
     }
 }

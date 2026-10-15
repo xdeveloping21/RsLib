@@ -10,12 +10,14 @@ import org.jetbrains.annotations.Nullable;
 /** What a subcommand receives when it runs: the sender, the parsed arguments and the raw words. */
 public final class CommandContext {
 
+    private final RootCommand root;
     private final CommandSender sender;
     private final String label;
     private final Map<String, Object> values;
     private final List<String> raw;
 
-    CommandContext(CommandSender sender, String label, Map<String, Object> values, List<String> raw) {
+    CommandContext(RootCommand root, CommandSender sender, String label, Map<String, Object> values, List<String> raw) {
+        this.root = root;
         this.sender = sender;
         this.label = label;
         this.values = values;
@@ -24,6 +26,11 @@ public final class CommandContext {
 
     public CommandSender sender() {
         return sender;
+    }
+
+    /** The root that is running the subcommand. */
+    RootCommand root() {
+        return root;
     }
 
     /** The command as typed, lowercase and without a {@code plugin:} prefix ({@code c} for {@code /c}). */

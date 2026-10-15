@@ -3,7 +3,9 @@ package com.rs.lib.yml;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,7 +22,8 @@ import com.rs.lib.Rs;
  * The YAML files of one plugin, reached with {@code rs().yml()}.
  *
  * <p>Each file is known by its path relative to the plugin folder ({@code \} becomes {@code /},
- * leading {@code /} dropped). The <b>first</b> mount of a path fixes its mode; mounting it
+ * leading {@code /} dropped, {@code .} and {@code ..} segments resolved, so {@code a/./b.yml}
+ * and {@code a/b.yml} are the same file; a path that leaves the plugin folder is refused). The <b>first</b> mount of a path fixes its mode; mounting it
  * again with another mode returns the same file and warns once.</p>
  * <ul>
  *     <li>{@link #managed}: seeded from the jar when missing and merged with the jar copy on
@@ -34,6 +37,11 @@ import com.rs.lib.Rs;
  * <p>The main config is mounted as managed when the manager is created; the obsolete top-level
  * {@code update-configs} key is removed from it unless the jar copy still declares it. All this
  * I/O is synchronous on purpose: it only runs on enable and on reload.</p>
+ * <p>A managed file that is not valid YAML is moved to {@code <name>.backup-N} and seeded again
+ * from the jar only when it is first mounted. On a reload it is left as it is, with a warning,
+ * and the content read before stays in use until the owner fixes it.</p>
+ * <p>Files mounted per player (or per anything that comes and goes) should be released with
+ * {@link #unmount} when they are no longer needed, or the manager keeps them for good.</p>
  */
 public final class YmlManager {
 
@@ -99,6 +107,34 @@ public final class YmlManager {
     }
 
     /**
+     * Writes what is pending for the file at {@code path} and forgets it: it is no longer
+     * reloaded nor flushed by this manager, and mounting the path again reads it from disk.
+     * Meant for per-player data files, unmounted when the player leaves. Does nothing when the
+     * path is not mounted. The {@link RsYml} still works if kept, but its saves are then the
+     * caller's to flush.
+     *
+     * @throws IllegalArgumentException for the main config, which stays mounted
+     */
+    public void unmount(String path) {
+        String normalized = normalize(path);
+        if (normalized.equals(configPath)) {
+            throw new IllegalArgumentException("The main config " + configPath + " cannot be unmounted");
+        }
+        synchronized (files) {
+            Mounted mounted = files.get(normalized);
+            if (mounted == null) {
+                return;
+            }
+            try {
+                mounted.yml().flush();
+            } finally {
+                files.remove(normalized);
+                modeWarnings.remove(normalized);
+            }
+        }
+    }
+
+    /**
      * Merges the managed files again, seeds seed-only files that went missing, reads every file
      * from disk and runs their reload hooks.
      */
@@ -133,17 +169,32 @@ public final class YmlManager {
         return out;
     }
 
-    /** {@code \} to {@code /}, surrounding spaces and leading {@code /} removed. */
+    /**
+     * {@code \} to {@code /}, surrounding spaces, empty and {@code .} segments removed and
+     * {@code ..} resolved against the previous segment.
+     *
+     * @throws IllegalArgumentException when nothing is left or the path leaves the plugin folder
+     */
     static String normalize(String path) {
         Objects.requireNonNull(path, "path");
-        String out = path.trim().replace('\\', '/');
-        while (out.startsWith("/")) {
-            out = out.substring(1);
+        Deque<String> segments = new ArrayDeque<>();
+        for (String segment : path.trim().replace('\\', '/').split("/")) {
+            if (segment.isEmpty() || segment.equals(".")) {
+                continue;
+            }
+            if (segment.equals("..")) {
+                if (segments.isEmpty()) {
+                    throw new IllegalArgumentException("The file path '" + path + "' points outside the plugin folder");
+                }
+                segments.removeLast();
+                continue;
+            }
+            segments.addLast(segment);
         }
-        if (out.isEmpty()) {
+        if (segments.isEmpty()) {
             throw new IllegalArgumentException("Empty file path");
         }
-        return out;
+        return String.join("/", segments);
     }
 
     private RsYml mount(String path, Mode mode) {
@@ -159,24 +210,36 @@ public final class YmlManager {
             }
             File file = new File(dataFolder, path);
             RsYml yml = new RsYml(host, file, path);
-            Runnable prepare = prepareStep(path, file, mode);
-            yml.prepare(prepare);
-            prepare.run();
+            prepareStep(path, file, mode, null).run();
+            yml.prepare(prepareStep(path, file, mode, yml));
             yml.read();
             files.put(path, new Mounted(yml, mode));
             return yml;
         }
     }
 
-    private Runnable prepareStep(String path, File file, Mode mode) {
-        Logger logger = host.logger();
-        boolean main = path.equals(configPath);
+    /**
+     * The seeding or merging for {@code mode}. {@code reloading} is null for the first mount,
+     * otherwise the file being reloaded: then a managed file that is not valid YAML is kept as
+     * it is (the updater warns, so the file's own parse warning is not repeated).
+     */
+    private Runnable prepareStep(String path, File file, Mode mode, RsYml reloading) {
         return switch (mode) {
-            case MANAGED -> () -> YamlUpdater.updateResource(logger, resources, path, file, false, main);
-            case MANAGED_PRUNING -> () -> YamlUpdater.updateResource(logger, resources, path, file, true, main);
+            case MANAGED -> () -> merge(path, file, false, reloading);
+            case MANAGED_PRUNING -> () -> merge(path, file, true, reloading);
             case SEED_ONLY -> () -> seedIfMissing(path, file);
             case PLAIN -> () -> { };
         };
+    }
+
+    private void merge(String path, File file, boolean prune, RsYml reloading) {
+        Logger logger = host.logger();
+        boolean main = path.equals(configPath);
+        YamlUpdater.Outcome outcome = YamlUpdater.updateResource(logger, resources, path, file, prune, main,
+                reloading != null);
+        if (outcome == YamlUpdater.Outcome.KEPT_INVALID) {
+            reloading.invalidReported();
+        }
     }
 
     private void seedIfMissing(String path, File file) {

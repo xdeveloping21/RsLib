@@ -3,12 +3,16 @@ package com.rs.lib.command;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -340,6 +344,7 @@ public final class Args {
             return this;
         }
 
+        @Override
         public boolean greedy() {
             return greedy;
         }
@@ -388,22 +393,62 @@ public final class Args {
                 add(out, seen, example, prefix);
             }
             Collection<String> all = options(sender);
-            if (all != null && !all.isEmpty()) {
-                List<String> matching = new ArrayList<>();
-                for (String option : all) {
-                    if (option != null && option.toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                        matching.add(option);
-                    }
-                }
-                matching.sort(String.CASE_INSENSITIVE_ORDER);
-                for (String option : matching) {
-                    if (out.size() >= MAX_SUGGESTIONS) {
-                        break;
-                    }
+            if (all != null && !all.isEmpty() && out.size() < MAX_SUGGESTIONS) {
+                for (String option : firstMatches(all, prefix, seen, MAX_SUGGESTIONS - out.size())) {
                     add(out, seen, option, prefix);
                 }
             }
             return out;
+        }
+
+        /** A matching option and where it was in the options, so equal ones keep their order. */
+        private record Ranked(String value, String lower, int index) {
+        }
+
+        private static final Comparator<Ranked> RANKED = Comparator.comparing(Ranked::value, String.CASE_INSENSITIVE_ORDER)
+                .thenComparingInt(Ranked::index);
+
+        /**
+         * The first {@code room} options starting with {@code prefix} in case-insensitive order,
+         * one per lowercase form and none already {@code seen}: what sorting every match and
+         * adding them in order gives, but only the options that may still make it are kept (in
+         * a max-heap) and lowercased.
+         */
+        private static List<String> firstMatches(Collection<String> all, String prefix, Set<String> seen, int room) {
+            PriorityQueue<Ranked> kept = new PriorityQueue<>(RANKED.reversed());
+            Map<String, Ranked> byLower = new HashMap<>();
+            int index = 0;
+            for (String option : all) {
+                int at = index++;
+                if (option == null || !option.regionMatches(true, 0, prefix, 0, prefix.length())
+                        || kept.size() >= room && String.CASE_INSENSITIVE_ORDER.compare(option, kept.peek().value()) >= 0) {
+                    continue;
+                }
+                String lower = option.toLowerCase(Locale.ROOT);
+                if (option.isBlank() || !lower.startsWith(prefix) || seen.contains(lower)) {
+                    continue;
+                }
+                Ranked ranked = new Ranked(option, lower, at);
+                Ranked same = byLower.get(lower);
+                if (same != null) {
+                    if (RANKED.compare(ranked, same) >= 0) {
+                        continue;
+                    }
+                    kept.remove(same);
+                }
+                byLower.put(lower, ranked);
+                kept.add(ranked);
+                if (kept.size() > room) {
+                    byLower.remove(kept.poll().lower());
+                }
+            }
+            List<Ranked> sorted = new ArrayList<>(kept);
+            sorted.sort(RANKED);
+            List<String> values = new ArrayList<>(sorted.size());
+            for (Ranked ranked : sorted) {
+                values.add(ranked.value());
+            }
+            return values;
         }
 
         private static void add(List<String> out, Set<String> seen, String value, String prefix) {

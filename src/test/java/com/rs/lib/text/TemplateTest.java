@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.rs.lib.text.Renders.assertSameRender;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -75,7 +76,7 @@ class TemplateTest {
             };
             RsText.Template template = RsText.compile(line);
             Component expected = RsText.color(RsText.applyLocals(line, phs));
-            assertEquals(expected, template.render(phs), () -> "template: " + line);
+            assertSameRender(expected, template.render(phs), () -> "template: " + line);
             if (fastUsed(line, Locals.resolverOf(phs))) {
                 fastHits++;
             }
@@ -101,11 +102,11 @@ class TemplateTest {
             values.put("player_name", set[3]);
             Function<String, String> resolver = values::get;
             RsText.Template template = RsText.compile(line);
-            assertEquals(RsText.color(RsText.applyLocals(line, resolver)), template.render(resolver),
+            assertSameRender(RsText.color(RsText.applyLocals(line, resolver)), template.render(resolver),
                     () -> "template: " + line);
             // A second render with other values hits the skeleton cache.
             values.put("name", set[4]);
-            assertEquals(RsText.color(RsText.applyLocals(line, resolver)), template.render(resolver),
+            assertSameRender(RsText.color(RsText.applyLocals(line, resolver)), template.render(resolver),
                     () -> "second render: " + line);
         }
     }
@@ -144,7 +145,7 @@ class TemplateTest {
         };
         for (String line : lines) {
             assertFalse(fastUsed(line, Locals.resolverOf(phs)), line);
-            assertEquals(RsText.color(RsText.applyLocals(line, phs)), RsText.compile(line).render(phs), line);
+            assertSameRender(RsText.color(RsText.applyLocals(line, phs)), RsText.compile(line).render(phs), line);
         }
     }
 
@@ -153,7 +154,7 @@ class TemplateTest {
         String line = "&7Hi {p}!";
         for (String value : new String[] {"", "&cRed", "<red>x", "[rgb]x", "50%", "{x}", "a\\b", "\u00A7c"}) {
             assertFalse(TemplateEngine.isPlainValue(value), value);
-            assertEquals(RsText.color(RsText.applyLocals(line, Ph.of("p", value))),
+            assertSameRender(RsText.color(RsText.applyLocals(line, Ph.of("p", value))),
                     RsText.compile(line).render(Ph.of("p", value)), value);
         }
         assertTrue(TemplateEngine.isPlainValue("Steve 123 >:'#"));

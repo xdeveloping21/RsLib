@@ -157,8 +157,20 @@ public final class YamlOutline {
     private YamlOutline() {
     }
 
+    /** What the first pass learned about each line; keys and values are set on key lines only. */
+    private record Classified(Kind[] kinds, String[] keys, String[] values, int[] indents) {
+    }
+
     /** Builds the key tree of {@code lines}. */
     public static Node parse(List<String> lines) {
+        return build(lines, classify(lines));
+    }
+
+    /**
+     * First pass: the kind of every line, skipping as content what cannot hold keys (lines
+     * under list items and block scalars, multi-line flow collections and quoted values).
+     */
+    private static Classified classify(List<String> lines) {
         int size = lines.size();
         Kind[] kinds = new Kind[size];
         String[] keys = new String[size];
@@ -227,17 +239,17 @@ public final class YamlOutline {
                 }
             }
         }
+        return new Classified(kinds, keys, values, indents);
+    }
 
+    /** Second pass: nests the key lines by indentation and fixes where each block starts and ends. */
+    private static Node build(List<String> lines, Classified c) {
+        int size = lines.size();
+        Kind[] kinds = c.kinds();
         Node root = new Node(null, -1, -1, "", null);
         root.start = 0;
         root.end = size;
-        int firstKey = -1;
-        for (int i = 0; i < size; i++) {
-            if (kinds[i] == Kind.KEY) {
-                firstKey = i;
-                break;
-            }
-        }
+        int firstKey = firstKey(kinds);
         int headerEnd = firstKey < 0 ? size : firstKey;
         for (int i = 0; i < headerEnd; i++) {
             if (kinds[i] == Kind.COMMENT && ROOT_MARKER.matcher(lines.get(i)).matches()) {
@@ -251,7 +263,7 @@ public final class YamlOutline {
             Kind kind = kinds[i];
             if (kind == Kind.LIST) {
                 for (Node open : stack) {
-                    if (open.indent <= indents[i]) {
+                    if (open.indent <= c.indents()[i]) {
                         if (!open.isRoot()) {
                             open.listItems = true;
                         }
@@ -280,11 +292,11 @@ public final class YamlOutline {
                     }
                 }
             }
-            while (stack.peek() != root && stack.peek().indent >= indents[i]) {
+            while (stack.peek() != root && stack.peek().indent >= c.indents()[i]) {
                 stack.pop().end = start;
             }
             Node parent = stack.peek();
-            Node node = new Node(keys[i], indents[i], i, values[i], parent);
+            Node node = new Node(c.keys()[i], c.indents()[i], i, c.values()[i], parent);
             node.start = start;
             node.marked = marked;
             parent.children.add(node);
@@ -294,6 +306,15 @@ public final class YamlOutline {
             stack.pop().end = size;
         }
         return root;
+    }
+
+    private static int firstKey(Kind[] kinds) {
+        for (int i = 0; i < kinds.length; i++) {
+            if (kinds[i] == Kind.KEY) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /** All nodes below {@code node} in document order. */

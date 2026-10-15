@@ -24,6 +24,8 @@ import java.util.Locale;
 public final class NumberFormatter {
 
     private static final String[] SUFFIXES = {"", "K", "M", "B", "T", "Qa", "Qi"};
+    /** {@link #SUFFIXES} in upper case, for reading. */
+    private static final String[] SUFFIX_KEYS = upperCase(SUFFIXES);
     private static final BigDecimal THOUSAND = BigDecimal.valueOf(1000L);
 
     private NumberFormatter() {
@@ -111,25 +113,37 @@ public final class NumberFormatter {
             // "NaN", "Infinity", "-Infinity" or a lone suffix.
             return Double.parseDouble(t);
         }
-        int power = 0;
-        if (!suffix.isEmpty()) {
-            power = suffixPower(suffix);
-            if (power < 0) {
-                throw new NumberFormatException("unknown suffix '" + suffix + "' in '" + text + "'");
-            }
+        int power = suffixPower(suffix);
+        if (power < 0) {
+            throw new NumberFormatException("unknown suffix '" + suffix + "' in '" + text + "'");
         }
         double value = Double.parseDouble(separators(number));
         return power == 0 ? value : value * Math.pow(1000, power);
     }
 
-    private static int suffixPower(String suffix) {
+    /**
+     * The power of 1000 a suffix stands for, in any case: 0 for none, 1 to 6 for {@code K} to
+     * {@code Qi}, -1 for an unknown one. Shared with {@link Amounts}.
+     */
+    static int suffixPower(String suffix) {
+        if (suffix.isEmpty()) {
+            return 0;
+        }
         String upper = suffix.toUpperCase(Locale.ROOT);
-        for (int i = 1; i < SUFFIXES.length; i++) {
-            if (SUFFIXES[i].toUpperCase(Locale.ROOT).equals(upper)) {
+        for (int i = 1; i < SUFFIX_KEYS.length; i++) {
+            if (SUFFIX_KEYS[i].equals(upper)) {
                 return i;
             }
         }
         return -1;
+    }
+
+    private static String[] upperCase(String[] words) {
+        String[] out = new String[words.length];
+        for (int i = 0; i < words.length; i++) {
+            out[i] = words[i].toUpperCase(Locale.ROOT);
+        }
+        return out;
     }
 
     private static String separators(String number) {

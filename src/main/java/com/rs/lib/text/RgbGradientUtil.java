@@ -1,6 +1,6 @@
 package com.rs.lib.text;
 
-import java.util.Locale;
+import java.util.HexFormat;
 
 /**
  * The {@code [rgb]} gradient: seven fixed anchor colors interpolated over the visible
@@ -16,6 +16,7 @@ public final class RgbGradientUtil {
 
     /** The anchors, in order: magenta, blue, aqua, green, yellow, orange, red-orange. */
     private static final int[] ANCHORS = {0xF300F3, 0x5555FF, 0x55FFFF, 0x55FF55, 0xFCFF21, 0xFF9B00, 0xFF5327};
+    private static final HexFormat HEX = HexFormat.of().withUpperCase();
 
     private RgbGradientUtil() {
     }
@@ -38,8 +39,8 @@ public final class RgbGradientUtil {
         int n = s.length();
         while (i < n) {
             if (s.charAt(i) == '[') {
-                int open = Markup.bracketAt(s, i, "[rgb]");
-                int close = open > 0 ? 0 : Markup.bracketAt(s, i, "[/rgb]");
+                int open = Markup.bracketAt(s, i, Markup.RGB);
+                int close = open > 0 ? 0 : Markup.bracketAt(s, i, Markup.RGB_CLOSE);
                 if (open > 0 || close > 0) {
                     if (span != null) {
                         span.append(s, segment, i);
@@ -105,7 +106,7 @@ public final class RgbGradientUtil {
                 continue;
             }
             int unit = unitLength(text, i);
-            out.append("&#").append(hex(colorAt(step, total)));
+            appendHex(out.append("&#"), colorAt(step, total));
             for (int k = 0; k < formats.length(); k++) {
                 out.append('&').append(formats.charAt(k));
             }
@@ -139,12 +140,15 @@ public final class RgbGradientUtil {
         return (int) Math.round(a + (b - a) * f);
     }
 
-    private static String hex(int rgb) {
-        return String.format(Locale.ROOT, "%06X", rgb);
+    /** The six upper-case hex digits of {@code rgb}, the same as {@code %06X}. */
+    private static void appendHex(StringBuilder out, int rgb) {
+        HEX.toHexDigits(out, (byte) (rgb >> 16));
+        HEX.toHexDigits(out, (byte) (rgb >> 8));
+        HEX.toHexDigits(out, (byte) rgb);
     }
 
     private static void applyCode(String text, int i, int len, StringBuilder formats) {
-        if (len != 2) {
+        if (len != Markup.CODE_LENGTH) {
             formats.setLength(0);
             return;
         }
@@ -159,7 +163,7 @@ public final class RgbGradientUtil {
     /** One visible unit at {@code i}: an escape pair, a surrogate pair or one character. */
     private static int unitLength(String text, int i) {
         char c = text.charAt(i);
-        if (c == '\\' && i + 1 < text.length() && (text.charAt(i + 1) == '<' || text.charAt(i + 1) == '\\')) {
+        if (Markup.escapeAt(text, i)) {
             return 2;
         }
         if (Character.isHighSurrogate(c) && i + 1 < text.length() && Character.isLowSurrogate(text.charAt(i + 1))) {
@@ -226,8 +230,8 @@ public final class RgbGradientUtil {
                     continue;
                 }
                 char code = Character.toLowerCase(piece.charAt(i + 1));
-                if (len != 2 || Markup.isColorChar(code)) {
-                    color = len == 2 ? "&" + code : "&#" + Markup.hexOf(piece, i, len);
+                if (len != Markup.CODE_LENGTH || Markup.isColorChar(code)) {
+                    color = len == Markup.CODE_LENGTH ? "&" + code : "&#" + Markup.hexOf(piece, i, len);
                     formats.setLength(0);
                 } else if (code == 'r') {
                     color = null;

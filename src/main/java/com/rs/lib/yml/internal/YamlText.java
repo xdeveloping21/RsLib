@@ -3,6 +3,7 @@ package com.rs.lib.yml.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
@@ -11,6 +12,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -98,14 +100,23 @@ public final class YamlText {
         commit(temp, target, text);
     }
 
-    /** Writes {@code text} to a new temporary file next to {@code target}, creating folders. */
+    /**
+     * Writes {@code text} to a new temporary file next to {@code target}, creating folders. The
+     * bytes are forced to the disk before returning, so the move that follows never exposes a
+     * file whose content is still only in the OS cache after a power loss.
+     */
     public static Path writeTemp(Path target, String text) throws IOException {
         Path absolute = target.toAbsolutePath();
         Path dir = absolute.getParent();
         Files.createDirectories(dir);
         Path temp = Files.createTempFile(dir, "." + absolute.getFileName() + ".", ".tmp");
-        try {
-            Files.write(temp, text.getBytes(StandardCharsets.UTF_8));
+        try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            ByteBuffer bytes = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
+            while (bytes.hasRemaining()) {
+                channel.write(bytes);
+            }
+            channel.force(true);
         } catch (IOException | RuntimeException e) {
             Files.deleteIfExists(temp);
             throw e;

@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 
@@ -73,6 +74,13 @@ import com.rs.lib.yml.internal.YamlText;
  * to a temporary file in the same folder that then replaces the file atomically, with
  * {@code '\n'} line endings. {@code save()} is the right call at run time; {@link #flush()} is
  * for shutdown.</p>
+ *
+ * <h2>Threads</h2>
+ * <p>Call {@link #set}, {@link #setComments}, {@link #setInlineComments}, {@link #save()} and
+ * {@link #reload()} on the main thread. Getters may be called from other threads, but only for
+ * a file that is not being changed at the same time (a config read by async tasks is fine; a
+ * data file that the main thread keeps {@code set}ting is not): the getters take no lock, so
+ * they stay cheap enough to call every tick.</p>
  */
 public final class RsYml {
 
@@ -87,19 +95,25 @@ public final class RsYml {
     private final List<Runnable> hooks = new CopyOnWriteArrayList<>();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
     private final Object memoryLock = new Object();
+    // Short swaps of the pending fields only; never held during disk I/O.
     private final Object writeState = new Object();
+    // Held for the sequence check and the move over the file, never by save().
+    private final Object commitLock = new Object();
     private final ReentrantLock ioLock = new ReentrantLock();
 
     private volatile YamlConfiguration config = new YamlConfiguration();
     private volatile Set<String> nullKeys = Set.of();
     private volatile Runnable prepare = () -> { };
+    private volatile boolean invalidReported;
 
     // Guarded by writeState.
     private String pendingText;
     private long pendingSeq;
     private long nextSeq;
-    private long writtenSeq;
     private boolean scheduled;
+
+    // Guarded by commitLock.
+    private long writtenSeq;
 
     RsYml(YmlHost host, File file, String name) {
         this.host = Objects.requireNonNull(host, "host");
@@ -125,6 +139,14 @@ public final class RsYml {
     }
 
     /**
+     * Set by the manager when the reload step already warned that the file is not valid YAML,
+     * so the next {@link #read()} does not warn a second time.
+     */
+    void invalidReported() {
+        this.invalidReported = true;
+    }
+
+    /**
      * Reads the file from disk. Keeps the previous content when the file cannot be read or
      * parsed.
      *
@@ -132,6 +154,8 @@ public final class RsYml {
      */
     boolean read() {
         warned.clear();
+        boolean reported = invalidReported;
+        invalidReported = false;
         Path path = file.toPath();
         if (!Files.exists(path)) {
             replace(new YamlConfiguration(), Set.of());
@@ -152,8 +176,12 @@ public final class RsYml {
         try {
             next.loadFromString(clean);
         } catch (InvalidConfigurationException | RuntimeException e) {
-            host.logger().warning("Could not parse " + name + "; keeping the previous content. "
-                    + firstLine(e.getMessage()));
+            String message = "Could not parse " + name + "; keeping the previous content. " + firstLine(e.getMessage());
+            if (reported) {
+                host.logger().fine(message);
+            } else {
+                host.logger().warning(message);
+            }
             return false;
         }
         replace(next, nullKeys(clean));
@@ -237,52 +265,29 @@ public final class RsYml {
     }
 
     public int getInt(String key, int def) {
-        Object value = config.get(key, null);
-        if (value == null) {
-            return absent(key, def);
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String text) {
-            try {
-                return Integer.parseInt(resolve(key, text, null, null).trim());
-            } catch (NumberFormatException e) {
-                return invalid(key, value, def);
-            }
-        }
-        return invalid(key, value, def);
+        return number(key, def, Number::intValue, Integer::parseInt);
     }
 
     public long getLong(String key, long def) {
-        Object value = config.get(key, null);
-        if (value == null) {
-            return absent(key, def);
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        if (value instanceof String text) {
-            try {
-                return Long.parseLong(resolve(key, text, null, null).trim());
-            } catch (NumberFormatException e) {
-                return invalid(key, value, def);
-            }
-        }
-        return invalid(key, value, def);
+        return number(key, def, Number::longValue, Long::parseLong);
     }
 
     public double getDouble(String key, double def) {
+        return number(key, def, Number::doubleValue, Double::parseDouble);
+    }
+
+    /** A number, or a text that resolves to one through {@code parse}; the default otherwise. */
+    private <T> T number(String key, T def, Function<Number, T> fromNumber, Function<String, T> parse) {
         Object value = config.get(key, null);
         if (value == null) {
             return absent(key, def);
         }
         if (value instanceof Number number) {
-            return number.doubleValue();
+            return fromNumber.apply(number);
         }
         if (value instanceof String text) {
             try {
-                return Double.parseDouble(resolve(key, text, null, null).trim());
+                return parse.apply(resolve(key, text, null, null).trim());
             } catch (NumberFormatException e) {
                 return invalid(key, value, def);
             }
@@ -479,7 +484,11 @@ public final class RsYml {
 
     // ------------------------------------------------------------------ writing
 
-    /** Sets a value in memory; call {@link #save()} to write it. */
+    /**
+     * Sets a value in memory; call {@link #save()} to write it. Call it on the main thread: the
+     * getters read without a lock, so a value set while another thread reads the same file may
+     * be seen half-applied by that thread (see the class description).
+     */
     public void set(String key, Object value) {
         synchronized (memoryLock) {
             config.set(key, value);
@@ -594,6 +603,11 @@ public final class RsYml {
         }
     }
 
+    /**
+     * Takes the pending text (a short hold of {@code writeState}) and writes it. The commit runs
+     * under its own lock, so {@link #save()} on the main thread never waits for the disk; the
+     * sequence check there keeps an older text from replacing a newer one.
+     */
     private void writePending() {
         String text;
         long seq;
@@ -608,7 +622,7 @@ public final class RsYml {
         Path target = file.toPath();
         try {
             Path temp = YamlText.writeTemp(target, text);
-            synchronized (writeState) {
+            synchronized (commitLock) {
                 if (seq <= writtenSeq) {
                     Files.deleteIfExists(temp);
                     return;

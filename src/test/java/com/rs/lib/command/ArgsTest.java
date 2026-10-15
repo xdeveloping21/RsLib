@@ -5,7 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+import java.util.Set;
 
 import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.Test;
@@ -107,5 +112,76 @@ class ArgsTest {
     @Test
     void parseExceptionNeedsAKey() {
         assertThrows(NullPointerException.class, () -> new ArgParseException(null));
+    }
+
+    /** The suggestions as they were made before the bounded heap: filter, sort everything, add until full. */
+    private static List<String> sortEverything(List<String> fixed, Collection<String> all, String typed) {
+        String prefix = typed.toLowerCase(Locale.ROOT);
+        List<String> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (String value : fixed) {
+            addLikeBefore(out, seen, value, prefix);
+        }
+        List<String> matching = new ArrayList<>();
+        for (String option : all) {
+            if (option != null && option.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                matching.add(option);
+            }
+        }
+        matching.sort(String.CASE_INSENSITIVE_ORDER);
+        for (String option : matching) {
+            if (out.size() >= Args.MAX_SUGGESTIONS) {
+                break;
+            }
+            addLikeBefore(out, seen, option, prefix);
+        }
+        return out;
+    }
+
+    private static void addLikeBefore(List<String> out, Set<String> seen, String value, String prefix) {
+        if (value != null && !value.isBlank() && value.toLowerCase(Locale.ROOT).startsWith(prefix)
+                && seen.add(value.toLowerCase(Locale.ROOT))) {
+            out.add(value);
+        }
+    }
+
+    @Test
+    void cappedSuggestionsMatchSortingEverything() {
+        Random random = new Random(42);
+        String letters = "aAbBcCdD";
+        List<String> options = new ArrayList<>();
+        for (int i = 0; i < 20_000; i++) {
+            StringBuilder word = new StringBuilder();
+            int length = 1 + random.nextInt(6);
+            for (int j = 0; j < length; j++) {
+                word.append(letters.charAt(random.nextInt(letters.length())));
+            }
+            options.add(word.toString());
+        }
+        options.add(null);
+        options.add(" ");
+        options.add("");
+        List<String> examples = List.of("Abba", "cab", "d");
+        Args.RsArg<String> arg = new Args.RsArg<>(examples, false, null) {
+            @Override
+            protected String read(CommandSender sender, String raw) {
+                return raw;
+            }
+
+            @Override
+            protected Collection<String> options(CommandSender sender) {
+                return options;
+            }
+        };
+        for (String typed : List.of("", "a", "B", "ab", "CaD", "dddd", "zz")) {
+            assertEquals(sortEverything(examples, options, typed), arg.suggest(SENDER, typed, "x"), typed);
+        }
+        List<String> reversed = new ArrayList<>(options);
+        java.util.Collections.reverse(reversed);
+        options.clear();
+        options.addAll(reversed);
+        for (String typed : List.of("", "a", "Bc")) {
+            assertEquals(sortEverything(examples, options, typed), arg.suggest(SENDER, typed, "x"), typed);
+        }
     }
 }

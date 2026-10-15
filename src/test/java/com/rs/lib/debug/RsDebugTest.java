@@ -116,6 +116,24 @@ class RsDebugTest {
     }
 
     @Test
+    void reloadOfTheConfigAppliesHandEditsAndTogglesKeepThem() throws IOException {
+        Path file = dir.resolve("config.yml");
+        Files.writeString(file, "debug:\n  enabled: false\n  level: DEBUG\n  categories: []\n");
+        FakeHost host = new FakeHost();
+        RsYml config = YmlTestSupport.open(file.toFile(), host);
+        RsDebug debug = new RsDebug("Rs", config, lines::add);
+        assertFalse(debug.enabled());
+        Files.writeString(file, "debug:\n  enabled: true\n  level: TRACE\n  categories:\n  - Shop\n");
+        config.reload();
+        assertTrue(debug.tracing());
+        assertEquals(Set.of("shop"), debug.categories());
+        debug.toggle("db");
+        host.runTasks();
+        assertEquals("debug:\n  enabled: true\n  level: TRACE\n  categories:\n  - db\n  - shop\n",
+                Files.readString(file));
+    }
+
+    @Test
     void failingSupplierDoesNotThrow() {
         RsDebug debug = memory();
         debug.toggle();

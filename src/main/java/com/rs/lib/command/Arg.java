@@ -34,6 +34,11 @@ public interface Arg<T> {
         return suggest(sender, partial);
     }
 
+    /** True to take the rest of the line when it is the last argument of its subcommand. */
+    default boolean greedy() {
+        return false;
+    }
+
     /**
      * The value is not valid: RsLib sends {@code langKey} with {@code phs} and stops the command.
      * Keys can be RsLib's ({@code rslib.invalid-value}) or the plugin's own.

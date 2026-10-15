@@ -31,6 +31,10 @@ import com.rs.lib.yml.internal.YamlText;
  */
 public final class YamlPreprocessor {
 
+    /** Spaces a tab in the indentation is worth, both when repairing and when measuring. */
+    private static final int TAB_WIDTH = 2;
+    private static final String TAB_AS_SPACES = " ".repeat(TAB_WIDTH);
+
     /**
      * The repaired text and the 1-based numbers of the lines that changed.
      *
@@ -107,7 +111,7 @@ public final class YamlPreprocessor {
         return new Result(out.toString(), fixed);
     }
 
-    /** Replaces each tab in the leading whitespace with two spaces. */
+    /** Replaces each tab in the leading whitespace with {@link #TAB_WIDTH} spaces. */
     private static String repairLeading(String line) {
         int end = 0;
         boolean tab = false;
@@ -120,12 +124,12 @@ public final class YamlPreprocessor {
         }
         StringBuilder sb = new StringBuilder(line.length() + 8);
         for (int i = 0; i < end; i++) {
-            sb.append(line.charAt(i) == '\t' ? "  " : " ");
+            sb.append(line.charAt(i) == '\t' ? TAB_AS_SPACES : " ");
         }
         return sb.append(line, end, line.length()).toString();
     }
 
-    /** Indentation width with a tab counted as two spaces. */
+    /** Indentation width with a tab counted as {@link #TAB_WIDTH} spaces. */
     private static int width(String line) {
         int width = 0;
         for (int i = 0; i < line.length(); i++) {
@@ -133,7 +137,7 @@ public final class YamlPreprocessor {
             if (c == ' ') {
                 width++;
             } else if (c == '\t') {
-                width += 2;
+                width += TAB_WIDTH;
             } else {
                 break;
             }

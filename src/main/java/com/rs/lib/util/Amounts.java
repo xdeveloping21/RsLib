@@ -1,7 +1,6 @@
 package com.rs.lib.util;
 
 import java.math.BigDecimal;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -33,7 +32,6 @@ public final class Amounts {
     /** Longest input accepted, after trimming; anything longer is rejected outright. */
     public static final int MAX_LENGTH = 40;
 
-    private static final String[] SUFFIXES = {"K", "M", "B", "T", "QA", "QI"};
     private static final BigDecimal THOUSAND = BigDecimal.valueOf(1_000L);
 
     private Amounts() {
@@ -130,7 +128,7 @@ public final class Amounts {
         while (end > 0 && Character.isLetter(text.charAt(end - 1))) {
             end--;
         }
-        int power = suffixPower(text.substring(end));
+        int power = NumberFormatter.suffixPower(text.substring(end));
         if (power < 0) {
             return Optional.empty();
         }
@@ -152,25 +150,11 @@ public final class Amounts {
         StringBuilder out = new StringBuilder(input.length());
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
-            if (c != ' ' && c != '_' && c != ' ' && c != ' ' && c != '\t') {
+            if (c != ' ' && c != '_' && c != '\u00A0' && c != '\u202F' && c != '\t') {
                 out.append(c);
             }
         }
         return out.toString();
-    }
-
-    /** 0 for no suffix, 1..6 for K..Qi, -1 for an unknown one. */
-    private static int suffixPower(String suffix) {
-        if (suffix.isEmpty()) {
-            return 0;
-        }
-        String upper = suffix.toUpperCase(Locale.ROOT);
-        for (int i = 0; i < SUFFIXES.length; i++) {
-            if (SUFFIXES[i].equals(upper)) {
-                return i + 1;
-            }
-        }
-        return -1;
     }
 
     /**
@@ -198,23 +182,31 @@ public final class Amounts {
             return number;
         }
         if (dots > 0 && commas > 0) {
-            // Both present: the last one is the decimal mark, appears once, and the other groups.
-            char decimal = number.lastIndexOf('.') > number.lastIndexOf(',') ? '.' : ',';
-            char grouping = decimal == '.' ? ',' : '.';
-            if ((decimal == '.' ? dots : commas) != 1) {
-                return null;
-            }
-            int mark = number.indexOf(decimal);
-            String integer = number.substring(0, mark);
-            return grouped(integer, grouping) ? integer.replace(String.valueOf(grouping), "")
-                    + "." + number.substring(mark + 1) : null;
+            return bothMarks(number, dots, commas);
         }
         char sep = dots > 0 ? '.' : ',';
-        int count = Math.max(dots, commas);
-        if (count > 1) {
+        if (Math.max(dots, commas) > 1) {
             // Several of the same mark can only be grouping.
             return grouped(number, sep) ? number.replace(String.valueOf(sep), "") : null;
         }
+        return oneMark(number, sep);
+    }
+
+    /** Both marks present: the last one is the decimal mark, appears once, and the other groups. */
+    private static String bothMarks(String number, int dots, int commas) {
+        char decimal = number.lastIndexOf('.') > number.lastIndexOf(',') ? '.' : ',';
+        char grouping = decimal == '.' ? ',' : '.';
+        if ((decimal == '.' ? dots : commas) != 1) {
+            return null;
+        }
+        int mark = number.indexOf(decimal);
+        String integer = number.substring(0, mark);
+        return grouped(integer, grouping) ? integer.replace(String.valueOf(grouping), "")
+                + "." + number.substring(mark + 1) : null;
+    }
+
+    /** A single mark: a decimal mark, unless it is the ambiguous {@code 1.500} shape. */
+    private static String oneMark(String number, char sep) {
         int mark = number.indexOf(sep);
         String integer = number.substring(0, mark);
         String fraction = number.substring(mark + 1);
@@ -228,15 +220,21 @@ public final class Amounts {
 
     /** True when {@code text} is 1-3 digits followed by groups of exactly 3 digits split by {@code sep}. */
     private static boolean grouped(String text, char sep) {
-        String[] groups = text.split(java.util.regex.Pattern.quote(String.valueOf(sep)), -1);
-        if (groups.length < 2 || groups[0].isEmpty() || groups[0].length() > 3) {
+        int first = text.indexOf(sep);
+        if (first < 1 || first > 3) {
             return false;
         }
-        for (int i = 1; i < groups.length; i++) {
-            if (groups[i].length() != 3) {
+        int start = first + 1;
+        while (true) {
+            int next = text.indexOf(sep, start);
+            int end = next < 0 ? text.length() : next;
+            if (end - start != 3) {
                 return false;
             }
+            if (next < 0) {
+                return true;
+            }
+            start = next + 1;
         }
-        return true;
     }
 }
