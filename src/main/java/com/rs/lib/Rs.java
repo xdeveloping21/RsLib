@@ -10,15 +10,18 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.action.ActionEngine;
+import com.rs.lib.bossbar.BossBarUtil;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
 import com.rs.lib.db.DbConfig;
 import com.rs.lib.db.RsDb;
 import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
+import com.rs.lib.discord.DiscordWebhook;
 import com.rs.lib.economy.EconomyBridge;
 import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.gui.GuiManager;
+import com.rs.lib.hologram.HologramUtil;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemActions;
 import com.rs.lib.item.ItemRegistry;
@@ -53,6 +56,9 @@ public final class Rs {
     private final EconomyBridge economy;
     private final LeaderboardCache leaderboards;
     private final Teleports teleports;
+    private final BossBarUtil bossbars;
+    private final HologramUtil holograms;
+    private final DiscordWebhook discord;
     private final RsDb db;
     private final RsCommands commands;
     private final ReloadManager reload;
@@ -78,6 +84,9 @@ public final class Rs {
         this.cooldowns = new Cooldowns(this);
         this.economy = new EconomyBridge(this);
         this.leaderboards = new LeaderboardCache(this);
+        this.bossbars = new BossBarUtil(this);
+        this.holograms = new HologramUtil(this);
+        this.discord = new DiscordWebhook(this);
         this.db = spec.db() ? new RsDb(this, DbConfig.load(plugin,
                 yml == null ? null : yml.config().getSection("database"))) : null;
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
@@ -173,6 +182,21 @@ public final class Rs {
             throw missing("teleports()", "teleports()");
         }
         return teleports;
+    }
+
+    /** Boss bars by id. */
+    public BossBarUtil bossbars() {
+        return bossbars;
+    }
+
+    /** Text holograms by id (never saved in the world). */
+    public HologramUtil holograms() {
+        return holograms;
+    }
+
+    /** Discord webhook messages, sent in the background. */
+    public DiscordWebhook discord() {
+        return discord;
     }
 
     /** The plugin's database. Needs {@code RsSpec.builder().db()}. */
@@ -305,6 +329,9 @@ public final class Rs {
         step("soft dependencies", () -> SoftDependency.disableAllOf(plugin));
         step("actions", actions::shutdown);
         step("placeholder expansions", papi::shutdown);
+        step("boss bars", bossbars::hideAll);
+        step("holograms", holograms::shutdown);
+        step("Discord queue", discord::drain);
         quitCallbacks.clear();
         RsLib.detach(plugin);
     }
