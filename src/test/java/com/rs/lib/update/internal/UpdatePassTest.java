@@ -84,6 +84,14 @@ class UpdatePassTest {
     }
 
     @Test
+    void downloadAddressIgnoresTheCaseOfTheRepository() throws Exception {
+        for (String repo : List.of("xdeveloping21/Rs-Releases", "xdeveloping21/rs-releases", "XDeveloping21/RS-RELEASES")) {
+            String url = "https://github.com/" + repo + "/releases/download/rslib-1.1.0/RsLib-1.1.0.jar";
+            assertEquals(url, UpdatePass.asset(json(release(assetJson("RsLib-1.1.0.jar", url, DIGEST))), "1.1.0").url());
+        }
+    }
+
+    @Test
     void downloadAddressMustBeWhitelisted() {
         for (String url : List.of(
                 "https://evil.example/xdeveloping21/rs-releases/releases/download/rslib-1.1.0/RsLib-1.1.0.jar",

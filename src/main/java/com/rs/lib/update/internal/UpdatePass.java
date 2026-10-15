@@ -23,10 +23,10 @@ import com.rs.lib.update.Versions;
 public final class UpdatePass {
 
     /** The repository that publishes RsLib's releases. */
-    public static final String RELEASES_REPO = "xdeveloping21/rs-releases";
+    public static final String RELEASES_REPO = "xdeveloping21/Rs-Releases";
     /** RsLib's tags in {@link #RELEASES_REPO}: {@code rslib-<version>}. */
     public static final String TAG_PREFIX = "rslib-";
-    /** Downloads are only accepted from this address. */
+    /** Downloads are only accepted from this address (owner and repository ignore case, like GitHub). */
     static final String DOWNLOAD_PREFIX = "https://github.com/" + RELEASES_REPO + "/releases/download/";
     static final long MAX_BYTES = 64L << 20;
     static final long MIN_BYTES = 16L << 10;
@@ -197,7 +197,7 @@ public final class UpdatePass {
             }
             JsonObject asset = element.getAsJsonObject();
             String url = GitHubClient.string(asset, "browser_download_url");
-            if (url == null || !url.startsWith(DOWNLOAD_PREFIX) || url.contains("..")) {
+            if (url == null || !url.regionMatches(true, 0, DOWNLOAD_PREFIX, 0, DOWNLOAD_PREFIX.length()) || url.contains("..")) {
                 throw new UpdateRefused("the download address of " + expected + " is not under " + DOWNLOAD_PREFIX);
             }
             return new Asset(expected, url, digest(asset, expected));
