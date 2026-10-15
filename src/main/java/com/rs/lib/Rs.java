@@ -172,6 +172,7 @@ public final class Rs {
         }
         step("tasks", scheduler::cancelAll);
         step("soft dependencies", () -> SoftDependency.disableAllOf(plugin));
+        step("placeholder expansions", papi::shutdown);
         quitCallbacks.clear();
         RsLib.detach(plugin);
     }
