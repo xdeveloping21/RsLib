@@ -14,6 +14,12 @@ rslib:
   debug-on: "&aLos mensajes de depuración de {plugin} están activados."
   debug-off: "&eLos mensajes de depuración de {plugin} están desactivados."
   update-available: "&e{plugin} &7tiene una versión nueva: &a{new} &7(instalada &c{current}&7)"
+  input:
+    cancel-hint: "&7Escribe &f{words}&7 para cancelar."
+    cancelled: "&cCancelado."
+    timed-out: "&cTardaste demasiado en responder."
+    too-short: "&cEscribe al menos &f{min}&c caracteres."
+    too-long: "&cEscribe como máximo &f{max}&c caracteres."
   help:
     header: "&6&l{plugin} &8» &7Comandos"
     entry: "[noprefix]&e{usage} &8- &7{description}"

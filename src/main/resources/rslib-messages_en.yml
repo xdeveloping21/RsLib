@@ -14,6 +14,12 @@ rslib:
   debug-on: "&aDebug messages of {plugin} are now on."
   debug-off: "&eDebug messages of {plugin} are now off."
   update-available: "&e{plugin} &7has a new version: &a{new} &7(installed &c{current}&7)"
+  input:
+    cancel-hint: "&7Type &f{words}&7 to cancel."
+    cancelled: "&cCancelled."
+    timed-out: "&cYou took too long to answer."
+    too-short: "&cWrite at least &f{min}&c characters."
+    too-long: "&cWrite at most &f{max}&c characters."
   help:
     header: "&6&l{plugin} &8» &7Commands"
     entry: "[noprefix]&e{usage} &8- &7{description}"
