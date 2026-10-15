@@ -16,6 +16,7 @@ import com.rs.lib.lang.RsLang;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.update.UpdateChecker;
 import com.rs.lib.yml.YmlManager;
 
 /**
@@ -36,6 +37,7 @@ public final class Rs {
     private final RsLang lang;
     private final RsCommands commands;
     private final ReloadManager reload;
+    private final UpdateChecker updates;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -51,6 +53,7 @@ public final class Rs {
         this.lang = spec.lang() ? new RsLang(this, yml == null ? null : yml.config()) : null;
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
         this.reload = new ReloadManager(this);
+        this.updates = new UpdateChecker(this);
     }
 
     public JavaPlugin plugin() {
@@ -97,6 +100,11 @@ public final class Rs {
         return reload;
     }
 
+    /** Update checks; idle unless the spec declares {@code updates(...)} or the plugin calls it. */
+    public UpdateChecker updates() {
+        return updates;
+    }
+
     /** Reloads config, messages, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
@@ -125,6 +133,13 @@ public final class Rs {
         return debug;
     }
 
+    /** Arms the update watch the spec declares; called once the plugin has enabled. */
+    void armUpdates() {
+        if (spec.updatesRepo() != null) {
+            updates.watch(spec.updatesRepo(), spec.updatesTagPrefix());
+        }
+    }
+
     void beginTeardown() {
         shuttingDown = true;
     }
@@ -150,6 +165,7 @@ public final class Rs {
         }
         shutDown = true;
         shuttingDown = true;
+        step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
         if (yml != null) {
             step("pending file writes", yml::flushAll);

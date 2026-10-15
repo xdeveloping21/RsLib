@@ -72,6 +72,7 @@ public abstract class RsPlugin extends JavaPlugin {
         }
         if (isEnabled()) {
             context.commands().applyLang();
+            context.armUpdates();
         }
     }
 

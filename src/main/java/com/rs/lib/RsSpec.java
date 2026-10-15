@@ -12,12 +12,16 @@ public final class RsSpec {
     private final boolean lang;
     private final boolean debugCommand;
     private final boolean commandPriority;
+    private final String updatesRepo;
+    private final String updatesTagPrefix;
 
     private RsSpec(Builder b) {
         this.config = b.config;
         this.lang = b.lang;
         this.debugCommand = b.debugCommand;
         this.commandPriority = b.commandPriority;
+        this.updatesRepo = b.updatesRepo;
+        this.updatesTagPrefix = b.updatesTagPrefix;
     }
 
     public static Builder builder() {
@@ -46,12 +50,24 @@ public final class RsSpec {
         return commandPriority;
     }
 
+    /** GitHub {@code owner/repo} watched for new releases, or null when update checks are off. */
+    public String updatesRepo() {
+        return updatesRepo;
+    }
+
+    /** Tag prefix of the watched releases, or null for the repository's latest release. */
+    public String updatesTagPrefix() {
+        return updatesTagPrefix;
+    }
+
     public static final class Builder {
 
         private String config;
         private boolean lang;
         private boolean debugCommand;
         private boolean commandPriority;
+        private String updatesRepo;
+        private String updatesTagPrefix;
 
         private Builder() {
         }
@@ -83,6 +99,28 @@ public final class RsSpec {
          */
         public Builder commandPriority() {
             this.commandPriority = true;
+            return this;
+        }
+
+        /**
+         * Watches the latest GitHub release of {@code ownerRepo} and tells the owner when it is
+         * newer than the installed version (see {@link com.rs.lib.update.UpdateChecker}). Declare
+         * {@code <plugin>.admin.update} (default op) in plugin.yml.
+         */
+        public Builder updates(String ownerRepo) {
+            return updates(ownerRepo, null);
+        }
+
+        /**
+         * Same as {@link #updates(String)} for a repository shared by several plugins: only tags
+         * starting with {@code tagPrefix} (such as {@code rskills-}) count.
+         */
+        public Builder updates(String ownerRepo, String tagPrefix) {
+            if (ownerRepo == null || ownerRepo.isBlank()) {
+                throw new IllegalArgumentException("update repository is blank");
+            }
+            this.updatesRepo = ownerRepo.trim();
+            this.updatesTagPrefix = tagPrefix == null || tagPrefix.isBlank() ? null : tagPrefix.trim();
             return this;
         }
 

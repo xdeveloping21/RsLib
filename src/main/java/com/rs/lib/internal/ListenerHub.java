@@ -3,6 +3,8 @@ package com.rs.lib.internal;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.PluginEnableEvent;
@@ -13,6 +15,7 @@ import com.rs.lib.RsLib;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.hook.HookListener;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.update.internal.UpdateHub;
 
 /**
  * Registers, once, the listeners every Rs plugin shares. One listener per event serves all
@@ -32,12 +35,29 @@ public final class ListenerHub {
 
     private static final class Shared implements Listener {
 
+        /** Ticks between a join and the update notices, so they are not lost among join messages. */
+        private static final long UPDATE_NOTICE_DELAY = 40L;
+
         private final JavaPlugin rslib;
         private final RsScheduler scheduler;
 
         Shared(JavaPlugin rslib) {
             this.rslib = rslib;
             this.scheduler = new RsScheduler(rslib);
+        }
+
+        /** Pending update notices of every plugin (each checks its own permission). */
+        @EventHandler(priority = EventPriority.MONITOR)
+        public void onJoin(PlayerJoinEvent event) {
+            if (!UpdateHub.hasNotices()) {
+                return;
+            }
+            Player player = event.getPlayer();
+            scheduler.syncLater(UPDATE_NOTICE_DELAY, () -> {
+                if (player.isOnline()) {
+                    UpdateHub.deliver(rslib, player);
+                }
+            });
         }
 
         @EventHandler(priority = EventPriority.HIGHEST)

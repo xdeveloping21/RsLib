@@ -1,0 +1,11 @@
+# RsLib settings.
+
+# RsLib updates itself from its GitHub releases. A new version is downloaded, checked
+# and placed in plugins/; it applies on the next restart.
+auto-update:
+  # Set to false to turn the automatic passes off (/rslib update still works).
+  enabled: true
+  # Hours between passes, from 1 to 168.
+  interval-hours: 12
+  # Never install a new major version (2.x when 1.x is installed) on its own.
+  same-major-only: true

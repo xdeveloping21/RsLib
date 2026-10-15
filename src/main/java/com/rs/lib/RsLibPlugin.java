@@ -2,6 +2,7 @@ package com.rs.lib;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -15,14 +16,18 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.text.RsText;
+import com.rs.lib.update.internal.SelfUpdater;
+import com.rs.lib.update.internal.UpdateHub;
 
 /**
- * The RsLib plugin itself: loads at STARTUP, registers the listeners every Rs plugin shares
- * and offers {@code /rslib}.
+ * The RsLib plugin itself: loads at STARTUP, registers the listeners every Rs plugin shares,
+ * keeps itself up to date ({@link SelfUpdater}) and offers {@code /rslib}.
  */
 public final class RsLibPlugin extends JavaPlugin {
 
     private static volatile RsLibPlugin instance;
+
+    private SelfUpdater selfUpdater;
 
     /** The running RsLib; throws if RsLib is not enabled. */
     public static RsLibPlugin get() {
@@ -54,12 +59,22 @@ public final class RsLibPlugin extends JavaPlugin {
             command.setExecutor(admin);
             command.setTabCompleter(admin);
         }
+        try {
+            selfUpdater = SelfUpdater.start(this);
+        } catch (RuntimeException e) {
+            getLogger().log(Level.WARNING, "Automatic updates could not start", e);
+        }
         getLogger().info("RsLib " + getPluginMeta().getVersion() + " enabled (API level " + RsApi.LEVEL + ").");
     }
 
     @Override
     public void onDisable() {
+        if (selfUpdater != null) {
+            selfUpdater.shutdown();
+            selfUpdater = null;
+        }
         RsLib.shutdownAll();
+        UpdateHub.shutdown();
         RsText.clearCache();
         instance = null;
     }
@@ -98,7 +113,18 @@ public final class RsLibPlugin extends JavaPlugin {
                     sender.sendMessage("RsLib " + getPluginMeta().getVersion() + " (API level " + RsApi.LEVEL
                             + ") on " + RsVersion.describe() + ". Plugins: " + (users.isEmpty() ? "none" : users));
                 }
-                default -> sender.sendMessage("Usage: /" + label + " <version|reload <plugin>>");
+                case "update" -> {
+                    if (!sender.hasPermission(SelfUpdater.PERMISSION)) {
+                        sender.sendMessage("You do not have permission.");
+                        return true;
+                    }
+                    if (selfUpdater == null) {
+                        sender.sendMessage("The RsLib updater is not running.");
+                        return true;
+                    }
+                    selfUpdater.runNow(sender);
+                }
+                default -> sender.sendMessage("Usage: /" + label + " <version|reload <plugin>|update>");
             }
             return true;
         }
@@ -106,7 +132,7 @@ public final class RsLibPlugin extends JavaPlugin {
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             if (args.length == 1) {
-                return filter(List.of("version", "reload"), args[0]);
+                return filter(List.of("version", "reload", "update"), args[0]);
             }
             if (args.length == 2 && args[0].equalsIgnoreCase("reload")) {
                 return filter(RsLib.contexts().stream().map(rs -> rs.plugin().getName()).toList(), args[1]);
