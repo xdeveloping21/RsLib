@@ -36,13 +36,11 @@ class VersionsTest {
     }
 
     @Test
-    void tagsLoseThePrefixAndOneV() {
-        assertEquals("1.4.0", Versions.fromTag("rskills-1.4.0", "rskills-"));
-        assertEquals("1.4.0", Versions.fromTag("rskills-v1.4.0", "rskills-"));
-        assertNull(Versions.fromTag("rskills-vv1.4.0", "rskills-"));
-        assertNull(Versions.fromTag("rsother-1.4.0", "rskills-"));
-        assertNull(Versions.fromTag("rskills-latest", "rskills-"));
-        assertEquals("3.0", Versions.fromTag("v3.0", null));
+    void normalizeAndMajor() {
+        assertEquals("1.4.0", Versions.normalize(" v1.4.0 "));
+        assertEquals("v", Versions.normalize("v"));
+        assertNull(Versions.normalize(null));
+        assertFalse(Versions.isValid("vv1.4.0"));
         assertEquals(2, Versions.major("v2.10.1"));
         assertEquals(-1, Versions.major("x"));
     }

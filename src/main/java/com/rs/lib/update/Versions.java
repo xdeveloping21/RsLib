@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 import com.rs.lib.hook.SemverComparator;
 
 /**
- * Version strings as release tags and plugin metas write them.
+ * Version strings as rsdevelopment.dev and plugin metas write them.
  *
  * <p>A version is accepted when it looks like SemVer: dotted numbers ({@code 1}, {@code 1.2},
  * {@code 1.2.3.4}), an optional pre-release ({@code -beta.2}) and optional build metadata
@@ -67,24 +67,5 @@ public final class Versions {
         } catch (NumberFormatException tooLong) {
             return -1;
         }
-    }
-
-    /**
-     * The version a tag names: without {@code prefix} (when given) and one leading {@code v}.
-     * Null when the tag does not start with the prefix or what is left is not a valid version.
-     */
-    public static String fromTag(String tag, String prefix) {
-        if (tag == null) {
-            return null;
-        }
-        String rest = tag.trim();
-        if (prefix != null && !prefix.isEmpty()) {
-            if (!rest.startsWith(prefix)) {
-                return null;
-            }
-            rest = rest.substring(prefix.length());
-        }
-        String version = normalize(rest);
-        return matches(version) ? version : null;
     }
 }

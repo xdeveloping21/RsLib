@@ -20,7 +20,7 @@ public final class FakeTransport implements HttpTransport {
     private final Map<String, byte[]> files = new ConcurrentHashMap<>();
     public final List<Sent> sent = Collections.synchronizedList(new ArrayList<>());
 
-    /** Answers {@code url} with {@code status} and {@code body}; other URLs get a 404. */
+    /** Answers {@code url} with {@code status} and {@code body}; other URLs get the site's 404. */
     public FakeTransport answer(String url, int status, String body) {
         answers.put(url, new Response(status, body));
         return this;
@@ -47,7 +47,7 @@ public final class FakeTransport implements HttpTransport {
     public Response get(String url, Map<String, String> headers) throws IOException, InterruptedException {
         sent.add(new Sent(url, Map.copyOf(headers)));
         Response answer = answers.get(url);
-        return answer == null ? new Response(404, "{\"message\":\"Not Found\"}") : answer;
+        return answer == null ? new Response(404, "{\"error\":\"unknown product\"}") : answer;
     }
 
     @Override
@@ -64,21 +64,15 @@ public final class FakeTransport implements HttpTransport {
         return bytes.length;
     }
 
-    /** A JSON release list with one entry per tag. */
-    public static String releaseList(List<String> tags) {
-        StringBuilder out = new StringBuilder("[");
-        for (int i = 0; i < tags.size(); i++) {
-            if (i > 0) {
-                out.append(',');
-            }
-            out.append("{\"tag_name\":\"").append(tags.get(i)).append("\",\"html_url\":\"https://github.com/o/r/releases/tag/")
-                    .append(tags.get(i)).append("\",\"body\":\"notes\"}");
-        }
-        return out.append(']').toString();
+    /** The answer of {@code /v1/releases/{product}} for one jar, as the site writes it. */
+    public static String release(String product, String version, String sha256, long size) {
+        return "{\"product\":\"" + product + "\",\"version\":\"" + version + "\",\"sha256\":\"" + sha256
+                + "\",\"size\":" + size + ",\"fileName\":\"" + product + "-" + version
+                + ".jar\",\"uploadedAt\":1760000000000}";
     }
 
-    /** The URL of page {@code page} of the release list of {@code repo}. */
-    public static String pageUrl(String repo, int page) {
-        return GitHubClient.API_ROOT + "/repos/" + repo + "/releases?per_page=100&page=" + page;
+    /** {@link #release(String, String, String, long)} with a placeholder digest and size. */
+    public static String release(String product, String version) {
+        return release(product, version, "ab".repeat(32), 123_456);
     }
 }

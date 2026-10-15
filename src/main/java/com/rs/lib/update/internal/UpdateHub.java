@@ -10,13 +10,15 @@ import java.util.logging.Level;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.RsLibPlugin;
+
 /**
  * What the update checkers of every plugin share: one HTTP client, the release cache and the
  * notices shown to players when they join (delivered by RsLib's shared join listener).
  */
 public final class UpdateHub {
 
-    private static final ReleaseFeed FEED = new ReleaseFeed(System::nanoTime);
+    private static final ReleaseCache CACHE = new ReleaseCache(System::nanoTime);
     private static final Map<Object, Consumer<Player>> NOTICES = new ConcurrentHashMap<>();
     private static JdkTransport transport;
 
@@ -37,13 +39,20 @@ public final class UpdateHub {
     private UpdateHub() {
     }
 
-    public static ReleaseFeed feed() {
-        return FEED;
+    /** What rsdevelopment.dev said about each product in the last five minutes. */
+    public static ReleaseCache cache() {
+        return CACHE;
     }
 
     /** The shared HTTP client of the update checkers; nothing is opened before the first request. */
     public static HttpTransport transport() {
         return SHARED;
+    }
+
+    /** A {@link SiteClient} on the shared HTTP client, sending the version of the running RsLib. */
+    public static SiteClient site() {
+        RsLibPlugin rslib = RsLibPlugin.running();
+        return new SiteClient(SHARED, SiteClient.userAgent(rslib == null ? null : rslib.getPluginMeta().getVersion()));
     }
 
     private static synchronized JdkTransport client() {
@@ -85,7 +94,7 @@ public final class UpdateHub {
                 transport = null;
             }
         }
-        FEED.clear();
+        CACHE.clear();
         NOTICES.clear();
     }
 }

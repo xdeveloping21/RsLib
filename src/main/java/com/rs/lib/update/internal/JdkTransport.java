@@ -16,8 +16,8 @@ import java.util.Map;
 
 /**
  * {@link HttpTransport} on the JDK's {@link HttpClient}: 5 s to connect, 10 s until the
- * response headers arrive, redirects followed (never from https to http). Text bodies are capped
- * at 16 MiB and a download must finish within three minutes.
+ * response headers arrive, redirects never followed (a 3xx is answered as it is). Text bodies are
+ * capped at 16 MiB and a download must finish within three minutes.
  */
 public final class JdkTransport implements HttpTransport {
 
@@ -29,7 +29,7 @@ public final class JdkTransport implements HttpTransport {
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(CONNECT_TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
     @Override

@@ -2,155 +2,192 @@ package com.rs.lib.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
 
 import org.junit.jupiter.api.Test;
 
 import com.rs.lib.Ph;
+import com.rs.lib.RsSpec;
 import com.rs.lib.update.internal.FakeTransport;
-import com.rs.lib.update.internal.GitHubClient;
-import com.rs.lib.update.internal.ReleaseFeed;
+import com.rs.lib.update.internal.ReleaseCache;
+import com.rs.lib.update.internal.SiteClient;
 import com.rs.lib.yml.YmlTestSupport.Captured;
 
 /** {@link UpdateChecker} without a server: one check at a time, against fixtures. */
 class UpdateCheckerTest {
 
-    private static final String REPO = "owner/myplugin";
-    private static final String LATEST = GitHubClient.API_ROOT + "/repos/" + REPO + "/releases/latest";
+    private static final String ID = "myplugin";
+    private static final String URL = "https://rsdevelopment.dev/v1/releases/" + ID;
+    /** Longer than the cache keeps an answer. */
+    private static final long LATER = 6L * 60L * 1_000_000_000L;
 
     private final Captured log = new Captured();
     private final FakeTransport http = new FakeTransport();
-    private final AtomicReference<String> token = new AtomicReference<>();
+    private final AtomicLong now = new AtomicLong();
+    private final ReleaseCache cache = new ReleaseCache(now::get);
+    private final SiteClient site = new SiteClient(http, "RsLib/1.0.0");
     private final AtomicReference<String> installed = new AtomicReference<>("1.2.0");
-    private final UpdateChecker checker = new UpdateChecker(null, "MyPlugin", installed::get, token::get,
-            log.logger, new GitHubClient(http), new ReleaseFeed(System::nanoTime));
+    private final UpdateChecker checker = checker("MyPlugin", log);
 
-    private static String latest(String tag) {
-        return "{\"tag_name\":\"" + tag + "\",\"html_url\":\"https://github.com/" + REPO + "/releases/tag/" + tag
-                + "\",\"assets\":[]}";
+    private UpdateChecker checker(String plugin, Captured logs) {
+        return new UpdateChecker(null, plugin, installed::get, logs.logger, site, cache);
+    }
+
+    /** Publishes {@code version} and lets the cached answer expire. */
+    private void publish(String version) {
+        http.answer(URL, FakeTransport.release(ID, version));
+        now.addAndGet(LATER);
     }
 
     @Test
-    void newerReleaseIsReportedOnceUntilItChanges() {
-        http.answer(LATEST, latest("v1.3.0"));
-        checker.check(REPO, null);
-        checker.check(REPO, null);
+    void newerVersionIsReportedOnceUntilItChanges() {
+        publish("1.3.0");
+        checker.check(ID);
+        now.addAndGet(LATER);
+        checker.check(ID);
         assertEquals(List.of("Version 1.3.0 available, installed 1.2.0."), log.messages(Level.INFO));
-        UpdateChecker.Finding finding = checker.findings().get("owner/myplugin");
-        assertEquals("1.3.0", finding.version());
-        assertEquals("https://github.com/" + REPO + "/releases/tag/v1.3.0", finding.url());
+        assertEquals(new UpdateChecker.Finding(ID, "1.3.0"), checker.findings().get(ID));
 
-        http.answer(LATEST, latest("v1.4.0"));
-        checker.check(REPO, null);
+        publish("1.4.0");
+        checker.check(ID);
         assertEquals(2, log.messages(Level.INFO).size());
-        assertEquals("1.4.0", checker.findings().get("owner/myplugin").version());
+        assertEquals("1.4.0", checker.findings().get(ID).version());
 
+        // Up to date again: the finding goes away without a word.
         installed.set("1.4.0");
-        checker.check(REPO, null);
+        now.addAndGet(LATER);
+        checker.check(ID);
         assertTrue(checker.findings().isEmpty());
         assertEquals(2, log.messages(Level.INFO).size());
     }
 
     @Test
     void sameOrOlderOrUnparsableIsNotReported() {
-        for (String tag : List.of("1.2.0", "v1.1.9", "1.2.0-rc.1", "nightly")) {
-            http.answer(LATEST, latest(tag));
-            checker.check(REPO, null);
+        for (String version : List.of("1.2.0", "1.1.9", "1.2.0-rc.1")) {
+            publish(version);
+            checker.check(ID);
         }
+        installed.set("dev-build");
+        publish("9.0.0");
+        checker.check(ID);
         assertTrue(log.records.isEmpty());
         assertTrue(checker.findings().isEmpty());
     }
 
     @Test
-    void headersAndTokenAreSentButTheTokenIsNeverLogged() {
-        http.answer(LATEST, 500, "boom");
-        token.set("  ghp_secret123 ");
-        checker.check(REPO, null);
+    void requestsGoToTheSiteWithTheRsLibUserAgent() {
+        publish("1.3.0");
+        checker.check(ID);
+        assertEquals(URL, http.sent.get(0).url());
         Map<String, String> headers = http.sent.get(0).headers();
-        assertEquals("application/vnd.github+json", headers.get("Accept"));
-        assertEquals("2022-11-28", headers.get("X-GitHub-Api-Version"));
-        assertEquals("RsLib-UpdateChecker", headers.get("User-Agent"));
-        assertEquals("Bearer ghp_secret123", headers.get("Authorization"));
-        for (LogRecord record : log.records) {
-            assertFalse(record.getMessage().contains("ghp_secret123"), record.getMessage());
-        }
-        // The token is read again on every check: a blank one sends no Authorization.
-        token.set(" ");
-        checker.check(REPO, null);
-        assertFalse(http.sent.get(1).headers().containsKey("Authorization"));
+        assertEquals("RsLib/1.0.0", headers.get("User-Agent"));
+        assertEquals("application/json", headers.get("Accept"));
+        assertFalse(headers.containsKey("Authorization"));
     }
 
     @Test
-    void failuresWarnOncePerRepository() {
-        http.answer(LATEST, 503, "unavailable");
-        checker.check(REPO, null);
-        checker.check(REPO, null);
-        http.answer(LATEST, "{\"name\":\"no tag\"}");
-        checker.check(REPO, null);
+    void failuresWarnOncePerProduct() {
+        // Nothing published: the site's 404.
+        checker.check(ID);
+        http.answer(URL, 503, "unavailable");
+        checker.check(ID);
+        http.answer(URL, "{\"product\":\"myplugin\"");
+        checker.check(ID);
+        http.answer(URL, "{\"product\":\"myplugin\",\"version\":\"nightly\"}");
+        checker.check(ID);
         List<String> warnings = log.warnings();
         assertEquals(1, warnings.size(), warnings.toString());
-        assertTrue(warnings.get(0).contains("HTTP 503"), warnings.get(0));
+        assertTrue(warnings.get(0).contains("HTTP 404") && warnings.get(0).contains("unknown product"),
+                warnings.get(0));
+        assertEquals(4, http.sent.size(), "failures are not cached");
+        assertTrue(checker.findings().isEmpty());
 
-        checker.check("owner/other", null);
+        checker.check("other");
         assertEquals(2, log.warnings().size());
+
+        // A new start warns again.
+        Captured fresh = new Captured();
+        checker("MyPlugin", fresh).check(ID);
+        assertEquals(1, fresh.warnings().size());
     }
 
     @Test
-    void tagPrefixPicksTheHighestOwnTag() {
-        String shared = "owner/shared";
-        http.answer(FakeTransport.pageUrl(shared, 1), FakeTransport.releaseList(
-                List.of("rsother-9.0.0", "rskills-v1.10.0", "rskills-1.9.0", "rskills-2.0.0-beta", "rskills-x")));
-        checker.check(shared, "rskills-");
-        assertEquals("2.0.0-beta", checker.findings().get("owner/shared").version());
-        assertEquals(List.of("Version 2.0.0-beta available, installed 1.2.0."), log.messages(Level.INFO));
-        assertFalse(http.sent.get(0).url().contains("latest"));
+    void cacheIsSharedBetweenPlugins() {
+        String shared = "rsbundle";
+        String url = SiteClient.releaseUrl(shared);
+        http.answer(url, FakeTransport.release(shared, "2.0.0"));
+        Captured otherLog = new Captured();
+        UpdateChecker other = checker("OtherPlugin", otherLog);
+
+        checker.check(shared);
+        other.check(shared);
+        assertEquals(1, http.count(url));
+        assertEquals("2.0.0", checker.findings().get(shared).version());
+        assertEquals("2.0.0", other.findings().get(shared).version());
+        assertEquals(List.of("Version 2.0.0 available, installed 1.2.0."), otherLog.messages(Level.INFO));
+
+        now.addAndGet(LATER);
+        other.check(shared);
+        assertEquals(2, http.count(url));
     }
 
     @Test
-    void tagPrefixWithoutMatchesWarnsAndSaysWhenCapped() {
-        String shared = "owner/shared";
-        http.answer(FakeTransport.pageUrl(shared, 1), FakeTransport.releaseList(List.of("rsother-1.0.0")));
-        checker.check(shared, "rskills-");
-        assertTrue(log.warnings().get(0).contains("'rskills-'"), log.warnings().toString());
-        assertFalse(log.warnings().get(0).contains("page limit"));
-
-        StringBuilder full = new StringBuilder();
-        for (int i = 0; i < 100; i++) {
-            full.append(i == 0 ? "" : ",").append("{\"tag_name\":\"rsother-1.0.").append(i).append("\"}");
-        }
-        for (int page = 1; page <= 10; page++) {
-            http.answer(FakeTransport.pageUrl("owner/big", page), "[" + full + "]");
-        }
-        checker.check("owner/big", "rskills-");
-        assertTrue(log.warnings().get(1).contains("page limit"), log.warnings().toString());
-    }
-
-    @Test
-    void invalidRepositoriesWarnAndDoNothing() {
-        for (String repo : List.of("noslash", "a/b/c", "own er/repo", "owner/..", "../x", "a/b?x=1")) {
-            assertFalse(UpdateChecker.isValidRepo(repo), repo);
-        }
-        assertTrue(UpdateChecker.isValidRepo("Some_Owner/my-repo.java"));
-        checker.watch("not a repo");
+    void productIdsAreValidatedAndTheOwnIdIsThePluginName() {
+        assertEquals("myplugin", checker.ownProductId());
+        checker.watch("rs_kills");
         checker.checkNow("bad/../path");
-        assertEquals(2, log.warnings().size());
+        checker.watch("");
+        checker.checkNow(null);
+        assertEquals(4, log.warnings().size(), log.warnings().toString());
+        assertTrue(log.warnings().get(0).contains("'rs_kills' is not a product id"), log.warnings().get(0));
+
+        Captured underscoreLog = new Captured();
+        UpdateChecker underscore = checker("My_Plugin", underscoreLog);
+        assertEquals("my_plugin", underscore.ownProductId());
+        underscore.watch();
+        underscore.checkNow();
+        assertEquals(2, underscoreLog.warnings().size());
+
+        // Valid ids pass (nothing is scheduled without a context).
+        checker.watch();
+        checker.watch("RsKills");
+        checker.checkNow("rs-kills-2");
+        assertEquals(4, log.warnings().size());
         assertTrue(http.sent.isEmpty());
     }
 
     @Test
+    void specDeclaresTheOwnOrAnotherProduct() {
+        assertFalse(RsSpec.empty().updates());
+        RsSpec own = RsSpec.builder().updates().build();
+        assertTrue(own.updates());
+        assertNull(own.updatesProduct());
+        RsSpec other = RsSpec.builder().updates(" RsKills ").build();
+        assertTrue(other.updates());
+        assertEquals("rskills", other.updatesProduct());
+        for (String bad : List.of("", "rs_kills", "owner/repo", "a".repeat(41))) {
+            assertThrows(IllegalArgumentException.class, () -> RsSpec.builder().updates(bad), bad);
+        }
+        assertThrows(IllegalArgumentException.class, () -> RsSpec.builder().updates(null));
+    }
+
+    @Test
     void shutdownStopsChecksAndForgetsFindings() {
-        http.answer(LATEST, latest("2.0.0"));
-        checker.check(REPO, null);
+        publish("2.0.0");
+        checker.check(ID);
         assertEquals(1, checker.findings().size());
         checker.shutdown();
         assertTrue(checker.findings().isEmpty());
-        checker.check(REPO, null);
+        now.addAndGet(LATER);
+        checker.check(ID);
         assertEquals(1, http.sent.size());
     }
 

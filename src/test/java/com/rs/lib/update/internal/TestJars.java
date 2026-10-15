@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Random;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
@@ -45,5 +48,14 @@ final class TestJars {
     static Path write(Path file, byte[] bytes) throws IOException {
         Files.createDirectories(file.getParent());
         return Files.write(file, bytes);
+    }
+
+    /** The SHA-256 of {@code bytes}, lower-case hex. */
+    static String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

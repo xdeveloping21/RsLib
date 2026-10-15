@@ -2,27 +2,23 @@ package com.rs.lib.update.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-/** {@link UpdatePass}: picking the release asset and whole passes against fixtures. */
+/** {@link UpdatePass}: whole passes against rsdevelopment.dev fixtures. */
 class UpdatePassTest {
 
-    private static final String REPO = UpdatePass.RELEASES_REPO;
+    private static final String RELEASE = SiteClient.BASE_URL + "/v1/releases/rslib";
+    private static final String DOWNLOAD = RELEASE + "/download";
 
     @TempDir
     Path dir;
@@ -42,81 +38,6 @@ class UpdatePassTest {
         }
     };
 
-    private static JsonObject json(String text) {
-        return JsonParser.parseString(text).getAsJsonObject();
-    }
-
-    private static String downloadUrl(String version) {
-        return UpdatePass.DOWNLOAD_PREFIX + "rslib-" + version + "/RsLib-" + version + ".jar";
-    }
-
-    private static String assetJson(String name, String url, String digest) {
-        return "{\"name\":\"" + name + "\",\"browser_download_url\":\"" + url + "\""
-                + (digest == null ? "" : ",\"digest\":\"" + digest + "\"") + "}";
-    }
-
-    private static String release(String... assets) {
-        return "{\"tag_name\":\"rslib-1.1.0\",\"assets\":[" + String.join(",", assets) + "]}";
-    }
-
-    private static final String DIGEST = "sha256:" + "AB".repeat(32);
-
-    // ------------------------------------------------------------------ the asset
-
-    @Test
-    void assetIsTakenFromTheAssetsArray() throws Exception {
-        UpdatePass.Asset asset = UpdatePass.asset(json(release(
-                assetJson("RsLib-1.1.0.jar.sha256", downloadUrl("1.1.0") + ".sha256", DIGEST),
-                assetJson("RsLib-1.1.0.jar", downloadUrl("1.1.0"), DIGEST))), "1.1.0");
-        assertEquals("RsLib-1.1.0.jar", asset.name());
-        assertEquals(downloadUrl("1.1.0"), asset.url());
-        assertEquals("ab".repeat(32), asset.sha256());
-    }
-
-    @Test
-    void assetOutsideTheAssetsArrayIsIgnored() {
-        String sneaky = "{\"tag_name\":\"rslib-1.1.0\",\"name\":\"RsLib-1.1.0.jar\",\"browser_download_url\":\""
-                + downloadUrl("1.1.0") + "\",\"digest\":\"" + DIGEST + "\",\"body\":"
-                + "\"" + "RsLib-1.1.0.jar" + "\",\"assets\":[]}";
-        UpdateRefused refused = assertThrows(UpdateRefused.class, () -> UpdatePass.asset(json(sneaky), "1.1.0"));
-        assertTrue(refused.getMessage().contains("no asset named RsLib-1.1.0.jar"), refused.getMessage());
-        assertThrows(UpdateRefused.class, () -> UpdatePass.asset(json("{\"tag_name\":\"rslib-1.1.0\"}"), "1.1.0"));
-    }
-
-    @Test
-    void downloadAddressIgnoresTheCaseOfTheRepository() throws Exception {
-        for (String repo : List.of("xdeveloping21/Rs-Releases", "xdeveloping21/rs-releases", "XDeveloping21/RS-RELEASES")) {
-            String url = "https://github.com/" + repo + "/releases/download/rslib-1.1.0/RsLib-1.1.0.jar";
-            assertEquals(url, UpdatePass.asset(json(release(assetJson("RsLib-1.1.0.jar", url, DIGEST))), "1.1.0").url());
-        }
-    }
-
-    @Test
-    void downloadAddressMustBeWhitelisted() {
-        for (String url : List.of(
-                "https://evil.example/xdeveloping21/rs-releases/releases/download/rslib-1.1.0/RsLib-1.1.0.jar",
-                "https://github.com/someone/rs-releases/releases/download/rslib-1.1.0/RsLib-1.1.0.jar",
-                "http://github.com/xdeveloping21/rs-releases/releases/download/rslib-1.1.0/RsLib-1.1.0.jar",
-                "https://github.com/xdeveloping21/rs-releases/releases/download/../../../other/RsLib-1.1.0.jar")) {
-            UpdateRefused refused = assertThrows(UpdateRefused.class,
-                    () -> UpdatePass.asset(json(release(assetJson("RsLib-1.1.0.jar", url, DIGEST))), "1.1.0"), url);
-            assertTrue(refused.getMessage().contains("not under"), refused.getMessage());
-        }
-    }
-
-    @Test
-    void missingOrMalformedDigestIsRefused() {
-        UpdateRefused missing = assertThrows(UpdateRefused.class, () -> UpdatePass.asset(
-                json(release(assetJson("RsLib-1.1.0.jar", downloadUrl("1.1.0"), null))), "1.1.0"));
-        assertTrue(missing.getMessage().contains("no SHA-256 digest"), missing.getMessage());
-        assertThrows(UpdateRefused.class, () -> UpdatePass.asset(
-                json(release(assetJson("RsLib-1.1.0.jar", downloadUrl("1.1.0"), "md5:abc"))), "1.1.0"));
-        assertThrows(UpdateRefused.class, () -> UpdatePass.asset(
-                json(release(assetJson("RsLib-1.1.0.jar", downloadUrl("1.1.0"), "sha256:12zz"))), "1.1.0"));
-    }
-
-    // ------------------------------------------------------------------ whole passes
-
     private Path plugins() throws IOException {
         return Files.createDirectories(dir.resolve("plugins"));
     }
@@ -126,30 +47,29 @@ class UpdatePassTest {
                 TestJars.jar(TestJars.rsLibYml(version), 100));
     }
 
+    /** A fresh cache on every pass, so each one reads the fixtures again. */
     private UpdatePass.Env env(String installed, Path codeSource, boolean sameMajorOnly) throws IOException {
         return new UpdatePass.Env(installed, plugins(), codeSource, plugins().resolve("update"), sameMajorOnly,
-                new GitHubClient(http), new ReleaseFeed(System::nanoTime), RsLibJars.DISK);
+                new SiteClient(http, "RsLib/" + installed), new ReleaseCache(System::nanoTime), RsLibJars.DISK);
     }
 
     /** Publishes {@code jar} as RsLib {@code version} with the given digest (null: its real SHA-256). */
-    private void publish(String version, byte[] jar, String digest) {
-        String hex = digest != null ? digest : "sha256:" + HexFormat.of().formatHex(ReleaseFeed.sha256(jar));
-        http.answer(GitHubClient.API_ROOT + "/repos/" + REPO + "/releases/tags/rslib-" + version,
-                release(assetJson("RsLib-" + version + ".jar", downloadUrl(version), hex)));
-        http.file(downloadUrl(version), jar);
+    private void publish(String version, byte[] jar, String sha256) {
+        http.answer(RELEASE, FakeTransport.release("rslib", version,
+                sha256 != null ? sha256 : TestJars.sha256(jar), jar.length));
+        http.file(DOWNLOAD, jar);
     }
 
-    private void tags(String... tags) {
-        http.answer(FakeTransport.pageUrl(REPO, 1), FakeTransport.releaseList(List.of(tags)));
+    private UpdatePass.Outcome pass(String installed, Path old) throws IOException {
+        return UpdatePass.run(env(installed, old, true), reporter);
     }
 
     @Test
-    void newerReleaseIsDownloadedCheckedAndInstalled() throws Exception {
+    void newerVersionIsDownloadedCheckedAndInstalled() throws Exception {
         Path old = installed("1.0.0");
-        tags("rskills-9.0.0", "rslib-1.1.0", "rslib-1.0.0", "rslib-v1.0.5");
         publish("1.1.0", TestJars.jar(TestJars.rsLibYml("1.1.0"), 20_000), null);
 
-        UpdatePass.Outcome outcome = UpdatePass.run(env("1.0.0", old, true), reporter);
+        UpdatePass.Outcome outcome = pass("1.0.0", old);
 
         assertEquals(UpdatePass.Status.INSTALLED, outcome.status(), warnings.toString());
         assertEquals("1.1.0", outcome.version());
@@ -159,46 +79,57 @@ class UpdatePassTest {
         assertFalse(Files.exists(UpdatePass.staging(plugins())), "staging folder left behind");
         assertTrue(warnings.isEmpty(), warnings.toString());
         assertTrue(steps.stream().anyMatch(s -> s.startsWith("SHA-256 checked")), steps.toString());
-        // The download carries no token and no API headers.
-        FakeTransport.Sent download = http.sent.get(http.sent.size() - 1);
-        assertEquals(downloadUrl("1.1.0"), download.url());
+        // One read of the release and one download, both from the fixed addresses.
+        assertEquals(List.of(RELEASE, DOWNLOAD), http.sent.stream().map(FakeTransport.Sent::url).toList());
+        FakeTransport.Sent download = http.sent.get(1);
+        assertEquals("RsLib/1.0.0", download.headers().get("User-Agent"));
+        assertEquals("application/java-archive", download.headers().get("Accept"));
         assertFalse(download.headers().containsKey("Authorization"));
     }
 
     @Test
-    void upToDateMakesNoFurtherRequests() throws Exception {
+    void upToDateOrNewerInstalledMakesNoFurtherRequests() throws Exception {
         Path old = installed("1.1.0");
-        tags("rslib-1.1.0", "rslib-1.0.0");
-        UpdatePass.Outcome outcome = UpdatePass.run(env("1.1.0", old, true), reporter);
-        assertEquals(UpdatePass.Status.UP_TO_DATE, outcome.status());
-        assertEquals(1, http.sent.size());
+        http.answer(RELEASE, FakeTransport.release("rslib", "1.1.0"));
+        UpdatePass.Outcome same = pass("1.1.0", old);
+        assertEquals(UpdatePass.Status.UP_TO_DATE, same.status());
+        assertEquals("1.1.0", same.version());
+
+        http.answer(RELEASE, FakeTransport.release("rslib", "1.0.9"));
+        assertEquals(UpdatePass.Status.UP_TO_DATE, pass("1.1.0", old).status());
+        assertTrue(steps.stream().anyMatch(s -> s.contains("is up to date (rsdevelopment.dev offers 1.0.9)")),
+                steps.toString());
+        assertEquals(0, http.count(DOWNLOAD));
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertTrue(Files.exists(old));
     }
 
     @Test
     void newMajorIsSkippedWhenSameMajorOnly() throws Exception {
         Path old = installed("1.1.0");
-        tags("rslib-2.0.0", "rslib-1.1.0");
-        assertEquals(UpdatePass.Status.SKIPPED, UpdatePass.run(env("1.1.0", old, true), reporter).status());
-        assertEquals(1, http.sent.size());
+        publish("2.0.0", TestJars.jar(TestJars.rsLibYml("2.0.0"), 20_000), null);
+        UpdatePass.Outcome outcome = pass("1.1.0", old);
+        assertEquals(UpdatePass.Status.SKIPPED, outcome.status());
+        assertEquals("2.0.0", outcome.version());
+        assertTrue(steps.stream().anyMatch(s -> s.contains("new major version")), steps.toString());
+        assertEquals(0, http.count(DOWNLOAD));
         assertTrue(Files.exists(old));
     }
 
     @Test
-    void sameMajorUpdateIsInstalledWhenANewMajorExists() throws Exception {
-        Path old = installed("1.0.0");
-        tags("rslib-2.0.0", "rslib-1.2.0", "rslib-1.1.0");
-        publish("1.2.0", TestJars.jar(TestJars.rsLibYml("1.2.0"), 20_000), null);
-        UpdatePass.Outcome outcome = UpdatePass.run(env("1.0.0", old, true), reporter);
+    void newMajorIsInstalledWhenAllowed() throws Exception {
+        Path old = installed("1.1.0");
+        publish("2.0.0", TestJars.jar(TestJars.rsLibYml("2.0.0"), 20_000), null);
+        UpdatePass.Outcome outcome = UpdatePass.run(env("1.1.0", old, false), reporter);
         assertEquals(UpdatePass.Status.INSTALLED, outcome.status(), warnings.toString());
-        assertEquals("1.2.0", outcome.version());
+        assertEquals(plugins().resolve("RsLib-2.0.0.jar"), outcome.jar());
     }
 
     @Test
     void digestMismatchKeepsTheInstalledJar() throws Exception {
         Path old = installed("1.0.0");
-        tags("rslib-1.1.0");
-        publish("1.1.0", TestJars.jar(TestJars.rsLibYml("1.1.0"), 20_000), "sha256:" + "00".repeat(32));
-        UpdatePass.Outcome outcome = UpdatePass.run(env("1.0.0", old, true), reporter);
+        publish("1.1.0", TestJars.jar(TestJars.rsLibYml("1.1.0"), 20_000), "00".repeat(32));
+        UpdatePass.Outcome outcome = pass("1.0.0", old);
         assertEquals(UpdatePass.Status.FAILED, outcome.status());
         assertTrue(warnings.get(0).contains("does not match"), warnings.toString());
         assertTrue(Files.exists(old));
@@ -207,30 +138,57 @@ class UpdatePassTest {
     }
 
     @Test
-    void tooSmallOrWrongVersionIsRefused() throws Exception {
+    void tooSmallWrongSizeOrWrongVersionIsRefused() throws Exception {
         Path old = installed("1.0.0");
-        tags("rslib-1.1.0");
         publish("1.1.0", TestJars.jar(TestJars.rsLibYml("1.1.0"), 10), null);
-        assertEquals(UpdatePass.Status.FAILED, UpdatePass.run(env("1.0.0", old, true), reporter).status());
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
         assertTrue(warnings.get(0).contains("only"), warnings.toString());
 
+        byte[] jar = TestJars.jar(TestJars.rsLibYml("1.1.0"), 20_000);
+        http.answer(RELEASE, FakeTransport.release("rslib", "1.1.0", TestJars.sha256(jar), jar.length + 1));
+        http.file(DOWNLOAD, jar);
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(1).contains("the site announced"), warnings.toString());
+
         publish("1.1.0", TestJars.jar(TestJars.rsLibYml("1.1.1"), 20_000), null);
-        assertEquals(UpdatePass.Status.FAILED, UpdatePass.run(env("1.0.0", old, true), reporter).status());
-        assertTrue(warnings.get(1).contains("'1.1.1'"), warnings.toString());
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(2).contains("'1.1.1'"), warnings.toString());
         assertTrue(Files.exists(old));
         assertFalse(Files.exists(UpdatePass.staging(plugins())));
     }
 
     @Test
-    void missingTagsAndHttpFailuresAreWarnings() throws Exception {
+    void httpFailuresAndMalformedAnswersAreWarnings() throws Exception {
         Path old = installed("1.0.0");
-        tags("rskills-1.0.0");
-        assertEquals(UpdatePass.Status.FAILED, UpdatePass.run(env("1.0.0", old, true), reporter).status());
-        assertTrue(warnings.get(0).startsWith("No release tagged rslib-"), warnings.toString());
+        // Nothing published: the site's 404.
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(0).contains("HTTP 404") && warnings.get(0).contains("unknown product"),
+                warnings.toString());
 
-        http.answer(FakeTransport.pageUrl(REPO, 1), 403, "{\"message\":\"rate limited\"}");
-        assertEquals(UpdatePass.Status.FAILED, UpdatePass.run(env("1.0.0", old, true), reporter).status());
-        assertTrue(warnings.get(1).contains("HTTP 403"), warnings.toString());
+        http.answer(RELEASE, 503, "<html>unavailable</html>");
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(1).contains("HTTP 503"), warnings.toString());
+
+        // A redirect is never followed.
+        http.answer(RELEASE, 302, "");
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(2).contains("HTTP 302"), warnings.toString());
+
+        http.answer(RELEASE, "{\"product\":\"rslib\",\"version\":");
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(3).contains("unreadable JSON"), warnings.toString());
+
+        http.answer(RELEASE, FakeTransport.release("rskills", "9.0.0"));
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(4).contains("'rskills'"), warnings.toString());
+
+        // A version without a download.
+        http.answer(RELEASE, FakeTransport.release("rslib", "1.1.0"));
+        assertEquals(UpdatePass.Status.FAILED, pass("1.0.0", old).status());
+        assertTrue(warnings.get(5).contains("HTTP 404 downloading"), warnings.toString());
+        assertTrue(http.sent.stream().allMatch(s -> s.url().equals(RELEASE) || s.url().equals(DOWNLOAD)));
+        assertTrue(Files.exists(old));
+        assertFalse(Files.exists(UpdatePass.staging(plugins())));
     }
 
     // ------------------------------------------------------------------ settings

@@ -100,7 +100,7 @@ public final class Rs {
         return reload;
     }
 
-    /** Update checks; idle unless the spec declares {@code updates(...)} or the plugin calls it. */
+    /** Update checks; idle unless the spec declares {@code updates()} or the plugin calls it. */
     public UpdateChecker updates() {
         return updates;
     }
@@ -135,8 +135,8 @@ public final class Rs {
 
     /** Arms the update watch the spec declares; called once the plugin has enabled. */
     void armUpdates() {
-        if (spec.updatesRepo() != null) {
-            updates.watch(spec.updatesRepo(), spec.updatesTagPrefix());
+        if (spec.updates()) {
+            updates.watch(spec.updatesProduct() != null ? spec.updatesProduct() : updates.ownProductId());
         }
     }
 

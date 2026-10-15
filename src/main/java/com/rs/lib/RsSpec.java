@@ -1,5 +1,7 @@
 package com.rs.lib;
 
+import com.rs.lib.update.internal.SiteClient;
+
 /**
  * Which modules a plugin uses, declared once in {@link RsPlugin#buildSpec()}.
  *
@@ -12,16 +14,16 @@ public final class RsSpec {
     private final boolean lang;
     private final boolean debugCommand;
     private final boolean commandPriority;
-    private final String updatesRepo;
-    private final String updatesTagPrefix;
+    private final boolean updates;
+    private final String updatesProduct;
 
     private RsSpec(Builder b) {
         this.config = b.config;
         this.lang = b.lang;
         this.debugCommand = b.debugCommand;
         this.commandPriority = b.commandPriority;
-        this.updatesRepo = b.updatesRepo;
-        this.updatesTagPrefix = b.updatesTagPrefix;
+        this.updates = b.updates;
+        this.updatesProduct = b.updatesProduct;
     }
 
     public static Builder builder() {
@@ -50,14 +52,17 @@ public final class RsSpec {
         return commandPriority;
     }
 
-    /** GitHub {@code owner/repo} watched for new releases, or null when update checks are off. */
-    public String updatesRepo() {
-        return updatesRepo;
+    /** True when the plugin watches rsdevelopment.dev for new versions. */
+    public boolean updates() {
+        return updates;
     }
 
-    /** Tag prefix of the watched releases, or null for the repository's latest release. */
-    public String updatesTagPrefix() {
-        return updatesTagPrefix;
+    /**
+     * The product id given to {@link Builder#updates(String)}, or null: the plugin's name in
+     * lower case (or update checks are off).
+     */
+    public String updatesProduct() {
+        return updatesProduct;
     }
 
     public static final class Builder {
@@ -66,8 +71,8 @@ public final class RsSpec {
         private boolean lang;
         private boolean debugCommand;
         private boolean commandPriority;
-        private String updatesRepo;
-        private String updatesTagPrefix;
+        private boolean updates;
+        private String updatesProduct;
 
         private Builder() {
         }
@@ -103,24 +108,29 @@ public final class RsSpec {
         }
 
         /**
-         * Watches the latest GitHub release of {@code ownerRepo} and tells the owner when it is
-         * newer than the installed version (see {@link com.rs.lib.update.UpdateChecker}). Declare
-         * {@code <plugin>.admin.update} (default op) in plugin.yml.
+         * Watches rsdevelopment.dev for a newer version of the product whose id is the plugin's
+         * name in lower case, and tells the owner when there is one (see
+         * {@link com.rs.lib.update.UpdateChecker}). Declare {@code <plugin>.admin.update}
+         * (default op) in plugin.yml.
          */
-        public Builder updates(String ownerRepo) {
-            return updates(ownerRepo, null);
+        public Builder updates() {
+            this.updates = true;
+            this.updatesProduct = null;
+            return this;
         }
 
         /**
-         * Same as {@link #updates(String)} for a repository shared by several plugins: only tags
-         * starting with {@code tagPrefix} (such as {@code rskills-}) count.
+         * Same as {@link #updates()} for a product id that is not the plugin's name: 1 to 40
+         * characters among {@code a-z}, {@code 0-9} and {@code -} (capitals are lowered).
          */
-        public Builder updates(String ownerRepo, String tagPrefix) {
-            if (ownerRepo == null || ownerRepo.isBlank()) {
-                throw new IllegalArgumentException("update repository is blank");
+        public Builder updates(String productId) {
+            String id = SiteClient.normalizeId(productId);
+            if (id == null) {
+                throw new IllegalArgumentException("'" + productId + "' is not a product id"
+                        + " (1 to 40 characters among a-z, 0-9 and -)");
             }
-            this.updatesRepo = ownerRepo.trim();
-            this.updatesTagPrefix = tagPrefix == null || tagPrefix.isBlank() ? null : tagPrefix.trim();
+            this.updates = true;
+            this.updatesProduct = id;
             return this;
         }
 

@@ -1,6 +1,6 @@
 # RsLib settings.
 
-# RsLib updates itself from its GitHub releases. A new version is downloaded, checked
+# RsLib updates itself from rsdevelopment.dev. A new version is downloaded, checked
 # and placed in plugins/; it applies on the next restart.
 auto-update:
   # Set to false to turn the automatic passes off (/rslib update still works).

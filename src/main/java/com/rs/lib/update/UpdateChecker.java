@@ -8,10 +8,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import com.rs.lib.Ph;
@@ -19,27 +17,24 @@ import com.rs.lib.Rs;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
-import com.rs.lib.update.internal.GitHubClient;
-import com.rs.lib.update.internal.Release;
-import com.rs.lib.update.internal.ReleaseFeed;
+import com.rs.lib.update.internal.ReleaseCache;
+import com.rs.lib.update.internal.SiteClient;
 import com.rs.lib.update.internal.UpdateHub;
-import com.rs.lib.yml.YmlManager;
 
 /**
- * Tells the server owner when a newer release of the plugin is on GitHub, reached with
- * {@code rs().updates()}.
+ * Tells the server owner when rsdevelopment.dev offers a newer version of the plugin, reached
+ * with {@code rs().updates()}.
  *
- * <p>Opt-in: {@code RsSpec.builder().updates("owner/repo")} arms a watch when the plugin is
- * enabled; without it nothing is sent anywhere. {@link #watch} checks after one minute and then
- * every six hours; {@link #checkNow} checks once. Both run off the main thread.</p>
+ * <p>Opt-in: {@code RsSpec.builder().updates()} arms a watch when the plugin is enabled; without
+ * it nothing is sent anywhere. {@link #watch} checks after one minute and then every six hours;
+ * {@link #checkNow} checks once. Both run off the main thread.</p>
  *
- * <ul>
- *   <li>Without a tag prefix the repository's latest release is read
- *   ({@code /releases/latest}).</li>
- *   <li>With a tag prefix (one repository shared by several plugins, such as
- *   {@code rskills-1.4.0}) the release list is scanned, the tags starting with the prefix are
- *   kept, the prefix and one leading {@code v} are removed and the highest version wins.</li>
- * </ul>
+ * <p>A product is named by its id on the site: 1 to 40 characters among {@code a-z},
+ * {@code 0-9} and {@code -} (capitals are lowered). {@link #watch()} and {@link #checkNow()}
+ * use the plugin's name in lower case ({@link #ownProductId()}). A check reads
+ * {@code https://rsdevelopment.dev/v1/releases/<id>}, which names the one current version of the
+ * product; the answer is kept five minutes and shared with every plugin (and RsLib's own
+ * updater) that asks for the same product.</p>
  *
  * <p>The version found is compared with the installed one (the plugin meta). When it is newer
  * and was not reported yet, the console gets {@code Version X available, installed Y.} and every
@@ -48,9 +43,9 @@ import com.rs.lib.yml.YmlManager;
  * join. <b>The plugin must declare {@code <plugin>.admin.update} (default op) in its own
  * plugin.yml.</b></p>
  *
- * <p>A token in {@code update-check.token} of the main config, read on every check, is sent as
- * {@code Authorization: Bearer} (raises GitHub's rate limit; never logged). A failed check
- * logs one warning per repository until the plugin is enabled again.</p>
+ * <p>A failed check (no answer, a status other than 200 such as the 404 of a product the site
+ * does not know, or unexpected JSON) logs one warning per product until the plugin is enabled
+ * again.</p>
  */
 public final class UpdateChecker {
 
@@ -60,96 +55,93 @@ public final class UpdateChecker {
     static final long PERIOD_TICKS = 432_000L;
     static final String MESSAGE_KEY = "rslib.update-available";
     static final String DEFAULT_MESSAGE = "&e{plugin} &7has a new version: &a{new} &7(installed &c{current}&7)";
-    static final String TOKEN_SECTION = "update-check";
-    static final String TOKEN_KEY = "token";
-    private static final Pattern REPO = Pattern.compile("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+");
 
     private final Rs rs;
     private final String pluginName;
     private final Supplier<String> installed;
-    private final Supplier<String> token;
     private final Logger logger;
-    private final GitHubClient github;
-    private final ReleaseFeed feed;
+    private final SiteClient site;
+    private final ReleaseCache cache;
     private final Map<String, TaskHandle> timers = new ConcurrentHashMap<>();
     private final Map<String, Finding> findings = new ConcurrentHashMap<>();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
     private volatile boolean stopped;
 
     /**
-     * A newer release found for one repository.
+     * A newer version found for one product.
      *
-     * @param repo    {@code owner/repo}
-     * @param version the newer version, without prefix
-     * @param url     the release page, or null
+     * @param product the product id
+     * @param version the newer version, as the site writes it
      */
-    public record Finding(String repo, String version, String url) {
+    public record Finding(String product, String version) {
     }
 
     public UpdateChecker(Rs rs) {
-        this(rs, rs.plugin().getName(), () -> rs.plugin().getPluginMeta().getVersion(), () -> configToken(rs),
-                rs.plugin().getLogger(), new GitHubClient(UpdateHub.transport()), UpdateHub.feed());
+        this(rs, rs.plugin().getName(), () -> rs.plugin().getPluginMeta().getVersion(), rs.plugin().getLogger(),
+                UpdateHub.site(), UpdateHub.cache());
     }
 
     /** Without a context ({@code rs} null) nothing is scheduled and no player is told: for tests. */
-    UpdateChecker(Rs rs, String pluginName, Supplier<String> installed, Supplier<String> token, Logger logger,
-                  GitHubClient github, ReleaseFeed feed) {
+    UpdateChecker(Rs rs, String pluginName, Supplier<String> installed, Logger logger, SiteClient site,
+                  ReleaseCache cache) {
         this.rs = rs;
         this.pluginName = pluginName;
         this.installed = installed;
-        this.token = token;
         this.logger = logger;
-        this.github = github;
-        this.feed = feed;
+        this.site = site;
+        this.cache = cache;
     }
 
-    /** Checks the latest release of {@code ownerRepo} after one minute and then every six hours. */
-    public void watch(String ownerRepo) {
-        watch(ownerRepo, null);
+    /** The plugin's name in lower case: the product {@link #watch()} and {@link #checkNow()} look at. */
+    public String ownProductId() {
+        return pluginName.toLowerCase(Locale.ROOT);
+    }
+
+    /** Checks the plugin's own product ({@link #ownProductId()}) after one minute and then every six hours. */
+    public void watch() {
+        watch(ownProductId());
     }
 
     /**
-     * Same as {@link #watch(String)} for the tags starting with {@code tagPrefix} (null or empty:
-     * the latest release). Watching the same repository again replaces its timer.
+     * Checks product {@code productId} after one minute and then every six hours. Watching the
+     * same product again replaces its timer.
      */
-    public void watch(String ownerRepo, String tagPrefix) {
-        if (!validRepo(ownerRepo) || rs == null || stopped) {
+    public void watch(String productId) {
+        String id = validId(productId);
+        if (id == null || rs == null || stopped) {
             return;
         }
-        String repo = ownerRepo.trim();
-        String prefix = prefixOf(tagPrefix);
         TaskHandle next;
         try {
-            next = rs.scheduler().timerAsync(FIRST_CHECK_TICKS, PERIOD_TICKS, () -> check(repo, prefix));
+            next = rs.scheduler().timerAsync(FIRST_CHECK_TICKS, PERIOD_TICKS, () -> check(id));
         } catch (RuntimeException disabled) {
             return;
         }
-        TaskHandle old = timers.put(key(repo), next);
+        TaskHandle old = timers.put(id, next);
         if (old != null) {
             old.cancel();
         }
     }
 
-    /** One check of the latest release of {@code ownerRepo}, now, off the main thread. */
-    public void checkNow(String ownerRepo) {
-        checkNow(ownerRepo, null);
+    /** One check of the plugin's own product, now, off the main thread. */
+    public void checkNow() {
+        checkNow(ownProductId());
     }
 
-    /** One check of the tags starting with {@code tagPrefix}, now, off the main thread. */
-    public void checkNow(String ownerRepo, String tagPrefix) {
-        if (!validRepo(ownerRepo) || rs == null || stopped) {
+    /** One check of product {@code productId}, now, off the main thread. */
+    public void checkNow(String productId) {
+        String id = validId(productId);
+        if (id == null || rs == null || stopped) {
             return;
         }
-        String repo = ownerRepo.trim();
-        String prefix = prefixOf(tagPrefix);
         try {
-            rs.scheduler().async(() -> check(repo, prefix));
+            rs.scheduler().async(() -> check(id));
         } catch (RuntimeException disabled) {
             // The plugin is being disabled: no check.
         }
     }
 
-    /** The newer releases found so far, by repository. */
+    /** The newer versions found so far, by product id. */
     public Map<String, Finding> findings() {
         return Map.copyOf(findings);
     }
@@ -165,55 +157,38 @@ public final class UpdateChecker {
 
     // ------------------------------------------------------------------ one check
 
-    /** One check, on the calling thread. */
-    void check(String repo, String prefix) {
+    /** One check of a valid product id, on the calling thread. */
+    void check(String id) {
         if (stopping()) {
             return;
         }
-        String version;
-        String url;
+        SiteClient.Info info;
         try {
-            if (prefix == null) {
-                Release latest = github.latest(repo, token.get());
-                version = Versions.normalize(latest.tag());
-                url = latest.url();
-            } else {
-                ReleaseFeed.Scan scan = feed.scan(github, repo, token.get());
-                ReleaseFeed.Pick pick = ReleaseFeed.highest(scan.releases(), prefix);
-                if (pick == null) {
-                    warnOnce(repo, "No release of " + repo + " has a tag starting with '" + prefix + "'"
-                            + (scan.capped() ? " (the scan stopped after " + scan.releases().size()
-                            + " releases, the page limit)" : "") + ".");
-                    return;
-                }
-                version = pick.version();
-                url = pick.release().url();
-            }
+            info = cache.get(site, id);
         } catch (IOException e) {
-            warnOnce(repo, "Could not check " + repo + " for updates: " + e.getMessage());
+            warnOnce(id, "Could not check " + id + " for updates: " + e.getMessage());
             return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return;
         }
-        evaluate(repo, version, url);
+        evaluate(id, info.version());
     }
 
-    /** Stores, replaces or clears the finding of {@code repo}; reports only what is new. */
-    synchronized void evaluate(String repo, String version, String url) {
+    /** Stores, replaces or clears the finding of {@code product}; reports only what is new. */
+    synchronized void evaluate(String product, String version) {
         if (stopping()) {
             return;
         }
         String current = installed.get();
-        String key = key(repo);
         if (!Versions.isNewer(version, current)) {
-            if (findings.remove(key) != null) {
+            if (findings.remove(product) != null) {
                 refreshNotice();
             }
             return;
         }
-        Finding finding = new Finding(repo, version, url);
-        Finding old = findings.put(key, finding);
+        Finding finding = new Finding(product, version);
+        Finding old = findings.put(product, finding);
         refreshNotice();
         if (old != null && old.version().equals(version)) {
             return;
@@ -282,46 +257,19 @@ public final class UpdateChecker {
         return stopped || (rs != null && rs.isShuttingDown());
     }
 
-    private void warnOnce(String repo, String message) {
-        if (warned.add(key(repo))) {
-            logger.warning(message + " Further failures for " + repo + " are not logged until the next start.");
+    private void warnOnce(String id, String message) {
+        if (warned.add(id)) {
+            logger.warning(message + " Further failures for " + id + " are not logged until the next start.");
         }
     }
 
-    private boolean validRepo(String ownerRepo) {
-        if (isValidRepo(ownerRepo)) {
-            return true;
+    /** {@code productId} in lower case, or null after a warning when it is not a product id. */
+    private String validId(String productId) {
+        String id = SiteClient.normalizeId(productId);
+        if (id == null) {
+            logger.warning("Update check skipped: '" + productId + "' is not a product id of rsdevelopment.dev"
+                    + " (1 to 40 characters among a-z, 0-9 and -).");
         }
-        logger.warning("Update check skipped: '" + ownerRepo + "' is not a GitHub repository like owner/repo.");
-        return false;
-    }
-
-    /** True for {@code owner/repo} made of letters, digits, {@code _ . -} (not {@code .} or {@code ..}). */
-    static boolean isValidRepo(String ownerRepo) {
-        if (ownerRepo == null || !REPO.matcher(ownerRepo.trim()).matches()) {
-            return false;
-        }
-        for (String part : ownerRepo.trim().split("/")) {
-            if (part.equals(".") || part.equals("..")) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static String prefixOf(String tagPrefix) {
-        return tagPrefix == null || tagPrefix.isBlank() ? null : tagPrefix.trim();
-    }
-
-    private static String key(String repo) {
-        return repo.toLowerCase(Locale.ROOT);
-    }
-
-    /** {@code update-check.token} of the main config, raw (never resolved nor logged); null when blank. */
-    private static String configToken(Rs rs) {
-        YmlManager yml = rs.ymlOrNull();
-        ConfigurationSection section = yml == null ? null : yml.config().getSection(TOKEN_SECTION);
-        Object value = section == null ? null : section.get(TOKEN_KEY);
-        return value instanceof String text && !text.isBlank() ? text.trim() : null;
+        return id;
     }
 }

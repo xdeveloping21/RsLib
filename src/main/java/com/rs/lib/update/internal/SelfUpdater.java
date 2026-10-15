@@ -21,8 +21,8 @@ import com.rs.lib.text.RsText;
 import com.rs.lib.yml.YamlUpdater;
 
 /**
- * Keeps RsLib itself up to date from {@link UpdatePass#RELEASES_REPO}, as {@code auto-update}
- * in RsLib's config.yml says.
+ * Keeps RsLib itself up to date from rsdevelopment.dev ({@link UpdatePass}), as
+ * {@code auto-update} in RsLib's config.yml says.
  *
  * <p>The first pass runs two minutes after RsLib is enabled, then every
  * {@code interval-hours} (1 to 168), off the main thread and never two at once. A new jar is
@@ -45,7 +45,7 @@ public final class SelfUpdater {
     private final Logger logger;
     private final RsScheduler scheduler;
     private final JdkTransport transport = new JdkTransport();
-    private final GitHubClient github = new GitHubClient(transport);
+    private final SiteClient site;
     private final AtomicBoolean running = new AtomicBoolean();
     private volatile TaskHandle timer;
     private volatile String pending;
@@ -74,6 +74,7 @@ public final class SelfUpdater {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.scheduler = new RsScheduler(plugin);
+        this.site = new SiteClient(transport, SiteClient.userAgent(plugin.getPluginMeta().getVersion()));
     }
 
     /** Seeds RsLib's config, cleans leftovers of an earlier pass and arms the timer. */
@@ -132,7 +133,7 @@ public final class SelfUpdater {
                 return;
             }
             UpdatePass.Env env = new UpdatePass.Env(plugin.getPluginMeta().getVersion(), pluginsDir(), codeSource(),
-                    Bukkit.getUpdateFolderFile().toPath(), settings.sameMajorOnly(), github, UpdateHub.feed(),
+                    Bukkit.getUpdateFolderFile().toPath(), settings.sameMajorOnly(), site, UpdateHub.cache(),
                     RsLibJars.DISK);
             UpdatePass.Outcome outcome = UpdatePass.run(env, reporter(sender));
             if (outcome.status() == UpdatePass.Status.INSTALLED || outcome.status() == UpdatePass.Status.DEFERRED) {

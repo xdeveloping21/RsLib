@@ -10,14 +10,15 @@ import java.util.Map;
  */
 public interface HttpTransport {
 
-    /** A GET answered with any status; the body is read as UTF-8 text. */
+    /** A GET answered with any status (redirects are not followed); the body is read as UTF-8 text. */
     Response get(String url, Map<String, String> headers) throws IOException, InterruptedException;
 
     /**
-     * Downloads {@code url} into {@code target} (replacing it), following redirects.
+     * Downloads {@code url} into {@code target} (replacing it); redirects are not followed.
      *
      * @return the number of bytes written
-     * @throws IOException on a status other than 200, or when the body exceeds {@code maxBytes}
+     * @throws IOException on a status other than 200 (a redirect included), or when the body
+     *                     exceeds {@code maxBytes}
      */
     long download(String url, Map<String, String> headers, Path target, long maxBytes)
             throws IOException, InterruptedException;
