@@ -12,7 +12,9 @@ package com.rs.lib;
  *
  * <ul>
  *     <li>1 (1.0.0): core (plugin base, context, placeholders, text, YAML files, messages,
- *     debug, reload, scheduler, soft dependencies, version checks) and commands.</li>
+ *     debug, reload, scheduler, soft dependencies, version checks), commands, update checks,
+ *     database (SQLite/MySQL, schemas, upserts, migrations, player caches), cooldowns,
+ *     PlaceholderAPI expansions, cron expressions and the util classes.</li>
  * </ul>
  */
 public final class RsApi {

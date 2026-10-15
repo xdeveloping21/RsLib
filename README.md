@@ -1,6 +1,6 @@
 # RsLib
 
-Librería base de los plugins Rs de RsDevelopment para Paper 1.20.4 a 1.21.x (Java 21).
+Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
 RsLib es un plugin que se instala en el servidor (`plugins/RsLib-<versión>.jar`) y que los
 plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
@@ -11,7 +11,14 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Texto con códigos `&`, hexadecimal, MiniMessage y las etiquetas `[center]`, `[rgb]` y `[small]`.
 - Comandos con subcomandos, argumentos tipados, autocompletado, ayuda, alias desde el config y
   prioridad sobre otros plugins.
-- Tareas, depuración, recarga y PlaceholderAPI opcional.
+- Tareas, depuración, recarga y PlaceholderAPI opcional, con expansiones propias.
+- Base de datos SQLite o MySQL (`rs().db()`): tablas, upserts, migraciones versionadas y caché
+  por jugador.
+- Cooldowns en memoria o guardados en la base de datos.
+- Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
+  inventario, ubicaciones y experiencia.
+- Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se
+  actualiza sola (`auto-update` en su config.yml).
 
 ## Compilar
 
