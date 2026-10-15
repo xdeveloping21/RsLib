@@ -20,6 +20,10 @@ rslib:
     timed-out: "&cTardaste demasiado en responder."
     too-short: "&cEscribe al menos &f{min}&c caracteres."
     too-long: "&cEscribe como máximo &f{max}&c caracteres."
+  teleport:
+    warmup: "&7Teletransportando en &e{time}&7. No te muevas."
+    cancelled-move: "&cTeletransporte cancelado: te moviste."
+    cancelled-damage: "&cTeletransporte cancelado: recibiste daño."
   help:
     header: "&6&l{plugin} &8» &7Comandos"
     entry: "[noprefix]&e{usage} &8- &7{description}"

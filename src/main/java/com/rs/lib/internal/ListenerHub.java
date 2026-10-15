@@ -19,6 +19,7 @@ import com.rs.lib.hook.HookListener;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.internal.UpdateHub;
 
 /**
@@ -40,6 +41,7 @@ public final class ListenerHub {
         pm.registerEvents(ItemRegistry.sharedListener(), rslib);
         pm.registerEvents(GuiManager.sharedListener(), rslib);
         pm.registerEvents(GuiManager.protectionListener(), rslib);
+        pm.registerEvents(Teleports.sharedListener(), rslib);
     }
 
     private static final class Shared implements Listener {

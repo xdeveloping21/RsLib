@@ -19,6 +19,7 @@ public final class RsSpec {
     private final String updatesProduct;
     private final String items;
     private final boolean guis;
+    private final boolean teleports;
 
     private RsSpec(Builder b) {
         this.config = b.config;
@@ -30,6 +31,7 @@ public final class RsSpec {
         this.updatesProduct = b.updatesProduct;
         this.items = b.items;
         this.guis = b.guis;
+        this.teleports = b.teleports;
     }
 
     public static Builder builder() {
@@ -86,6 +88,11 @@ public final class RsSpec {
         return guis;
     }
 
+    /** True when the plugin uses teleports with a wait ({@code rs().teleports()}). */
+    public boolean teleports() {
+        return teleports;
+    }
+
     public static final class Builder {
 
         private String config;
@@ -97,6 +104,7 @@ public final class RsSpec {
         private String updatesProduct;
         private String items;
         private boolean guis;
+        private boolean teleports;
 
         private Builder() {
         }
@@ -187,6 +195,12 @@ public final class RsSpec {
          */
         public Builder guis() {
             this.guis = true;
+            return this;
+        }
+
+        /** Teleports with a wait, cancelled by moving or damage ({@code rs().teleports()}). */
+        public Builder teleports() {
+            this.teleports = true;
             return this;
         }
 
