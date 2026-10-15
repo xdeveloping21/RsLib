@@ -82,4 +82,37 @@ public final class MiPlugin extends RsPlugin {
 }
 ```
 
+## En Velocity
+
+El mismo `RsLib-<versión>.jar` es también un plugin de Velocity 3.4 (id `rslib`; pensado también para
+Velocity-CTD). En el proxy solo se carga `com.rs.lib.velocity` con el texto y la fusión de
+YAML, nunca una clase de Bukkit. Un plugin de proxy depende de `rslib` y usa `Rsv`: su
+`config.yml` se crea desde el jar y se le añaden las claves que falten, sin tocar lo demás ni
+los comentarios; tiene tareas (`scheduler()`), comandos (`command(...)`) y `color(...)`. No hay
+mensajería entre servidores.
+
+```java
+@Plugin(id = "miproxy", dependencies = @Dependency(id = "rslib"))
+public final class MiProxy {
+
+    private final ProxyServer proxy;
+    private final Logger logger;
+    private final Path dataDir;
+    private Rsv rsv;
+
+    @Inject
+    public MiProxy(ProxyServer proxy, Logger logger, @DataDirectory Path dataDir) {
+        this.proxy = proxy;
+        this.logger = logger;
+        this.dataDir = dataDir;
+    }
+
+    @Subscribe
+    public void onInit(ProxyInitializeEvent event) {
+        rsv = Rsv.create(this, proxy, logger, dataDir);
+        rsv.command("hub", new HubCommand(rsv), "lobby");
+    }
+}
+```
+
 Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev
