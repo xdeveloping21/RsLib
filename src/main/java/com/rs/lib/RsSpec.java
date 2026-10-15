@@ -14,6 +14,7 @@ public final class RsSpec {
     private final boolean lang;
     private final boolean debugCommand;
     private final boolean commandPriority;
+    private final boolean db;
     private final boolean updates;
     private final String updatesProduct;
 
@@ -22,6 +23,7 @@ public final class RsSpec {
         this.lang = b.lang;
         this.debugCommand = b.debugCommand;
         this.commandPriority = b.commandPriority;
+        this.db = b.db;
         this.updates = b.updates;
         this.updatesProduct = b.updatesProduct;
     }
@@ -52,6 +54,11 @@ public final class RsSpec {
         return commandPriority;
     }
 
+    /** Whether the plugin uses a database ({@code rs().db()}). */
+    public boolean db() {
+        return db;
+    }
+
     /** True when the plugin watches rsdevelopment.dev for new versions. */
     public boolean updates() {
         return updates;
@@ -71,6 +78,7 @@ public final class RsSpec {
         private boolean lang;
         private boolean debugCommand;
         private boolean commandPriority;
+        private boolean db;
         private boolean updates;
         private String updatesProduct;
 
@@ -104,6 +112,15 @@ public final class RsSpec {
          */
         public Builder commandPriority() {
             this.commandPriority = true;
+            return this;
+        }
+
+        /**
+         * A SQLite or MySQL database ({@code rs().db()}), configured by the {@code database:}
+         * section of the main config; without that section, SQLite in {@code database.db}.
+         */
+        public Builder db() {
+            this.db = true;
             return this;
         }
 
