@@ -1,4 +1,4 @@
-# RsLib 1.1.0
+# RsLib 1.2.0
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -40,7 +40,9 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
   inventario, ubicaciones y experiencia.
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se
-  actualiza sola (`auto-update` en su config.yml). Su propia depuración se activa con `debug`
+  actualiza sola (`auto-update` en su config.yml); además avisa en la consola y a quien tenga
+  `rslib.admin.update` (también al entrar) cuando sale una versión nueva, aunque la
+  actualización automática esté apagada. Su propia depuración se activa con `debug`
   en ese mismo archivo o con `/rslib debug`, y `update-configs: false` deja de agregar claves
   nuevas a los .yml de todos los plugins (solo las informa en la consola).
 
@@ -57,7 +59,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -133,6 +135,11 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
+- **1.2.0:** `/rslib integrations` (los plugins opcionales que usan RsLib y cada plugin
+  hecho con ella, y si están activos), `/rslib iteminfo` (los datos persistentes del ítem en la
+  mano), aviso de versión nueva de RsLib en la consola y al entrar sin usar `/rslib update`, y
+  versión y nivel de API en el manifiesto del jar (`RsLib-Version`, `RsLib-Api-Level`).
+  Permisos nuevos `rslib.admin.integrations` y `rslib.admin.iteminfo`. Nivel de API 2.
 - **1.1.0:** regiones con varita de selección (`rs().selections()`, textos y valores como
   SnLib), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib

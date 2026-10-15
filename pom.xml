@@ -6,7 +6,7 @@
 
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <packaging>jar</packaging>
 
     <name>RsLib</name>
@@ -23,6 +23,8 @@
         <mysql-connector.version>8.4.0</mysql-connector.version>
         <velocity.version>3.4.0</velocity.version>
         <snakeyaml.version>2.3</snakeyaml.version>
+        <!-- Must equal RsApi.LEVEL (RsApiTest checks it); goes into the jar's manifest. -->
+        <rslib.api-level>2</rslib.api-level>
     </properties>
 
     <repositories>
@@ -221,6 +223,8 @@
                     <archive>
                         <manifestEntries>
                             <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+                            <RsLib-Version>${project.version}</RsLib-Version>
+                            <RsLib-Api-Level>${rslib.api-level}</RsLib-Api-Level>
                         </manifestEntries>
                     </archive>
                 </configuration>

@@ -1,6 +1,7 @@
 package com.rs.lib;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -11,11 +12,16 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.debug.RsDebug;
+import com.rs.lib.hook.SoftDependency;
+import com.rs.lib.internal.AdminInfo;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.text.RsText;
@@ -71,7 +77,9 @@ public final class RsLibPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         try {
-            own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).build());
+            // updates(): "RsLib has a new version" one minute after start and every six hours,
+            // even with auto-update off; the self-updater's pass comes after it.
+            own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).updates().build());
             RsYml config = own.yml().config();
             applyMergeSwitch(config);
             config.onReload(() -> applyMergeSwitch(config));
@@ -96,6 +104,9 @@ public final class RsLibPlugin extends JavaPlugin {
             selfUpdater = SelfUpdater.start(this);
         } catch (RuntimeException e) {
             getLogger().log(Level.WARNING, "Automatic updates could not start", e);
+        }
+        if (own != null) {
+            own.armUpdates();
         }
         getLogger().info("RsLib " + getPluginMeta().getVersion() + " enabled (API level " + RsApi.LEVEL + ").");
     }
@@ -128,6 +139,8 @@ public final class RsLibPlugin extends JavaPlugin {
         YamlUpdater.setMergeEnabled(true, null);
         instance = null;
     }
+
+    private static final String USAGE = "<version|reload [plugin]|update|debug|integrations|iteminfo>";
 
     private final class AdminCommand implements TabExecutor {
 
@@ -191,7 +204,32 @@ public final class RsLibPlugin extends JavaPlugin {
                     }
                     sender.sendMessage("RsLib debug: " + (debug.toggle() ? "ON" : "OFF"));
                 }
-                default -> sender.sendMessage("Usage: /" + label + " <version|reload [plugin]|update|debug>");
+                case "integrations" -> {
+                    if (!sender.hasPermission("rslib.admin.integrations")) {
+                        sender.sendMessage("You do not have permission.");
+                        return true;
+                    }
+                    AdminInfo.integrations(hooks()).forEach(sender::sendMessage);
+                }
+                case "iteminfo" -> {
+                    if (!sender.hasPermission("rslib.admin.iteminfo")) {
+                        sender.sendMessage("You do not have permission.");
+                        return true;
+                    }
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage("Only a player can use this.");
+                        return true;
+                    }
+                    ItemStack item = player.getInventory().getItemInMainHand();
+                    if (item.getType().isAir()) {
+                        sender.sendMessage("Hold an item in your main hand.");
+                        return true;
+                    }
+                    ItemMeta meta = item.getItemMeta();
+                    AdminInfo.itemInfo(item.getType().name(), item.getAmount(),
+                            meta == null ? null : meta.getPersistentDataContainer()).forEach(sender::sendMessage);
+                }
+                default -> sender.sendMessage("Usage: /" + label + " " + USAGE);
             }
             return true;
         }
@@ -199,12 +237,26 @@ public final class RsLibPlugin extends JavaPlugin {
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             if (args.length == 1) {
-                return filter(List.of("version", "reload", "update", "debug"), args[0]);
+                return filter(List.of("version", "reload", "update", "debug", "integrations", "iteminfo"), args[0]);
             }
             if (args.length == 2 && args[0].equalsIgnoreCase("reload")) {
                 return filter(RsLib.contexts().stream().map(rs -> rs.plugin().getName()).toList(), args[1]);
             }
             return List.of();
+        }
+
+        /** RsLib's own optional plugins first, then every live hook of the plugins built on RsLib. */
+        private List<AdminInfo.Hook> hooks() {
+            List<AdminInfo.Hook> hooks = new ArrayList<>();
+            for (String target : List.of("PlaceholderAPI", "Vault")) {
+                hooks.add(AdminInfo.ownHook(getName(), target, Bukkit.getPluginManager().getPlugin(target)));
+            }
+            SoftDependency.forEachRegistered(dep -> {
+                Plugin target = Bukkit.getPluginManager().getPlugin(dep.pluginName());
+                String version = target == null ? null : target.getPluginMeta().getVersion();
+                hooks.add(new AdminInfo.Hook(dep.owner().getName(), dep.pluginName(), version, dep.isAvailable()));
+            });
+            return hooks;
         }
 
         private List<String> filter(List<String> options, String typed) {

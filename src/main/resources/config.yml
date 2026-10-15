@@ -17,7 +17,8 @@ debug:
 # RsLib updates itself from rsdevelopment.dev. A new version is downloaded, checked
 # and placed in plugins/; it applies on the next restart.
 auto-update:
-  # Set to false to turn the automatic passes off (/rslib update still works).
+  # Set to false to turn the automatic passes off (/rslib update still works). Either way,
+  # the console and players with rslib.admin.update are told when a new version is out.
   enabled: true
   # Hours between passes, from 1 to 168.
   interval-hours: 12

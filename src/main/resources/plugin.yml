@@ -10,7 +10,7 @@ softdepend: [PlaceholderAPI, Vault]
 commands:
   rslib:
     description: RsLib administration.
-    usage: /rslib <version|reload [plugin]|update|debug>
+    usage: /rslib <version|reload [plugin]|update|debug|integrations|iteminfo>
 permissions:
   rslib.admin:
     description: Every RsLib administration command.
@@ -20,6 +20,8 @@ permissions:
       rslib.admin.version: true
       rslib.admin.update: true
       rslib.admin.debug: true
+      rslib.admin.integrations: true
+      rslib.admin.iteminfo: true
   rslib.admin.reload:
     description: Reload RsLib's config.yml, or a plugin built on RsLib.
     default: op
@@ -31,4 +33,10 @@ permissions:
     default: op
   rslib.admin.debug:
     description: Switch RsLib's own debug output on and off.
+    default: op
+  rslib.admin.integrations:
+    description: See which optional plugins RsLib and each plugin built on it are hooked into.
+    default: op
+  rslib.admin.iteminfo:
+    description: See the persistent data of the item in your main hand.
     default: op
