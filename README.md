@@ -122,3 +122,11 @@ public final class MiProxy {
 ```
 
 Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev
+
+## Ofuscar un plugin que usa RsLib
+
+`docs/rslib-consumer-rules.pro` tiene las reglas de ProGuard que un plugin ofuscado necesita
+para seguir funcionando con RsLib: conserva los métodos que RsLib llama por nombre
+(`requiredApiLevel`, `buildSpec`, `onPreEnable`, `onInnerEnable`, `onInnerDisable`), los
+`@EventHandler`, los eventos, los enums que se leen por nombre, el paquete `.api` y lo que
+Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
