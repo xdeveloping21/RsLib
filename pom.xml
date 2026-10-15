@@ -67,6 +67,14 @@
             </exclusions>
         </dependency>
 
+        <!-- Las anotaciones que usa la API de Paper; sin ellas javac avisa de ApiStatus.Obsolete. -->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.0.1</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- Base de datos: van dentro del jar (ver maven-shade-plugin). Paper ya trae SLF4J. -->
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -109,6 +117,13 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Solo en las pruebas: evita el aviso "No SLF4J providers were found" de HikariCP. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <version>2.0.16</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -146,6 +161,11 @@
                 <version>3.2.5</version>
                 <configuration>
                     <!-- Las pruebas comprueban que RsLib funciona sin Vault instalado. -->
+                    <!-- sqlite-jdbc carga su librería nativa; así Java 24+ no avisa. -->
+                    <argLine>--enable-native-access=ALL-UNNAMED</argLine>
+                    <systemPropertyVariables>
+                        <java.util.logging.config.file>${project.basedir}/src/test/resources/logging.properties</java.util.logging.config.file>
+                    </systemPropertyVariables>
                     <classpathDependencyExcludes>
                         <classpathDependencyExclude>com.github.MilkBowl:VaultAPI</classpathDependencyExclude>
                     </classpathDependencyExcludes>

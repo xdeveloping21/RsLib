@@ -23,9 +23,14 @@ public final class RsVersion {
     private static final boolean FOLIA;
 
     static {
-        int[] parsed = parse(safeBukkitVersion());
+        String version = safeBukkitVersion();
+        int[] parsed = parse(version);
         if (parsed == null) {
-            Logger.getLogger("RsLib").warning("Could not read the server version; assuming 1.21.8.");
+            // Without a server (unit tests) there is nothing to read and nothing to warn about.
+            if (version != null) {
+                Logger.getLogger("RsLib").warning("Could not read the server version '" + version
+                        + "'; assuming 1.21.8.");
+            }
             parsed = new int[] {1, 21, 8};
         }
         MAJOR = parsed[0];
