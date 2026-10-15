@@ -21,6 +21,9 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Listas de acciones (`[message]`, `[console]`, `[open]`, `[next-page]`, ...) y de requisitos
   (`rs().actions()`), con acciones propias del plugin.
 - Preguntas por chat con tiempo límite y cancelación (`rs().inputs()`).
+- Copias del estado de un jugador en disco (`rs().snapshots()`): inventario, cofre de ender,
+  vida, experiencia, efectos, modo de juego y ubicación, para modo staff o arenas; sobreviven a
+  un reinicio o una caída y nunca se aplican dos veces.
 - Menús desde `guis/*.yml` (`RsSpec.guis()`, `rs().guis()`): un inventario por jugador,
   plantillas, regiones, paginación con flechas, ofertas de ítems del jugador y protección
   contra robo de los ítems del menú.

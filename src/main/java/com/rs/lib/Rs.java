@@ -27,6 +27,7 @@ import com.rs.lib.leaderboard.LeaderboardCache;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.snapshot.Snapshots;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.UpdateChecker;
 import com.rs.lib.yml.YmlManager;
@@ -57,6 +58,7 @@ public final class Rs {
     private final ReloadManager reload;
     private final UpdateChecker updates;
     private final Inputs inputs;
+    private final Snapshots snapshots;
     private final ItemRegistry items;
     private final GuiManager guis;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
@@ -91,6 +93,7 @@ public final class Rs {
             }
         }
         this.teleports = spec.teleports() ? new Teleports(this) : null;
+        this.snapshots = new Snapshots(this);
         this.inputs = new Inputs(this);
         this.guis = spec.guis() ? new GuiManager(this) : null;
         if (guis != null) {
@@ -142,6 +145,11 @@ public final class Rs {
     /** Questions asked in chat. */
     public Inputs inputs() {
         return inputs;
+    }
+
+    /** Player snapshots kept on disk ({@code plugins/<Plugin>/snapshots}). */
+    public Snapshots snapshots() {
+        return snapshots;
     }
 
     /** Cooldowns per category and player. */
@@ -284,6 +292,7 @@ public final class Rs {
             step("teleports", teleports::shutdown);
         }
         step("leaderboards", leaderboards::shutdown);
+        step("snapshots", snapshots::shutdown);
         step("tasks", scheduler::cancelAll);
         step("pending main-thread results", () -> MainHops.release(plugin));
         if (db != null) {
