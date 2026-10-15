@@ -18,7 +18,9 @@ package com.rs.lib;
  *     builder, appearance blocks, registered physical items with recipes and death rules,
  *     serialization), action lists and requirement lists, questions asked in chat, and menus
  *     ({@code rs().guis()}: {@code guis/*.yml}, sessions, templates, regions, pages, item offers
- *     and anti-theft).</li>
+ *     and anti-theft); money ({@code rs().economy()}: Vault, console commands or the plugin's
+ *     own backend), cached leaderboards, teleports with a wait, player snapshots on disk, boss
+ *     bars, text holograms and Discord webhooks.</li>
  * </ul>
  */
 public final class RsApi {

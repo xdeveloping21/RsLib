@@ -21,6 +21,9 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Listas de acciones (`[message]`, `[console]`, `[open]`, `[next-page]`, ...) y de requisitos
   (`rs().actions()`), con acciones propias del plugin.
 - Preguntas por chat con tiempo límite y cancelación (`rs().inputs()`).
+- Dinero por Vault, comandos de consola o un sistema propio del plugin (`rs().economy()`),
+  tops que se actualizan en segundo plano (`rs().leaderboards()`) y teletransportes con espera
+  que se cancelan al moverse o recibir daño (`RsSpec.teleports()`, `rs().teleports()`).
 - Copias del estado de un jugador en disco (`rs().snapshots()`): inventario, cofre de ender,
   vida, experiencia, efectos, modo de juego y ubicación, para modo staff o arenas; sobreviven a
   un reinicio o una caída y nunca se aplican dos veces.
