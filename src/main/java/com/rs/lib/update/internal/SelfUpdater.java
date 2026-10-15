@@ -29,8 +29,10 @@ import com.rs.lib.yml.YamlUpdater;
  * <p>The first pass runs two minutes after RsLib is enabled, then every
  * {@code interval-hours} (1 to 168), off the main thread and never two at once. A new jar is
  * only placed on disk: it applies on the next restart, which the console and every online player
- * with {@value #PERMISSION} are told (players also when they join). {@code /rslib update} forces
- * a pass and reports each step to whoever ran it.</p>
+ * with {@value #PERMISSION} are told (players also when they join). A new major version is only
+ * reported in the console while {@code same-major-only} is true. {@code /rslib update} shows the
+ * updater's state and forces a pass, whose result goes to whoever ran it (refused while
+ * {@code enabled} is false); the single steps go to RsLib's debug output, category {@code update}.</p>
  */
 public final class SelfUpdater {
 
@@ -42,7 +44,8 @@ public final class SelfUpdater {
     static final long TICKS_PER_HOUR = 60L * 60L * 20L;
     static final int MIN_HOURS = 1;
     static final int MAX_HOURS = 168;
-    private static final String INSTALLED_MESSAGE = "&eRsLib &a{version} &7was installed; it applies on the next restart.";
+    private static final String INSTALLED_MESSAGE =
+            "&eRsLib &a{version} &7installed on disk; restart the server to activate it (running &c{current}&7).";
     private static final String TAG = "[RsLib update] ";
 
     private final JavaPlugin plugin;
@@ -52,7 +55,9 @@ public final class SelfUpdater {
     private final SiteClient site;
     private final AtomicBoolean running = new AtomicBoolean();
     private volatile TaskHandle timer;
+    private volatile int armedHours;
     private volatile String pending;
+    private volatile String latestSeen;
     private volatile boolean stopped;
 
     /**
@@ -94,12 +99,57 @@ public final class SelfUpdater {
         if (!settings.enabled()) {
             logger.info("Automatic updates are off (auto-update.enabled in config.yml).");
         }
-        timer = scheduler.timerAsync(FIRST_PASS_TICKS, settings.intervalHours() * TICKS_PER_HOUR, () -> run(null));
+        armedHours = settings.intervalHours();
+        timer = scheduler.timerAsync(FIRST_PASS_TICKS, armedHours * TICKS_PER_HOUR, () -> run(null));
     }
 
-    /** Forces a pass now, off the main thread, reporting every step to {@code sender}. */
+    /**
+     * After {@code /rslib reload}: a changed {@code interval-hours} arms the timer again (the
+     * next pass comes one new interval later). {@code enabled} and {@code same-major-only} are
+     * read on every pass anyway.
+     */
+    public void reload() {
+        if (stopped) {
+            return;
+        }
+        int hours = settings().intervalHours();
+        if (hours == armedHours) {
+            return;
+        }
+        TaskHandle old = timer;
+        if (old != null) {
+            old.cancel();
+        }
+        armedHours = hours;
+        try {
+            timer = scheduler.timerAsync(hours * TICKS_PER_HOUR, hours * TICKS_PER_HOUR, () -> run(null));
+        } catch (RuntimeException disabled) {
+            // RsLib is being disabled.
+        }
+    }
+
+    /**
+     * {@code /rslib update}: the updater's state, then a pass now, off the main thread, whose
+     * result goes to {@code sender}. Refused while {@code auto-update.enabled} is false.
+     */
     public void runNow(CommandSender sender) {
-        sender.sendMessage("Checking for RsLib updates...");
+        Settings settings = settings();
+        sender.sendMessage("RsLib auto-update: " + (settings.enabled()
+                ? "enabled (every " + settings.intervalHours() + "h)" : "disabled"));
+        sender.sendMessage("Installed: " + plugin.getPluginMeta().getVersion());
+        String seen = latestSeen;
+        if (seen != null) {
+            sender.sendMessage("Latest seen: " + seen);
+        }
+        String waiting = pending;
+        if (waiting != null) {
+            sender.sendMessage("Pending restart: " + waiting + " is already on disk and activates on the next restart.");
+        }
+        if (!settings.enabled()) {
+            sender.sendMessage("RsLib auto-update is disabled in config.yml.");
+            return;
+        }
+        sender.sendMessage("Checking rsdevelopment.dev for a newer RsLib...");
         try {
             scheduler.async(() -> run(sender));
         } catch (RuntimeException disabled) {
@@ -123,7 +173,7 @@ public final class SelfUpdater {
             return;
         }
         Settings settings = settings();
-        if (sender == null && !settings.enabled()) {
+        if (!settings.enabled()) {
             return;
         }
         if (!running.compareAndSet(false, true)) {
@@ -133,13 +183,16 @@ public final class SelfUpdater {
         try {
             if (pending != null) {
                 RsLibJars.cleanStaging(UpdatePass.staging(pluginsDir()));
-                tell(sender, "RsLib " + pending + " is already installed; restart the server to use it.");
+                tell(sender, "RsLib " + pending + " is already installed on disk; restart the server to activate it.");
                 return;
             }
             UpdatePass.Env env = new UpdatePass.Env(plugin.getPluginMeta().getVersion(), pluginsDir(), codeSource(),
                     Bukkit.getUpdateFolderFile().toPath(), settings.sameMajorOnly(), site, UpdateHub.cache(),
                     RsLibJars.DISK);
             UpdatePass.Outcome outcome = UpdatePass.run(env, reporter(sender));
+            if (outcome.version() != null) {
+                latestSeen = outcome.version();
+            }
             if (outcome.status() == UpdatePass.Status.INSTALLED || outcome.status() == UpdatePass.Status.DEFERRED) {
                 installed(outcome.version());
             }
@@ -152,7 +205,23 @@ public final class SelfUpdater {
         return new UpdatePass.Reporter() {
             @Override
             public void step(String message) {
+                tell(null, message);
+            }
+
+            @Override
+            public void result(String message) {
                 tell(sender, message);
+            }
+
+            @Override
+            public void notice(String message) {
+                if (stopped) {
+                    return;
+                }
+                logger.info(TAG + message);
+                if (sender != null && !(sender instanceof ConsoleCommandSender)) {
+                    sender.sendMessage(message);
+                }
             }
 
             @Override
@@ -171,7 +240,8 @@ public final class SelfUpdater {
     /** The new version is on disk: console, online admins and, from now on, admins who join. */
     private void installed(String version) {
         pending = version;
-        logger.info(TAG + "RsLib " + version + " was installed; it applies on the next restart.");
+        logger.info("RsLib " + version + " installed on disk; restart the server to activate it (running "
+                + plugin.getPluginMeta().getVersion() + ").");
         UpdateHub.putNotice(this, this::notifyIfAllowed);
         try {
             scheduler.sync(() -> Bukkit.getOnlinePlayers().forEach(this::notifyIfAllowed));
@@ -183,14 +253,15 @@ public final class SelfUpdater {
     private void notifyIfAllowed(Player player) {
         String version = pending;
         if (version != null && !stopped && player.hasPermission(PERMISSION)) {
-            player.sendMessage(RsText.color(INSTALLED_MESSAGE.replace("{version}", RsText.literal(version))));
+            player.sendMessage(RsText.color(INSTALLED_MESSAGE.replace("{version}", RsText.literal(version))
+                    .replace("{current}", RsText.literal(plugin.getPluginMeta().getVersion()))));
         }
     }
 
-    /** A step goes to whoever forced the pass; on an automatic pass, to RsLib's debug output. */
+    /** A line goes to whoever forced the pass; the steps and automatic passes, to RsLib's debug output. */
     private static void tell(CommandSender sender, String message) {
         if (sender != null) {
-            sender.sendMessage(TAG + message);
+            sender.sendMessage(message);
             return;
         }
         RsDebug debug = RsLibPlugin.libDebug();

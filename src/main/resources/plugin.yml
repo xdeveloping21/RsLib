@@ -10,33 +10,37 @@ softdepend: [PlaceholderAPI, Vault]
 commands:
   rslib:
     description: RsLib administration.
-    usage: /rslib <version|reload [plugin]|update|debug|integrations|iteminfo>
+    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|debug|help>
 permissions:
+  # Grants the first six subcommands. rslib.admin.debug is not a child: grant it apart.
   rslib.admin:
-    description: Every RsLib administration command.
+    description: Grants every RsLib admin subcommand except debug.
     default: op
     children:
-      rslib.admin.reload: true
       rslib.admin.version: true
-      rslib.admin.update: true
-      rslib.admin.debug: true
+      rslib.admin.plugins: true
       rslib.admin.integrations: true
       rslib.admin.iteminfo: true
-  rslib.admin.reload:
-    description: Reload RsLib's config.yml, or a plugin built on RsLib.
-    default: op
+      rslib.admin.update: true
+      rslib.admin.reload: true
   rslib.admin.version:
-    description: See the RsLib version and the plugins using it.
+    description: Allows /rslib version.
     default: op
-  rslib.admin.update:
-    description: Run an RsLib update pass now and be told when a new RsLib was installed.
-    default: op
-  rslib.admin.debug:
-    description: Switch RsLib's own debug output on and off.
+  rslib.admin.plugins:
+    description: Allows /rslib plugins.
     default: op
   rslib.admin.integrations:
-    description: See which optional plugins RsLib and each plugin built on it are hooked into.
+    description: Allows /rslib integrations.
     default: op
   rslib.admin.iteminfo:
-    description: See the persistent data of the item in your main hand.
+    description: Allows /rslib iteminfo.
+    default: op
+  rslib.admin.update:
+    description: Allows /rslib update and receives RsLib update notices.
+    default: op
+  rslib.admin.reload:
+    description: Allows /rslib reload.
+    default: op
+  rslib.admin.debug:
+    description: Allows /rslib debug.
     default: op

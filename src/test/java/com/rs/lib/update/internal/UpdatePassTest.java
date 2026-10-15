@@ -79,6 +79,8 @@ class UpdatePassTest {
         assertFalse(Files.exists(UpdatePass.staging(plugins())), "staging folder left behind");
         assertTrue(warnings.isEmpty(), warnings.toString());
         assertTrue(steps.stream().anyMatch(s -> s.startsWith("SHA-256 checked")), steps.toString());
+        assertTrue(steps.stream().anyMatch(s -> s.endsWith("installed on disk. Restart the server to activate it.")),
+                steps.toString());
         // One read of the release and one download, both from the fixed addresses.
         assertEquals(List.of(RELEASE, DOWNLOAD), http.sent.stream().map(FakeTransport.Sent::url).toList());
         FakeTransport.Sent download = http.sent.get(1);
@@ -99,6 +101,7 @@ class UpdatePassTest {
         assertEquals(UpdatePass.Status.UP_TO_DATE, pass("1.1.0", old).status());
         assertTrue(steps.stream().anyMatch(s -> s.contains("is up to date (rsdevelopment.dev offers 1.0.9)")),
                 steps.toString());
+        assertTrue(steps.contains("RsLib is up to date (1.1.0)."), steps.toString());
         assertEquals(0, http.count(DOWNLOAD));
         assertTrue(warnings.isEmpty(), warnings.toString());
         assertTrue(Files.exists(old));

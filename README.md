@@ -135,11 +135,16 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
-- **1.2.0:** `/rslib integrations` (los plugins opcionales que usan RsLib y cada plugin
-  hecho con ella, y si están activos), `/rslib iteminfo` (los datos persistentes del ítem en la
-  mano), aviso de versión nueva de RsLib en la consola y al entrar sin usar `/rslib update`, y
-  versión y nivel de API en el manifiesto del jar (`RsLib-Version`, `RsLib-Api-Level`).
-  Permisos nuevos `rslib.admin.integrations` y `rslib.admin.iteminfo`. Nivel de API 2.
+- **1.2.0:** `/rslib` igual al `/snlib` documentado: subcomandos `plugins`, `integrations`
+  (los enganches opcionales de cada plugin, activos o no), `iteminfo` (las etiquetas PDC del ítem
+  en la mano) y `help`, con los textos de SnLib en `version`, `reload` y `debug`; sin argumento
+  muestra la ayuda. `/rslib update` muestra el estado del actualizador y no revisa si
+  `auto-update.enabled` es false. Aviso de versión nueva de RsLib en la consola y al entrar,
+  sin usar `/rslib update`; una versión mayor nueva se informa en la consola. Al recargar, un
+  `interval-hours` distinto rearma el temporizador. Versión y nivel de API en el manifiesto del
+  jar (`RsLib-Version`, `RsLib-Api-Level`). Permisos nuevos `rslib.admin.plugins`,
+  `rslib.admin.integrations` y `rslib.admin.iteminfo`; `rslib.admin` ya no incluye
+  `rslib.admin.debug`, que se da aparte, como en SnLib. Nivel de API 2.
 - **1.1.0:** regiones con varita de selección (`rs().selections()`, textos y valores como
   SnLib), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib

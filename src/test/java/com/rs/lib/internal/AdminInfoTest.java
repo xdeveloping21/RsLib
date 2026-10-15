@@ -1,7 +1,6 @@
 package com.rs.lib.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
 import java.util.LinkedHashMap;
@@ -13,7 +12,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.Test;
 
-/** The text of /rslib integrations and /rslib iteminfo. */
+/** The text of /rslib plugins, integrations and iteminfo, as SnLib's /snlib shows it. */
 class AdminInfoTest {
 
     private record Stored(PersistentDataType<?, ?> type, Object value) {
@@ -40,65 +39,45 @@ class AdminInfoTest {
     }
 
     @Test
-    void itemInfoListsEveryKeyWithItsType() {
-        Map<NamespacedKey, Stored> inner = new LinkedHashMap<>();
-        inner.put(new NamespacedKey("rsgifts", "count"), new Stored(PersistentDataType.INTEGER, 3));
+    void itemInfoShowsStringTagsAndMarksTheRest() {
         Map<NamespacedKey, Stored> data = new LinkedHashMap<>();
-        data.put(new NamespacedKey("rskits", "id"), new Stored(PersistentDataType.STRING, "starter"));
+        data.put(new NamespacedKey("rskits", "snlib_item_id"), new Stored(PersistentDataType.STRING, "starter"));
         data.put(new NamespacedKey("rskits", "uses"), new Stored(PersistentDataType.LONG, 7L));
-        data.put(new NamespacedKey("rsgifts", "box"), new Stored(PersistentDataType.TAG_CONTAINER, container(inner)));
-        data.put(new NamespacedKey("rskits", "raw"), new Stored(PersistentDataType.BYTE_ARRAY, new byte[5]));
-        List<String> lines = AdminInfo.itemInfo("DIAMOND", 2, container(data));
+        data.put(new NamespacedKey("rsgifts", "box"), new Stored(PersistentDataType.TAG_CONTAINER, container(Map.of())));
         assertEquals(List.of(
-                "Item: DIAMOND x2",
-                " Persistent data:",
-                "  rsgifts:box (container):",
-                "    rsgifts:count = 3 (int)",
-                "  rskits:id = \"starter\" (string)",
-                "  rskits:raw = 5 bytes (byte[])",
-                "  rskits:uses = 7 (long)"), lines);
+                "PDC tags of DIAMOND (3):",
+                "- rsgifts:box = <non-string tag>",
+                "- rskits:snlib_item_id = starter",
+                "- rskits:uses = <non-string tag>"), AdminInfo.itemInfo("DIAMOND", container(data)));
     }
 
     @Test
-    void itemInfoWithoutDataSaysSo() {
-        assertEquals(List.of("Item: STONE x1", " No persistent data."), AdminInfo.itemInfo("STONE", 1, null));
-        assertEquals(List.of("Item: STONE x1", " No persistent data."),
-                AdminInfo.itemInfo("STONE", 1, container(Map.of())));
+    void itemInfoWithoutTags() {
+        assertEquals(List.of("PDC tags of STONE (0):"), AdminInfo.itemInfo("STONE", null));
+        assertEquals(List.of("PDC tags of STONE (0):"), AdminInfo.itemInfo("STONE", container(Map.of())));
     }
 
     @Test
-    void longValuesAreCut() {
-        String shown = AdminInfo.format("x".repeat(500));
-        assertEquals(AdminInfo.MAX_VALUE + 3, shown.length());
-        assertTrue(shown.endsWith("..."));
-    }
-
-    @Test
-    void deepContainersStopOpening() {
-        Map<NamespacedKey, Stored> level = new LinkedHashMap<>();
-        level.put(new NamespacedKey("a", "leaf"), new Stored(PersistentDataType.BYTE, (byte) 1));
-        for (int i = 0; i < AdminInfo.MAX_DEPTH + 2; i++) {
-            Map<NamespacedKey, Stored> outer = new LinkedHashMap<>();
-            outer.put(new NamespacedKey("a", "n" + i), new Stored(PersistentDataType.TAG_CONTAINER, container(level)));
-            level = outer;
-        }
-        List<String> lines = AdminInfo.itemInfo("CHEST", 1, container(level));
-        assertTrue(lines.stream().anyMatch(l -> l.endsWith("{1 keys} (container)")), lines.toString());
-        assertTrue(lines.size() <= 2 + AdminInfo.MAX_DEPTH, lines.toString());
-    }
-
-    @Test
-    void integrationsGroupByPlugin() {
-        List<String> lines = AdminInfo.integrations(List.of(
-                new AdminInfo.Hook("RsLib", "PlaceholderAPI", "2.11.6", true),
-                new AdminInfo.Hook("RsLib", "Vault", null, false),
-                new AdminInfo.Hook("RsKills", "Vault", null, false),
-                new AdminInfo.Hook("RsGifts", "PlaceholderAPI", "2.11.6", false)));
+    void pluginsAreSortedByName() {
         assertEquals(List.of(
-                "Integrations:",
-                " RsLib: PlaceholderAPI 2.11.6 on, Vault not installed",
-                " RsKills: Vault not installed",
-                " RsGifts: PlaceholderAPI 2.11.6 off"), lines);
-        assertEquals(List.of("Integrations:", " none"), AdminInfo.integrations(List.of()));
+                "Consumers hooked to RsLib (2):",
+                "- RsFlyBoostLimit v1.2.0",
+                "- rsKills v1.1.0"), AdminInfo.plugins(List.of(
+                        new AdminInfo.Consumer("rsKills", "1.1.0"),
+                        new AdminInfo.Consumer("RsFlyBoostLimit", "1.2.0"))));
+        assertEquals(List.of("No consumers are hooked to RsLib."), AdminInfo.plugins(List.of()));
+    }
+
+    @Test
+    void integrationsListEveryHookWithItsState() {
+        assertEquals(List.of(
+                "Registered integrations (3):",
+                "- RsGifts -> PlaceholderAPI: inactive",
+                "- RsKills -> PlaceholderAPI: active",
+                "- RsKills -> Vault: inactive"), AdminInfo.integrations(List.of(
+                        new AdminInfo.Hook("RsKills", "Vault", false),
+                        new AdminInfo.Hook("RsKills", "PlaceholderAPI", true),
+                        new AdminInfo.Hook("RsGifts", "PlaceholderAPI", false))));
+        assertEquals(List.of("Registered integrations (0):"), AdminInfo.integrations(List.of()));
     }
 }

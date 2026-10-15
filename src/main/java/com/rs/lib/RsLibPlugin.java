@@ -2,10 +2,12 @@ package com.rs.lib;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -82,7 +84,12 @@ public final class RsLibPlugin extends JavaPlugin {
             own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).updates().build());
             RsYml config = own.yml().config();
             applyMergeSwitch(config);
-            config.onReload(() -> applyMergeSwitch(config));
+            config.onReload(() -> {
+                applyMergeSwitch(config);
+                if (selfUpdater != null) {
+                    selfUpdater.reload();
+                }
+            });
         } catch (RuntimeException e) {
             getLogger().log(Level.WARNING, "RsLib's config.yml could not be loaded; debug output stays off", e);
         }
@@ -140,82 +147,70 @@ public final class RsLibPlugin extends JavaPlugin {
         instance = null;
     }
 
-    private static final String USAGE = "<version|reload [plugin]|update|debug|integrations|iteminfo>";
+    /** The subcommands in the order help lists them, each with its permission (null: none). */
+    private enum Sub {
+        VERSION("rslib.admin.version", "the library version, API level and server version"),
+        PLUGINS("rslib.admin.plugins", "the plugins hooked to RsLib"),
+        INTEGRATIONS("rslib.admin.integrations", "the registered soft-dependency hooks"),
+        ITEMINFO("rslib.admin.iteminfo", "the PDC tags of the held item"),
+        UPDATE(SelfUpdater.PERMISSION, "the self-updater state, and a check now"),
+        RELOAD("rslib.admin.reload", "reload RsLib's config.yml, or one plugin's files"),
+        DEBUG("rslib.admin.debug", "turn RsLib's debug output on or off"),
+        HELP(null, "the subcommands you can use");
+
+        final String permission;
+        final String what;
+
+        Sub(String permission, String what) {
+            this.permission = permission;
+            this.what = what;
+        }
+
+        String label() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+
+        boolean allowed(CommandSender sender) {
+            return permission == null || sender.hasPermission(permission);
+        }
+
+        static Sub of(String name) {
+            for (Sub sub : values()) {
+                if (sub.label().equalsIgnoreCase(name)) {
+                    return sub;
+                }
+            }
+            return null;
+        }
+    }
+
+    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|debug|help>";
 
     private final class AdminCommand implements TabExecutor {
 
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            String sub = args.length == 0 ? "version" : args[0].toLowerCase(Locale.ROOT);
+            Sub sub = args.length == 0 ? Sub.HELP : Sub.of(args[0]);
+            if (sub == null) {
+                sender.sendMessage("Usage: /" + label + " " + USAGE);
+                return true;
+            }
+            if (!sub.allowed(sender)) {
+                sender.sendMessage("You do not have permission.");
+                return true;
+            }
             switch (sub) {
-                case "reload" -> {
-                    if (!sender.hasPermission("rslib.admin.reload")) {
-                        sender.sendMessage("You do not have permission.");
-                        return true;
-                    }
-                    if (args.length < 2) {
-                        if (own == null) {
-                            sender.sendMessage("RsLib's config.yml is not loaded.");
-                            return true;
-                        }
-                        own.reloadAll();
-                        sender.sendMessage("RsLib's config.yml reloaded.");
-                        return true;
-                    }
-                    Plugin target = Bukkit.getPluginManager().getPlugin(args[1]);
-                    Rs rs = target == null ? null : RsLib.context(target);
-                    if (rs == null) {
-                        sender.sendMessage(args[1] + " is not a running plugin built on RsLib.");
-                        return true;
-                    }
-                    rs.reloadAll();
-                    sender.sendMessage(target.getName() + " reloaded.");
+                case VERSION -> {
+                    sender.sendMessage("RsLib version: " + getPluginMeta().getVersion());
+                    sender.sendMessage("API level: " + RsApi.LEVEL);
+                    sender.sendMessage("Server: " + Bukkit.getBukkitVersion() + " (detected: " + RsVersion.describe()
+                            + (RsVersion.isFolia() ? " Folia" : "") + ")");
                 }
-                case "version" -> {
-                    if (!sender.hasPermission("rslib.admin.version")) {
-                        sender.sendMessage("You do not have permission.");
-                        return true;
-                    }
-                    String users = RsLib.contexts().stream().map(rs -> rs.plugin().getName())
-                            .collect(Collectors.joining(", "));
-                    sender.sendMessage("RsLib " + getPluginMeta().getVersion() + " (API level " + RsApi.LEVEL
-                            + ") on " + RsVersion.describe() + ". Plugins: " + (users.isEmpty() ? "none" : users));
-                }
-                case "update" -> {
-                    if (!sender.hasPermission(SelfUpdater.PERMISSION)) {
-                        sender.sendMessage("You do not have permission.");
-                        return true;
-                    }
-                    if (selfUpdater == null) {
-                        sender.sendMessage("The RsLib updater is not running.");
-                        return true;
-                    }
-                    selfUpdater.runNow(sender);
-                }
-                case "debug" -> {
-                    if (!sender.hasPermission("rslib.admin.debug")) {
-                        sender.sendMessage("You do not have permission.");
-                        return true;
-                    }
-                    RsDebug debug = libDebug();
-                    if (debug == null) {
-                        sender.sendMessage("RsLib's config.yml is not loaded.");
-                        return true;
-                    }
-                    sender.sendMessage("RsLib debug: " + (debug.toggle() ? "ON" : "OFF"));
-                }
-                case "integrations" -> {
-                    if (!sender.hasPermission("rslib.admin.integrations")) {
-                        sender.sendMessage("You do not have permission.");
-                        return true;
-                    }
-                    AdminInfo.integrations(hooks()).forEach(sender::sendMessage);
-                }
-                case "iteminfo" -> {
-                    if (!sender.hasPermission("rslib.admin.iteminfo")) {
-                        sender.sendMessage("You do not have permission.");
-                        return true;
-                    }
+                case PLUGINS -> AdminInfo.plugins(RsLib.contexts().stream()
+                        .map(rs -> new AdminInfo.Consumer(rs.plugin().getName(), rs.plugin().getPluginMeta().getVersion()))
+                        .toList()).forEach(sender::sendMessage);
+                case INTEGRATIONS -> AdminInfo.integrations(hooks()).forEach(sender::sendMessage);
+                case ITEMINFO -> {
                     if (!(sender instanceof Player player)) {
                         sender.sendMessage("Only a player can use this.");
                         return true;
@@ -226,36 +221,102 @@ public final class RsLibPlugin extends JavaPlugin {
                         return true;
                     }
                     ItemMeta meta = item.getItemMeta();
-                    AdminInfo.itemInfo(item.getType().name(), item.getAmount(),
-                            meta == null ? null : meta.getPersistentDataContainer()).forEach(sender::sendMessage);
+                    AdminInfo.itemInfo(item.getType().name(), meta == null ? null : meta.getPersistentDataContainer())
+                            .forEach(sender::sendMessage);
                 }
-                default -> sender.sendMessage("Usage: /" + label + " " + USAGE);
+                case UPDATE -> {
+                    if (selfUpdater == null) {
+                        sender.sendMessage("The RsLib updater is not running.");
+                        return true;
+                    }
+                    selfUpdater.runNow(sender);
+                }
+                case RELOAD -> reload(sender, args.length < 2 ? null : args[1]);
+                case DEBUG -> {
+                    RsDebug debug = libDebug();
+                    if (debug == null) {
+                        sender.sendMessage("RsLib's config.yml is not loaded.");
+                        return true;
+                    }
+                    sender.sendMessage("Debug: " + (debug.toggle() ? "ON" : "OFF"));
+                }
+                case HELP -> {
+                    sender.sendMessage("RsLib commands:");
+                    for (Sub each : Sub.values()) {
+                        if (each.allowed(sender)) {
+                            sender.sendMessage("- /" + label + " " + each.label()
+                                    + (each == Sub.RELOAD ? " [plugin]" : "") + ": " + each.what);
+                        }
+                    }
+                }
             }
             return true;
+        }
+
+        /** Without a name (or with RsLib's), RsLib's own config.yml; with one, that plugin's files. */
+        private void reload(CommandSender sender, String name) {
+            if (name == null || name.equalsIgnoreCase(getName())) {
+                if (own == null) {
+                    sender.sendMessage("RsLib's config.yml is not loaded.");
+                    return;
+                }
+                own.reloadAll();
+                sender.sendMessage("RsLib configuration reloaded (debug + update-configs + auto-update).");
+                sender.sendMessage("A reload never reloads classes: updating the RsLib jar requires a server restart.");
+                return;
+            }
+            Plugin target = Bukkit.getPluginManager().getPlugin(name);
+            if (target == null) {
+                sender.sendMessage("Plugin not found: " + name);
+                return;
+            }
+            Rs rs = RsLib.context(target);
+            if (rs == null) {
+                sender.sendMessage("Plugin " + target.getName() + " is not hooked to RsLib.");
+                return;
+            }
+            rs.reloadAll();
+            sender.sendMessage("Configuration of " + target.getName() + " reloaded.");
         }
 
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             if (args.length == 1) {
-                return filter(List.of("version", "reload", "update", "debug", "integrations", "iteminfo"), args[0]);
+                return filter(Arrays.stream(Sub.values()).filter(s -> s.allowed(sender)).map(Sub::label).toList(),
+                        args[0]);
             }
-            if (args.length == 2 && args[0].equalsIgnoreCase("reload")) {
-                return filter(RsLib.contexts().stream().map(rs -> rs.plugin().getName()).toList(), args[1]);
+            if (args.length == 2 && args[0].equalsIgnoreCase("reload") && Sub.RELOAD.allowed(sender)) {
+                List<String> names = new ArrayList<>();
+                names.add(getName());
+                RsLib.contexts().forEach(rs -> names.add(rs.plugin().getName()));
+                return filter(names, args[1]);
             }
             return List.of();
         }
 
-        /** RsLib's own optional plugins first, then every live hook of the plugins built on RsLib. */
+        /**
+         * Every live soft-dependency hook of the plugins built on RsLib (Vault, through their
+         * economy), plus PlaceholderAPI for each one that lists it in depend or softdepend.
+         */
         private List<AdminInfo.Hook> hooks() {
             List<AdminInfo.Hook> hooks = new ArrayList<>();
-            for (String target : List.of("PlaceholderAPI", "Vault")) {
-                hooks.add(AdminInfo.ownHook(getName(), target, Bukkit.getPluginManager().getPlugin(target)));
-            }
+            Set<String> seen = new HashSet<>();
             SoftDependency.forEachRegistered(dep -> {
-                Plugin target = Bukkit.getPluginManager().getPlugin(dep.pluginName());
-                String version = target == null ? null : target.getPluginMeta().getVersion();
-                hooks.add(new AdminInfo.Hook(dep.owner().getName(), dep.pluginName(), version, dep.isAvailable()));
+                if (dep.owner() == RsLibPlugin.this) {
+                    return;
+                }
+                if (seen.add(dep.owner().getName() + "\n" + dep.pluginName().toLowerCase(Locale.ROOT))) {
+                    hooks.add(new AdminInfo.Hook(dep.owner().getName(), dep.pluginName(), dep.isAvailable()));
+                }
             });
+            for (Rs rs : RsLib.contexts()) {
+                var meta = rs.plugin().getPluginMeta();
+                boolean usesPapi = meta.getPluginDependencies().contains("PlaceholderAPI")
+                        || meta.getPluginSoftDependencies().contains("PlaceholderAPI");
+                if (usesPapi && seen.add(rs.plugin().getName() + "\nplaceholderapi")) {
+                    hooks.add(new AdminInfo.Hook(rs.plugin().getName(), "PlaceholderAPI", rs.papi().available()));
+                }
+            }
             return hooks;
         }
 

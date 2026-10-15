@@ -37,6 +37,16 @@ public final class UpdatePass {
 
         /** Something went wrong or was refused. */
         void warn(String message);
+
+        /** How the pass ended, the one line whoever forced it reads. */
+        default void result(String message) {
+            step(message);
+        }
+
+        /** Something the console is told on every pass, forced or not. */
+        default void notice(String message) {
+            step(message);
+        }
     }
 
     /**
@@ -75,6 +85,10 @@ public final class UpdatePass {
         return RsLibJars.NAME + "-" + version + ".jar";
     }
 
+    private static String installedLine(String version) {
+        return "RsLib " + version + " installed on disk. Restart the server to activate it.";
+    }
+
     /** Runs one pass; the staging folder is cleaned afterwards whatever happened. */
     public static Outcome run(Env env, Reporter report) {
         try {
@@ -103,11 +117,12 @@ public final class UpdatePass {
         String version = info.version();
         if (!Versions.isNewer(version, installed)) {
             report.step("RsLib " + installed + " is up to date (rsdevelopment.dev offers " + version + ").");
+            report.result("RsLib is up to date (" + installed + ").");
             return new Outcome(Status.UP_TO_DATE, version, null);
         }
         if (env.sameMajorOnly() && Versions.major(version) != Versions.major(installed)) {
-            report.step("RsLib " + version + " is a new major version and is not installed"
-                    + " automatically (auto-update.same-major-only is true).");
+            report.notice("RsLib " + version + " is a new major version and is not installed"
+                    + " automatically (auto-update.same-major-only is true); install it by hand.");
             return new Outcome(Status.SKIPPED, version, null);
         }
         report.step("RsLib " + version + " found (installed: " + installed + ").");
@@ -153,9 +168,11 @@ public final class UpdatePass {
         if (done.deferred()) {
             report.step("The current jar is in use; " + done.jar().getFileName() + " waits in "
                     + env.updateFolder().getFileName() + "/ for the next start.");
+            report.result(installedLine(version));
             return new Outcome(Status.DEFERRED, version, done.jar());
         }
         report.step("Installed " + done.jar().getFileName() + ".");
+        report.result(installedLine(version));
         return new Outcome(Status.INSTALLED, version, done.jar());
     }
 }
