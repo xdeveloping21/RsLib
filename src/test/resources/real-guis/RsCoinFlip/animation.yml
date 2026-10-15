@@ -1,0 +1,61 @@
+# ============================================================
+#  RsCoinFlip - animación del coinflip (el nombre del archivo es el id del menú)
+#  Gestionado por SnLib: las claves nuevas se agregan solas al arrancar;
+#  tus valores y comentarios se conservan.
+# ============================================================
+
+# Título de la ventana. {opponent} es el OTRO jugador, así que cada uno de los dos que
+# miran el mismo coinflip lee aquí el nombre de su rival.
+title: "&#8354f2&lCoinflip &7vs &e{opponent}"
+
+# Sin temporizador del menú: el plugin repinta la cabeza que gira por su cuenta, al ritmo
+# configurado en animation: de config.yml. Un segundo temporizador aquí competiría con
+# él y repintaría la cabeza entre dos cambios.
+update-interval: 0
+
+# Corre un tick después de que el jugador intenta salir. Mientras no se haya mostrado el
+# ganador, el plugin vuelve a abrir el menú: un coinflip cuyo dinero ya se movió no es
+# algo de lo que una tecla pueda escapar. Cuando el ganador ya está en pantalla, la
+# animación se cierra sola y esto deja de retener.
+# Si vacías esta lista, un jugador puede salir con ESC a mitad del giro. El resultado no
+# cambia (el ganador se sorteó antes del primer cuadro); solo deja de mirarlo.
+close-actions:
+  - "[cf-animation-hold]"
+
+# Forma del menú: un carácter por casilla, nueve por fila, tres filas.
+#   f = panel del borde   y = tu cabeza   c = la moneda que gira   o = tu rival
+# Las tres cabezas son las que pinta el plugin; mueve sus letras para moverlas.
+layout:
+  - "fffffffff"
+  - "ffyfcfoff"
+  - "fffffffff"
+
+items:
+  # Borde del menú. Nada en este menú se puede clicar.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+templates:
+  # Tu propia cabeza, quieta, de tu lado de la moneda.
+  you:
+    material: PLAYER_HEAD
+    key: y
+    skull-owner: "{uuid}"
+    display-name: "&e{name}"
+
+  # La cabeza que gira: alterna entre los dos jugadores y se detiene en el ganador. La
+  # pinta el plugin, así que no necesita su propio update-interval.
+  coin:
+    material: PLAYER_HEAD
+    key: c
+    skull-owner: "{uuid}"
+    display-name: "&e{name}"
+
+  # La cabeza de tu rival, quieta, de su lado de la moneda.
+  opponent:
+    material: PLAYER_HEAD
+    key: o
+    skull-owner: "{uuid}"
+    display-name: "&e{name}"

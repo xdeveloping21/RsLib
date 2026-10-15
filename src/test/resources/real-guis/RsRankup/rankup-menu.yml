@@ -1,0 +1,108 @@
+# ============================================================
+#  RsRankup - rank menu (menu.mode: single)
+#  One dynamic button showing the NEXT rank: its item, its price and its
+#  rewards come from that rank's menu-item in rankup.yml. Clicking it ranks up.
+#  Opened by /rsrankup while config.yml has menu.mode: single.
+#  Managed by SnLib: new keys merge in on boot, your values and comments stay.
+# ============================================================
+
+# Window title, resolved per viewer through PlaceholderAPI.
+title: '&#8354f2&lRank Menu'
+# Chest rows. The layout below has the final say when the two disagree.
+rows: 3
+
+# Only plain left/right clicks (and their shift forms) reach the button. Without this, drop,
+# ctrl+drop, the number keys, swap-offhand and middle-click over it all buy a rank, because
+# Bukkit reports every one of them as a click on that slot.
+strict-clicks: true
+
+# The grid, one line per row and one character per slot.
+# f = filler, i = current rank info, b = the rank button, T = top ranks.
+# A space is an empty slot; deleting a letter removes that button.
+layout:
+  - "ffffiffff"
+  - "ffffbffff"
+  - "ffffTffff"
+
+# Where the plugin paints the rank button. Move the 'b' in the layout above to
+# move it, or replace the value with a slots: list to place it by index.
+# One cell: the button is a single element, so extra cells stay empty.
+regions:
+  button: b
+
+# This section is yours: an entry you delete here stays deleted on the next boot.
+# The trade-off is the same door in both directions - a button a future version of
+# the plugin ships will not be inserted into this file either, so read the release
+# notes and add it by hand if you want it.
+# Deleting a letter from the layout above hides a button without removing it, which
+# is the reversible way to do the same thing.
+# sn:extensible
+items:
+  # Background pane behind everything else.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: ' '
+    key: f
+
+  # Where the player stands right now, and where they are headed.
+  current-rank-info:
+    material: PAPER
+    display-name: '&#8354f2&lYour Rank'
+    lore:
+      - '&7Rank: &f%rsrankup_prefix%'
+      - '&7Next: &f%rsrankup_next_prefix%'
+    key: i
+
+  # The live leaderboard.
+  top-ranks:
+    material: BELL
+    display-name: '&#8354f2&lTop Ranks'
+    # Re-rendered every 5 seconds, so the lore follows the ranking without the menu
+    # being reopened. How FRESH the ranking itself is comes from top.refresh-seconds
+    # in config.yml (60 by default) - re-rendering faster than that repaints the same
+    # values. Drop update-interval to freeze the lore at what it showed on open.
+    update-interval: 100
+    lore:
+      - ''
+      - ' &8| &#8354f2#1: &f%rsrankup_top_name_1% &7(%rsrankup_top_value_1%)'
+      - ' &8| &#8354f2#2: &f%rsrankup_top_name_2% &7(%rsrankup_top_value_2%)'
+      - ' &8| &#8354f2#3: &f%rsrankup_top_name_3% &7(%rsrankup_top_value_3%)'
+      - ' &8| &#8354f2#4: &f%rsrankup_top_name_4% &7(%rsrankup_top_value_4%)'
+      - ' &8| &#8354f2#5: &f%rsrankup_top_name_5% &7(%rsrankup_top_value_5%)'
+      - ' &8| &#8354f2#6: &f%rsrankup_top_name_6% &7(%rsrankup_top_value_6%)'
+      - ' &8| &#8354f2#7: &f%rsrankup_top_name_7% &7(%rsrankup_top_value_7%)'
+      - ' &8| &#8354f2#8: &f%rsrankup_top_name_8% &7(%rsrankup_top_value_8%)'
+      - ' &8| &#8354f2#9: &f%rsrankup_top_name_9% &7(%rsrankup_top_value_9%)'
+      - ' &8| &#8354f2#10: &f%rsrankup_top_name_10% &7(%rsrankup_top_value_10%)'
+      - ''
+    key: T
+
+# ------------------------------------------------------------
+#  The two states of the button region above. The plugin picks one per viewer:
+#  rankup-button while a next rank exists, max-rank-item once there is none.
+#
+#  rankup-button carries the BEHAVIOUR; its appearance comes from the next rank's
+#  menu-item in rankup.yml. On it, display-name REPLACES that item's name, lore
+#  lines are APPENDED after its own lore, and material (basehead-<base64> included),
+#  custom-model-data, item-model and glow each REPLACE the rank item's own - so the
+#  button can be given one look without every rank repeating it. Leaving all six
+#  out shows the rank item exactly as rankup.yml defines it. Every other appearance
+#  field is ignored there, because the rank item already carries one.
+#
+#  max-rank-item has no rank behind it, so it is styled here in full.
+#
+#  Neither declares slots: or key: - the button region above owns the placement.
+# ------------------------------------------------------------
+templates:
+  rankup-button:
+    lore:
+      - '&a&lCLICK TO RANK UP'
+    click-actions:
+      - "[rsrankup-rankup]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  max-rank-item:
+    material: BARRIER
+    display-name: '&a&lMaximum rank reached'
+    lore:
+      - '&7You are at the highest rank.'

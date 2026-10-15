@@ -1,0 +1,129 @@
+# ============================================================
+#  RsAuctionHouse - trade history (/ah history, /ah admin history)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Shows at most history.max-entries rows (config.yml). With
+#  presentation.history: chat the commands print the lists.history-*
+#  lines of the language file instead of opening this menu.
+# ============================================================
+
+# Menu title. {player} is whose history it is.
+title: "&#8354f2&lHistory of {player}"
+
+# Enables the row pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one history row.
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         p  one row           s  sort             b  back
+#   i  summary        <  previous page     >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fsfbfif>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+
+  # One history row. {type} {date} {amount} {currency} {id} (listing) {actor} {target}
+  # {log-id}
+  entry:
+    material: PAPER
+    display-name: "&#8354f2{type}"
+    lore:
+      - "&7Date: &f{date}"
+      - "&7Amount: {amount}"
+      - "&7Listing: &f{id}"
+      - "&7By: &f{actor}"
+      - "&7For: &f{target}"
+
+  # Sort order: newest, oldest, highest or lowest amount. {sort}
+  sort:
+    material: HOPPER
+    display-name: "&#8354f2&lSort"
+    key: s
+    lore:
+      - "&7Order: {sort}"
+      - ""
+      - "&eLeft click: next"
+      - "&eRight click: previous"
+    left-click-actions:
+      - "[ah-history-sort] next"
+    right-click-actions:
+      - "[ah-history-sort] previous"
+
+  # Back to the menu the history was opened from (your items, the staff view of the
+  # player). {back}
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    click-actions:
+      - "[ah-open] {back}"
+
+  # Summary. {player} {count} {limit}
+  info:
+    material: BOOK
+    display-name: "&#8354f2&lHistory of {player}"
+    key: i
+    lore:
+      - "&7Rows: &f{count} &8(newest {limit} at most)"
+
+  # Summary when there is no history.
+  info-empty:
+    material: BOOK
+    display-name: "&#8354f2&lHistory of {player}"
+    key: i
+    lore:
+      - "&7Nothing here yet."
+
+  # Shown while the history loads.
+  info-loading:
+    material: CLOCK
+    display-name: "&#8354f2&lHistory of {player}"
+    key: i
+    lore:
+      - "&7Loading..."

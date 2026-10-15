@@ -1,0 +1,130 @@
+# ============================================================
+#  RsAuctionHouse - your active listings (/ah selling)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lYour Listings"
+
+# Enables the listing pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one listing.
+paged-key: p
+
+# Redraws every second (ticks) so the remaining times count down.
+update-interval: 20
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         p  one listing       i  summary          b  back
+#   a  sell           <  previous page     >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fifbfaf>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Back to the items menu.
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    lore:
+      - "&7Return to your items."
+    click-actions:
+      - "[ah-open] items"
+
+  # Opens the sell menu.
+  sell:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lSell Items"
+    key: a
+    lore:
+      - "&7Put more items on the auction house."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] sell"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name. A listing cell shows the real item (no
+# display-name here) and receives every listing placeholder: {id} {type} {state} {currency}
+# {price} {current-bid} {min-bid} {buyout} {bids} {bidder} {time-left} {expires} {created}
+# {category} {tax} {quantity} {version}.
+templates:
+
+  # One of your active listings. [ah-remove] asks first when confirm.remove is on, and removes
+  # the listing exactly as this cell shows it.
+  listing:
+    lore:
+      - ""
+      - "&7Type: {type}"
+      - "&7Price: {price}"
+      - "&7Top bid: {current-bid} &8({bids})"
+      - "&7Buyout: {buyout}"
+      - "&7Ends in: &f{time-left}"
+      - "&7State: {state}"
+      - ""
+      - "&eLeft click: cancel this listing"
+      - "&eRight click: preview"
+    left-click-actions:
+      - "[ah-remove] {id}"
+    right-click-actions:
+      - "[ah-preview] {id}"
+
+  # Summary. {count}
+  info:
+    material: OAK_SIGN
+    display-name: "&#8354f2&lYour Listings"
+    key: i
+    lore:
+      - "&7Active listings: &f{count}"
+      - "&7Click a listing to cancel it."
+
+  # Summary when you have no active listing.
+  info-empty:
+    material: OAK_SIGN
+    display-name: "&#8354f2&lYour Listings"
+    key: i
+    lore:
+      - "&7You have no active listings."

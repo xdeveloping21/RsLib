@@ -1,0 +1,52 @@
+# ============================================================
+#  RsCrates - quick opening animation
+#  A short flourish in one cell, then the winner. About a second, no roulette.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  This is a frame, not a menu. Nothing in it can be clicked or taken while
+#  it plays: it is showing a reward that has already been paid for and is
+#  handed over when the animation ends, however it ends.
+#
+#  layout: one letter per cell, left to right and top to bottom. A space is
+#  an empty cell. The number of rows is the height of the menu, so deleting
+#  a row makes the frame shorter.
+#
+#  Every item below is painted on the cells its letter owns. Two names are
+#  read by the plugin and renaming one turns that part of the animation off:
+#
+#    winner  the single cell the flourish plays in and the reward lands on.
+#            Move its letter to move the whole animation. If several cells
+#            carry the letter, the first one is used.
+#    filler  decoration, nothing else.
+#
+#  To remove the filler, take its letter out of the mask rather than deleting the
+#  item: an item whose letter the mask does not contain is simply not painted, and
+#  the mask is a value, so your edit survives the next boot.
+#
+#  Timings live in config.yml under animations.quick (how long the flourish
+#  lasts and how often it redraws) and animations.final-visual-delay-ticks
+#  (the pause before the reward arrives). Sounds and particles live under
+#  effects, and any crate may override them.
+#
+#  {crate} in the title is the crate's display name.
+# ============================================================
+
+title: "&#8354f2&lOpening &f{crate}"
+
+layout:
+  - "fffffffff"
+  - "ffffwffff"
+  - "fffffffff"
+
+items:
+  filler:
+    key: "f"
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  winner:
+    key: "w"
+    material: WHITE_STAINED_GLASS_PANE
+    display-name: " "
+    glow: true

@@ -1,0 +1,96 @@
+# ============================================================
+#  RsStaff - teclado del PIN del staff
+#  Administrado por SnLib: las claves nuevas se fusionan automáticamente al
+#  iniciar; tus valores y comentarios se conservan.
+# ============================================================
+
+# Un dispensador de 3x3 con los dígitos del 1 al 9 (casillas 0 a 8, de
+# izquierda a derecha y de arriba abajo). No hay 0.
+inventory-type: DROPPER
+
+# {stage} es el paso actual (messages.pin.title.* del idioma) y {digits} lo
+# escrito hasta ahora: un messages.pin.digit-typed por dígito escrito y un
+# messages.pin.digit-empty por dígito que falta. El PIN se envía solo al
+# escribir el último dígito.
+title: "{stage}{digits}"
+
+# Si lo cierra sin terminar, se vuelve a abrir.
+close-actions:
+  - "[rsstaff-pin-close]"
+
+# Cada botón ejecuta [rsstaff-pin] con su dígito. Deja esas acciones como
+# están; puedes cambiar materiales, nombres y sonidos. La cantidad (amount)
+# hace que el número se vea en la esquina del botón.
+items:
+  digit-1:
+    material: STONE_BUTTON
+    amount: 1
+    display-name: "&e&l1"
+    slots: [0]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 1"
+  digit-2:
+    material: STONE_BUTTON
+    amount: 2
+    display-name: "&e&l2"
+    slots: [1]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 2"
+  digit-3:
+    material: STONE_BUTTON
+    amount: 3
+    display-name: "&e&l3"
+    slots: [2]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 3"
+  digit-4:
+    material: STONE_BUTTON
+    amount: 4
+    display-name: "&e&l4"
+    slots: [3]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 4"
+  digit-5:
+    material: STONE_BUTTON
+    amount: 5
+    display-name: "&e&l5"
+    slots: [4]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 5"
+  digit-6:
+    material: STONE_BUTTON
+    amount: 6
+    display-name: "&e&l6"
+    slots: [5]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 6"
+  digit-7:
+    material: STONE_BUTTON
+    amount: 7
+    display-name: "&e&l7"
+    slots: [6]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 7"
+  digit-8:
+    material: STONE_BUTTON
+    amount: 8
+    display-name: "&e&l8"
+    slots: [7]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 8"
+  digit-9:
+    material: STONE_BUTTON
+    amount: 9
+    display-name: "&e&l9"
+    slots: [8]
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[rsstaff-pin] 9"

@@ -1,0 +1,179 @@
+# ============================================================
+#  RsAuctionHouse - your items (/ah items)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  The expired and purchased buttons under items: show while their counts
+#  load; the templates of the same letters replace them once loaded.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lYour Items"
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler            s  your listings     d  your bids        e  expired items
+#   u  purchased items   a  sell              h  history          c  claim money
+#   b  back
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "fsfdfefuf"
+  - "fffffffff"
+  - "ffafhfcff"
+  - "ffffbffff"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Expired items while the count loads.
+  expired:
+    material: CHEST
+    display-name: "&#8354f2&lExpired Items"
+    key: e
+    lore:
+      - "&7Listings that ended unsold,"
+      - "&7were cancelled or returned."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] expired"
+
+  # Purchased items while the count loads.
+  purchased:
+    material: ENDER_CHEST
+    display-name: "&#8354f2&lPurchased Items"
+    key: u
+    lore:
+      - "&7Items you bought or won."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] purchased"
+
+  # Claim button without the amounts. The claim template below replaces it as
+  # soon as the menu opens (the pending money is already known), so this one
+  # shows only when that template is removed.
+  claim:
+    material: SUNFLOWER
+    display-name: "&#8354f2&lClaim Money"
+    key: c
+    lore:
+      - "&7Money from your sales and refunds."
+      - ""
+      - "&eClick to claim."
+    click-actions:
+      - "[ah-claim]"
+
+  # Opens the sell menu.
+  sell:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lSell Items"
+    key: a
+    lore:
+      - "&7Put items on the auction house."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] sell"
+
+  # Opens your trade history.
+  history:
+    material: BOOK
+    display-name: "&#8354f2&lHistory"
+    key: h
+    lore:
+      - "&7Your purchases, sales and bids."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] history"
+
+  # Back to the auction house, where you left it.
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    lore:
+      - "&7Return to the auction house."
+    click-actions:
+      - "[ah-open] main back"
+
+# Cells the plugin fills, each bound by its name, with {count} (the storage buttons) or
+# {pending} (the claim button: one line per currency, messages.menu.money-line of the language
+# file, or messages.menu.money-none when nothing waits to be claimed, or messages.menu.money-held
+# when money waits that a claim cannot pay now, because its currency is unavailable or it is
+# frozen under an old currency setup).
+templates:
+
+  # Your active listings. {count}
+  selling:
+    material: OAK_SIGN
+    display-name: "&#8354f2&lYour Listings"
+    key: s
+    lore:
+      - "&7Active listings: &f{count}"
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] selling"
+
+  # Auctions you are winning. {count}
+  bids:
+    material: GOLD_NUGGET
+    display-name: "&#8354f2&lYour Bids"
+    key: d
+    lore:
+      - "&7Auctions you lead: &f{count}"
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] bids"
+
+  # Expired items with their count. {count}
+  expired:
+    material: CHEST
+    display-name: "&#8354f2&lExpired Items"
+    key: e
+    lore:
+      - "&7Listings that ended unsold,"
+      - "&7were cancelled or returned."
+      - "&7Waiting: &f{count}"
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] expired"
+
+  # Purchased items with their count. {count}
+  purchased:
+    material: ENDER_CHEST
+    display-name: "&#8354f2&lPurchased Items"
+    key: u
+    lore:
+      - "&7Items you bought or won."
+      - "&7Waiting: &f{count}"
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] purchased"
+
+  # Claim button with what a claim would pay now. {pending}
+  claim:
+    material: SUNFLOWER
+    display-name: "&#8354f2&lClaim Money"
+    key: c
+    lore:
+      - "&7Waiting to be claimed:"
+      - "{pending}"
+      - ""
+      - "&eClick to claim."
+    click-actions:
+      - "[ah-claim]"

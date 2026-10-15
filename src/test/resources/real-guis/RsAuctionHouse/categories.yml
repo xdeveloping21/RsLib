@@ -1,0 +1,90 @@
+# ============================================================
+#  RsAuctionHouse - category picker (the market's category button)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  The categories themselves live in categories.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lCategories"
+
+# Enables the category pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one category.
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler   p  one category   b  back to the market
+#   <  previous page              >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fffbfff>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    lore:
+      - "&7Back to the market."
+    click-actions:
+      - "[ah-open] main back"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+
+  # One category (the paged cells): "all" first, then categories.yml in order.
+  # {category} (id) {name} {icon} (material) {lore} (its lore lines) {count}
+  # (active listings) {selected} (true or false) {status} (from
+  # messages.browse.category-selected / category-select).
+  category:
+    material: "{icon}"
+    display-name: "{name}"
+    lore:
+      - "&7Listings: &f{count}"
+      - "{lore}"
+      - "{status}"
+    click-actions:
+      - "[ah-category] {category}"

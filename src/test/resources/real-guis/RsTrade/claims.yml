@@ -1,0 +1,119 @@
+# ============================================================
+#  RsTrade - claims menu (/rstrade claims)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+# ============================================================
+# Items and currency amounts a trade owes you and could not hand over (a full inventory,
+# a failed payment, a crash recovery). Click one to claim it, or claim everything that
+# fits at once. Oldest first.
+
+# Window title.
+title: "&#8354f2&lTrade claims"
+
+# Pages through the claims with the arrows below.
+pagination: true
+
+# Only plain left and right clicks (with or without shift) act on this menu.
+strict-clicks: true
+
+# Cell map, 6 rows of 9. f filler, e one claim per cell (the page size), < / > the page
+# arrows, A claim everything, x close, I the claim counter.
+layout:
+  - "fffffffff"
+  - "feeeeeeef"
+  - "feeeeeeef"
+  - "feeeeeeef"
+  - "feeeeeeef"
+  - "<fAfxfIf>"
+
+# Named groups of cells the plugin paints.
+regions:
+  # One claim per cell, in the order the claims were created.
+  entries: e
+
+items:
+  # Border and background.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Claims every claim that fits in your inventory, at most 64 item claims per click.
+  claim-all:
+    material: HOPPER
+    display-name: "&a&lClaim all"
+    key: A
+    lore:
+      - "&7Claims everything that fits"
+      - "&7in your inventory."
+    click-actions:
+      - "[rstrade-claim-all]"
+
+  # Closes the menu.
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[close]"
+
+  # Previous page.
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+      lore:
+        - "&8You are on the first page"
+
+  # Next page.
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+      lore:
+        - "&8You are on the last page"
+
+templates:
+  # Claim counter. {count} is how many claims wait.
+  info:
+    material: BOOK
+    display-name: "&#8354f2&lYour claims"
+    key: I
+    lore:
+      - "&7Waiting: &f{count}"
+
+  # An owed item, shown as a copy. The lore is added under the item's own. {amount} is its
+  # amount, {reason} why it waits, {date} when it was queued.
+  claim-item:
+    lore:
+      - ""
+      - "&7Reason: {reason}"
+      - "&7Since: &f{date}"
+      - ""
+      - "&eClick to claim."
+    click-actions:
+      - "[rstrade-claim] {id}"
+
+  # An owed currency amount. {material} is the icon of the currency in config.yml,
+  # {amount} the amount, {currency} its name, {reason} why it waits, {date} when it was
+  # queued.
+  claim-currency:
+    material: "{material}"
+    display-name: "&f{amount} {currency}"
+    lore:
+      - "&7Reason: {reason}"
+      - "&7Since: &f{date}"
+      - ""
+      - "&eClick to claim."
+    click-actions:
+      - "[rstrade-claim] {id}"

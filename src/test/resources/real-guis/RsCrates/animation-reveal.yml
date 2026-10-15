@@ -1,0 +1,61 @@
+# ============================================================
+#  RsCrates - reveal opening animation
+#  Face-down cards flip over one at a time; the last one is the winner.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  This is a frame, not a menu. Nothing in it can be clicked or taken while
+#  it plays: it is showing a reward that has already been paid for and is
+#  handed over when the animation ends, however it ends.
+#
+#  layout: one letter per cell, left to right and top to bottom. A space is
+#  an empty cell. The number of rows is the height of the menu, so deleting
+#  a row makes the frame shorter.
+#
+#  Every item below is painted on the cells its letter owns. Two names are
+#  read by the plugin and renaming one turns that part of the animation off:
+#
+#    cards   the face-down cards. They flip in the order the mask spells
+#            them, left to right and top to bottom, and THE LAST ONE TO FLIP
+#            IS THE WINNER. Their number sets how long this animation lasts:
+#            one card is flipped every animations.reveal.reveal-interval-ticks,
+#            so a bigger grid is a longer animation. To flip them in some
+#            other order, replace this item's key with an explicit
+#            "slots: [10, 16, 11, 15, ...]" list, which is used verbatim.
+#    filler  decoration, nothing else.
+#
+#  To remove one, take its letter out of the mask rather than deleting the item:
+#  an item whose letter the mask does not contain is simply not painted, and the
+#  mask is a value, so your edit survives the next boot.
+#
+#  This is the one animation whose length you change by drawing, not by
+#  editing a number. A very large grid can outlast an opening session, and
+#  the console says so once on boot and shortens it for you; draw fewer cards
+#  or lower the interval to choose the length yourself.
+#
+#  The pause before the reward arrives is animations.final-visual-delay-ticks.
+#  Sounds and particles live under effects, and any crate may override them.
+#
+#  {crate} in the title is the crate's display name.
+# ============================================================
+
+title: "&#8354f2&lOpening &f{crate}"
+
+layout:
+  - "fffffffff"
+  - "fcccccccf"
+  - "fcccccccf"
+  - "fffffffff"
+
+items:
+  filler:
+    key: "f"
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  cards:
+    key: "c"
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: "&7&l?"
+    lore:
+      - "&8&oRevealing..."

@@ -1,0 +1,52 @@
+title: "&8Daily Gifts (&e{time-played}&8)"
+rows: 3
+update-interval: 20
+
+layout:
+  - "fffgggggg"
+  - "fggg    f"
+  - "ffffiffff"
+
+regions:
+  gifts: g
+  info: i
+
+templates:
+  locked:
+    material: CHEST
+    display-name: "&cGift {gift_index}"
+    lore:
+      - "&7Status: {status}"
+      - "&7Missing: &f{time-left}"
+    click-actions:
+      - "[gift-claim] {gift_id}"
+  unlocked:
+    material: ENDER_CHEST
+    display-name: "&aGift {gift_index}"
+    glow: true
+    flags: [HIDE_ENCHANTS]
+    lore:
+      - "&7Status: {status}"
+      - "&eClick to claim!"
+    click-actions:
+      - "[gift-claim] {gift_id}"
+  claimed:
+    material: MINECART
+    display-name: "&7Claimed Gift"
+    lore:
+      - "&7Status: {status}"
+      - "&7Already claimed."
+    click-actions:
+      - "[gift-claim] {gift_id}"
+  info:
+    material: CLOCK
+    display-name: "&eYour Time"
+    lore:
+      - "&7You played: &f{time-played}"
+      - "&7Next reset: &f{time-until-reset}"
+
+items:
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "

@@ -1,0 +1,83 @@
+title: "&#8354f2&lClan Info"
+layout:
+  - "fffffffff"
+  - "ffabcdeff"
+  - "ffffxffff"
+
+# The a/b/c/d/e cells hold templates whose contents are bound per clan from Java, but
+# their PLACEMENT lives here: move a template's key to another layout char and the
+# element moves with it. The static filler and close entries stay declared items.
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  close:
+    material: BARRIER
+    display-name: "&cBack"
+    key: x
+    lore:
+      - "&7Return to the clan menu."
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[custom] back"
+
+templates:
+  banner:
+    material: WHITE_BANNER
+    display-name: "&#8354f2&l{clan} &7[{tag}]"
+    key: a
+    lore:
+      - "&7Leader: &f{leader}"
+      - "&7Created: &f{created}"
+      - "&7Status: &f{status}"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+
+  # {clan_id} is bound by GuiService so the click opens the member list of the
+  # clan being viewed, own or foreign.
+  members:
+    material: PLAYER_HEAD
+    display-name: "&#8354f2&lMembers"
+    key: b
+    lore:
+      - "&7Total: &f{members}&7/&f{max}"
+      - "&7Online: &f{online}"
+      - " "
+      - "&8Click to view the members."
+    click-actions:
+      - "[custom] view-members"
+      - "[sound] UI_BUTTON_CLICK"
+
+  stats:
+    material: NETHER_STAR
+    display-name: "&#8354f2&lStats"
+    key: c
+    lore:
+      - "&7Kills: &f{kills}"
+      - "&7Deaths: &f{deaths}"
+      - "&7KDR: &f{kdr}"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+
+  # Each lore line references {points_<id>} for a point id declared under
+  # points: in config.yml. Add a line here when adding a point type.
+  points:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lPoints"
+    key: d
+    lore:
+      - "&7Kills: &f{points_kills}"
+      - "&7Mob Kills: &f{points_mobkills}"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+
+  motd:
+    material: WRITABLE_BOOK
+    display-name: "&#8354f2&lDescription"
+    key: e
+    lore:
+      - "&7{description}"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"

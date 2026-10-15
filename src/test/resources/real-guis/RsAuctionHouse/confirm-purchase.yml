@@ -1,0 +1,76 @@
+# ============================================================
+#  RsAuctionHouse - purchase confirmation (buy now, or an auction buyout)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Shown when confirm.purchase is true in config.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lConfirm Purchase"
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler   c  confirm   i  the listing   d  cancel
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "ffcfifdff"
+  - "fffffffff"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+# Cells the plugin fills, each bound by its name. Every listing placeholder
+# works in all of them, {version} included (see
+# guis/main.yml); {total} is what you pay, the buyer tax {buyer-tax} included.
+# The confirm click buys the listing exactly as this screen shows it: if it
+# changed meanwhile, the purchase is refused and the screen refreshed.
+templates:
+
+  # The listing. These lines are added under the item's own lore.
+  listing:
+    key: i
+    lore:
+      - "&8&m                              "
+      - "&7Seller: &f{seller}"
+      - "&7You pay: {total}"
+      - "&8Buyer tax: {buyer-tax}"
+
+  # Confirm button of a buy-now listing.
+  confirm-buy:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&aConfirm Purchase"
+    key: c
+    lore:
+      - "&7Buy &f{items}"
+      - "&7for {total}&7."
+    click-actions:
+      - "[ah-buy] {id}"
+
+  # Confirm button of an auction buyout.
+  confirm-buyout:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&aConfirm Buyout"
+    key: c
+    lore:
+      - "&7Buy &f{items} &7out now"
+      - "&7for {total}&7."
+    click-actions:
+      - "[ah-buyout] {id}"
+
+  # Cancel button. {back} is where the screen was opened from.
+  cancel:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&cCancel"
+    key: d
+    click-actions:
+      - "[ah-open] {back}"

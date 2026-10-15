@@ -1,0 +1,79 @@
+# ============================================================
+#  RsCaptcha - the captcha menu
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  ANTI-SCRIPT CONTRACT - READ BEFORE EDITING
+#
+#  The four heads show the digits 1 to 4 and the player must click them in
+#  ascending order. The ONLY thing that says which head is which digit is the
+#  rendered skin. The heads therefore carry no display name, no lore and no
+#  hidden data, and both the digit-to-cell assignment and the skin variant are
+#  re-randomized every time the menu opens.
+#
+#  Do NOT add display-name or lore to the "head" template. Anything a client
+#  can read, a bot can read, and a head that announces its digit turns the
+#  captcha into a no-op for exactly the players it is meant to catch.
+#
+#  The menu is also deliberately silent: no open-sound and no close-sound.
+#
+#  You CAN safely: move the letters around in the layout, change the filler
+#  and indicator materials, and change the title.
+# ============================================================
+
+title: "&#8354f2&l/CAPTCHA &8| &7Haz clic en 1 2 3 4"
+
+# Discard anything that is not a plain mouse click (number keys, drops,
+# off-hand swaps). The click handler additionally ignores shift-clicks and
+# double-clicks, so a fast or laggy click can never spend an attempt.
+strict-clicks: true
+
+# h = a number head, p = the indicator under it, f = inert filler.
+# The plugin checks at load that "h" and "p" resolve to FOUR cells each, and
+# falls back to this shipped layout with a warning when they do not: a head
+# with no indicator, or two heads on one cell, leaves a blinded player with a
+# captcha they cannot finish and then sanctions them for it.
+layout:
+  - "fffffffff"
+  - "fhfhfhfhf"
+  - "fpfpfpfpf"
+  - "fffffffff"
+
+regions:
+  # The four head cells, left to right.
+  heads:
+    key: 'h'
+  # The four indicator cells, in the SAME left-to-right order: indicator i
+  # belongs to head i, so keep the two rows aligned when you move them.
+  progress:
+    key: 'p'
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: 'f'
+
+templates:
+  # The head. Its appearance is supplied by the plugin at bind time (a textured
+  # skull built from heads.yml), and this template deliberately declares
+  # NEITHER display-name NOR lore: that makes SnLib pass the supplied stack
+  # through untouched, which is what keeps the head unreadable. See the
+  # contract at the top of this file.
+  head:
+    material: PLAYER_HEAD
+    # The plugin's own action. It routes the click by the CELL it landed on,
+    # never by anything read off the item, which is what keeps the head
+    # unreadable. Do not replace it and do not add a second action here.
+    click-actions:
+      - "[captcha-click]"
+
+  # Indicator under a head that has not been clicked in order yet.
+  indicator-pending:
+    material: RED_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Indicator under a head already clicked in the correct order.
+  indicator-solved:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: " "

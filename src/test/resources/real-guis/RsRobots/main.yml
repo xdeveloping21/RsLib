@@ -1,0 +1,211 @@
+# ============================================================
+#  RsRobots - main robot menu
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lYour Robots"
+
+# Enables the storage pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each hold one stored robot.
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler          h  player profile head   p  one stored robot
+#   <  previous page   c  claim bag             x  close
+#   m  merge menu      s  storage order         >  next page
+# The active robot slots are painted over row 1 at the positions listed under
+# top-row.active-slots below, so those cells show filler until a slot exists.
+# Remove a button by deleting its character from this mask, or move one by
+# swapping it with an f.
+layout:
+  - "ffffhffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fcsxfmf>"
+
+# Inventory slots of the active robot slots, in order: the first position is
+# active slot 1. Accepts single numbers, ranges and lists.
+# The number of positions must equal slots.max in config.yml, or the plugin
+# warns on load and the extra slots have nowhere to show.
+top-row:
+  active-slots: ["1-3", "5-7"]
+
+# Buttons. Each entry is yours: rename, restyle, or delete one and it stays deleted.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  merge:
+    material: ANVIL
+    display-name: "&#8354f2&lMerge Robots"
+    key: m
+    lore:
+      - "&7Combine robots into a single better one."
+    click-actions:
+      - "[main-merge]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+      lore:
+        - "&8You are on the last page"
+
+# Items the plugin fills with live data. Each one lists the placeholders it
+# receives; a placeholder the template does not use costs nothing.
+templates:
+
+  # Viewer profile. Placeholders: {player_name} {slots_used} {slots_unlocked}
+  # {slots_max} {storage_used} {storage_max} {storage_free}
+  # skull-owner is what makes the head show the viewer's own skin; replace it
+  # with a fixed name to pin one skin, or delete it for a plain head.
+  profile:
+    material: PLAYER_HEAD
+    skull-owner: "%player_name%"
+    display-name: "&#8354f2&l%player_name%"
+    key: h
+    lore:
+      - "&7Active slots: &f{slots_used}&7/&f{slots_unlocked} &8(max {slots_max})"
+      - "&7Storage: &f{storage_used}&7/&f{storage_max} &8({storage_free} free)"
+
+  # Claim bag. Placeholders: {amounts} (one line per pending economy),
+  # {status} (the bag state word), {economies} (how many are pending).
+  claim:
+    material: CHEST
+    display-name: "&#8354f2&lClaim Bag"
+    key: c
+    glow: true
+    lore:
+      - "&7Waiting to be claimed:"
+      - "{amounts}"
+      - " "
+      - "&7State: {status}"
+      - " "
+      - "&eClick to claim everything."
+    click-actions:
+      - "[main-claim]"
+      - "[sound] ENTITY_EXPERIENCE_ORB_PICKUP"
+
+  # An active slot holding a robot. Placeholders: {slot} {robot_icon} {robot}
+  # {tier_display} {tier_rarity} {multiplier} {production} {interval}
+  # {produced} {limit} {status}
+  slot-robot:
+    material: "{robot_icon}"
+    display-name: "&#8354f2&lSlot {slot} &8| &r{robot}"
+    lore:
+      - "&7Tier: {tier_display} &8({tier_rarity}&8)"
+      - "&7Multiplier: &fx{multiplier}"
+      - "&7Pays: &f{production}"
+      - "&7Every: &f{interval}s"
+      - "&7Produced: &f{produced}&7/&f{limit}"
+      - "&7State: {status}"
+      - " "
+      - "&eLeft-click &7to send it to storage."
+      - "&eRight-click &7to open its upgrades."
+    left-click-actions:
+      - "[main-unequip]"
+      - "[sound] UI_BUTTON_CLICK"
+    right-click-actions:
+      - "[main-upgrades]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # Storage order of the paged region, cycled on click: default (oldest first),
+  # tier, then multiplier. Placeholder: {sort_mode} (the order applied now).
+  # The order is per viewer and lasts until they log out; it never touches the
+  # stored robots themselves.
+  sort:
+    material: HOPPER
+    display-name: "&#8354f2&lSort Storage"
+    key: s
+    lore:
+      - "&7Order: {sort_mode}"
+      - " "
+      - "&eClick to change it."
+    click-actions:
+      - "[main-sort]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # An active slot the viewer owns but left empty. Placeholders: {slot} {status}
+  slot-empty:
+    material: LIGHT_GRAY_STAINED_GLASS_PANE
+    display-name: "&#8354f2&lSlot {slot}"
+    lore:
+      - "&7State: {status}"
+      - " "
+      - "&8Left-click a stored robot to put it here."
+
+  # An active slot the viewer has not unlocked. Placeholders: {slot} {status}
+  slot-locked:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&#8354f2&lSlot {slot}"
+    lore:
+      - "&7State: {status}"
+      - " "
+      - "&8Ask an admin to unlock more slots."
+    click-actions:
+      - "[main-slot-locked]"
+
+  # One stored robot of the paged region. Placeholders: {robot_icon} {robot}
+  # {tier_display} {tier_rarity} {multiplier} {production} {interval}
+  # {produced} {limit} {status}
+  storage-robot:
+    material: "{robot_icon}"
+    display-name: "{robot}"
+    lore:
+      - "&7Tier: {tier_display} &8({tier_rarity}&8)"
+      - "&7Multiplier: &fx{multiplier}"
+      - "&7Pays: &f{production}"
+      - "&7Every: &f{interval}s"
+      - "&7Produced: &f{produced}&7/&f{limit}"
+      - "&7State: {status}"
+      - " "
+      - "&eLeft-click &7to equip it."
+      - "&eRight-click &7to open its upgrades."
+    left-click-actions:
+      - "[main-equip]"
+      - "[sound] UI_BUTTON_CLICK"
+    right-click-actions:
+      - "[main-upgrades]"
+      - "[sound] UI_BUTTON_CLICK"

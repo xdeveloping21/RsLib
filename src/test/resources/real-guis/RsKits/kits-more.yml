@@ -1,0 +1,154 @@
+# ============================================================
+#  RsKits - kits menu (page 2)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#
+#  The second display menu, reached from the "More Kits" button of
+#  guis/kits-main.yml and linked back to it. There is no pagination anywhere in
+#  this plugin: a "page" is just another file under guis/ with an "[kits] open
+#  <id>" button pointing at it, so you can chain as many as you like. Any of
+#  them can also be the menu a bare /rskits opens - that is config.yml
+#  default-gui.
+#
+#  ON A KIT CELL: left-click claims, right-click previews. Shift-right previews
+#  as well, shift-left claims. Middle, drop and hotbar clicks do nothing.
+#
+#  Every kit shown here is FOUR entries under templates:, one per state, all
+#  sharing one layout letter:
+#    kit-<id>-available       claimable right now
+#    kit-<id>-on-cooldown     the kit is recharging for this player
+#    kit-<id>-one-time-used   their one-time allowance is spent
+#    kit-<id>-disabled        the kit is switched off
+#  The plugin paints exactly ONE of them per viewer. Delete the -disabled entry
+#  and a switched-off kit is drawn with its -available entry instead: a
+#  disabled kit stays VISIBLE, can still be previewed, and says so when it is
+#  clicked.
+#
+#  TO ADD A KIT: give it a free letter in the layout, then copy the four
+#  kit-default-* entries and rename them kit-<your kit id>-*. Give every kit
+#  its OWN letter: two kits on one cell means one of them is painted over.
+#
+#  Placeholders available in every display-name and lore below:
+#    {kit}        the kit id
+#    {cooldown}   time left before the kit can be claimed again, or the ready
+#                 label from the status: section of the lang file
+#  Both resolve in ALL FOUR states, in display-name and in lore.
+#  PlaceholderAPI placeholders resolve too, per viewer.
+#
+#  TO MOVE a button, move its letter in the layout. TO REMOVE one, delete its
+#  letter from the layout and leave the entry here.
+#  Colours: use &#RRGGBB. A bare #RRGGBB is not a colour and renders as text.
+# ============================================================
+
+title: "&#8354f2&lKits &8- &7Página 2"
+
+# f filler   k the default kit   i sign, purely decorative   b back to page 1
+layout:
+  - "fffffffff"
+  - "f k i b f"
+  - "fffffffff"
+
+# Decoration and navigation. An entry with click-actions does something; one
+# without them is inert scenery, which is exactly what the sign below is.
+# sn:extensible
+items:
+
+  # Fills every cell no kit and no button claims.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # No click-actions on purpose: a label, not a button.
+  info:
+    material: OAK_SIGN
+    display-name: "&#8354f2Más kits"
+    key: i
+    lore:
+      - "&7Los kits que no cupieron en"
+      - "&7la primera página."
+
+  # Back to page 1.
+  back:
+    material: ARROW
+    display-name: "&e« Volver"
+    key: b
+    lore:
+      - "&7Regresa a la primera página."
+      - ""
+      - "&eClic para abrir"
+    click-actions:
+      - "[kits] open kits-main"
+
+# One entry per kit per state, filled in by the plugin per viewer, which is why
+# they are templates rather than items: their text carries the placeholders
+# above. The action after "[kits]" is what the click does and must not be
+# renamed.
+# sn:extensible
+templates:
+
+  # --- default, claimable right now ---
+  kit-default-available:
+    material: ENDER_CHEST
+    display-name: "&aKit inicial"
+    key: k
+    glow: true
+    lore:
+      - "&7El kit inicial que recibe cada jugador."
+      - ""
+      - "&7Enfriamiento: &f{cooldown}"
+      - ""
+      - "&eClic izquierdo para reclamar"
+      - "&eClic derecho para ver su contenido"
+    left-click-actions:
+      - "[kits] claim"
+    right-click-actions:
+      - "[kits] preview"
+
+  # --- default, recharging ---
+  # Left-click still claims: the claim is what answers with the wait left.
+  kit-default-on-cooldown:
+    material: BARRIER
+    display-name: "&cKit inicial"
+    key: k
+    lore:
+      - "&7El kit inicial que recibe cada jugador."
+      - ""
+      - "&cEn enfriamiento: &f{cooldown}"
+      - ""
+      - "&eClic derecho para ver su contenido"
+    left-click-actions:
+      - "[kits] claim"
+    right-click-actions:
+      - "[kits] preview"
+
+  # --- default, one-time allowance spent ---
+  kit-default-one-time-used:
+    material: GRAY_DYE
+    display-name: "&7Kit inicial"
+    key: k
+    lore:
+      - "&7El kit inicial que recibe cada jugador."
+      - ""
+      - "&7Ya reclamaste este kit."
+      - ""
+      - "&eClic derecho para ver su contenido"
+    left-click-actions:
+      - "[kits] claim"
+    right-click-actions:
+      - "[kits] preview"
+
+  # --- default, switched off ---
+  kit-default-disabled:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&cKit inicial &7(Desactivado)"
+    key: k
+    lore:
+      - "&7Este kit está desactivado por ahora."
+      - "&7Volverá pronto."
+      - ""
+      - "&eClic derecho para ver su contenido"
+    left-click-actions:
+      - "[kits] claim"
+    right-click-actions:
+      - "[kits] preview"

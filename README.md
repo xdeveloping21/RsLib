@@ -15,6 +15,15 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
 - Base de datos SQLite o MySQL (`rs().db()`): tablas, upserts, migraciones versionadas y caché
   por jugador.
 - Cooldowns en memoria o guardados en la base de datos.
+- Ítems: constructor de ítems, bloque de apariencia por jugador, ítems físicos registrados
+  (`RsSpec.items(...)`, `rs().items()`) con acciones, recetas, reglas de muerte y
+  serialización.
+- Listas de acciones (`[message]`, `[console]`, `[open]`, `[next-page]`, ...) y de requisitos
+  (`rs().actions()`), con acciones propias del plugin.
+- Preguntas por chat con tiempo límite y cancelación (`rs().inputs()`).
+- Menús desde `guis/*.yml` (`RsSpec.guis()`, `rs().guis()`): un inventario por jugador,
+  plantillas, regiones, paginación con flechas, ofertas de ítems del jugador y protección
+  contra robo de los ítems del menú.
 - Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
   inventario, ubicaciones y experiencia.
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se

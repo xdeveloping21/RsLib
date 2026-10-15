@@ -1,0 +1,68 @@
+# ============================================================
+#  RsCoinFlip - menú de estadísticas (el nombre del archivo es el id del menú)
+#  Gestionado por SnLib: las claves nuevas se agregan solas al arrancar;
+#  tus valores y comentarios se conservan.
+#  El texto de los menús NO depende de la clave lang: de config.yml. Para
+#  cambiarlo, edita los valores de abajo; tus cambios sobreviven a cada
+#  actualización.
+# ============================================================
+
+# Título de la ventana.
+title: "&#8354f2&lTus estadísticas"
+
+# Es una foto fija: los números se leen al abrir el menú y no cambian mientras está
+# abierto. Súbelo para releerlos cada N ticks.
+update-interval: 0
+
+# Forma del menú: un carácter por casilla, nueve por fila, tres filas.
+#   f = panel del borde    s = una moneda    b = volver al lobby
+# Borra una letra de la máscara para quitar ese botón.
+layout:
+  - "fffffffff"
+  - "fsssssssf"
+  - "ffffbffff"
+
+# Grupos de casillas que rellena el plugin, una entrada por casilla, en el orden de
+# la máscara.
+regions:
+  # Una casilla por moneda de config.yml, en el orden en que están declaradas.
+  # Las monedas que no caben no se muestran; agranda el bloque s para ver más.
+  stats: s
+
+items:
+  # Borde del menú.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Lo que muestra una casilla de moneda cuando no queda ninguna moneda para ella.
+  stats-slot:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: s
+
+  # Volver al lobby de coinflips.
+  back:
+    material: BARRIER
+    display-name: "&cVolver"
+    key: b
+    lore:
+      - "&7Volver a los coinflips"
+      - "&7activos."
+    click-actions:
+      - "[cf-lobby]"
+      - "[sound] UI_BUTTON_CLICK"
+
+templates:
+  # Tus totales de una moneda. El plugin rellena {currency}, {wins}, {losses},
+  # {wagered} y {won}, y pinta la cabeza con tu propia skin.
+  currency:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "{currency}"
+    lore:
+      - "&7Ganados: &a{wins}"
+      - "&7Perdidos: &c{losses}"
+      - "&7Apostado: &e{wagered}"
+      - "&7Cobrado: &a{won}"

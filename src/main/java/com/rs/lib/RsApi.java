@@ -14,7 +14,11 @@ package com.rs.lib;
  *     <li>1 (1.0.0): core (plugin base, context, placeholders, text, YAML files, messages,
  *     debug, reload, scheduler, soft dependencies, version checks), commands, update checks,
  *     database (SQLite/MySQL, schemas, upserts, migrations, player caches), cooldowns,
- *     PlaceholderAPI expansions, cron expressions and the util classes.</li>
+ *     PlaceholderAPI expansions, cron expressions and the util classes; items (the item
+ *     builder, appearance blocks, registered physical items with recipes and death rules,
+ *     serialization), action lists and requirement lists, questions asked in chat, and menus
+ *     ({@code rs().guis()}: {@code guis/*.yml}, sessions, templates, regions, pages, item offers
+ *     and anti-theft).</li>
  * </ul>
  */
 public final class RsApi {

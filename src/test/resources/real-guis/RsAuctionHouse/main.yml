@@ -1,0 +1,276 @@
+# ============================================================
+#  RsAuctionHouse - market menu (/rsauctionhouse, or its alias /ah)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lAuction House"
+
+# Enables the listing pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one listing.
+paged-key: p
+
+# Redraws every second (ticks) so the remaining times count down.
+update-interval: 20
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler            c  category          y  sale type        s  sort order
+#   q  search            a  seller filter     r  refresh          p  one listing
+#   i  my items          m  pending money     x  close            w  sell an item
+#   o  options           <  previous page     >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "fcysfqarf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fimxwof>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[close]"
+
+  my-items:
+    material: CHEST
+    display-name: "&#8354f2&lMy Items"
+    key: i
+    lore:
+      - "&7Your listings, expired items and purchases."
+    click-actions:
+      - "[ah-open] items"
+
+  sell:
+    material: EMERALD
+    display-name: "&#8354f2&lSell an Item"
+    key: w
+    lore:
+      - "&7Put an item on the market."
+    click-actions:
+      - "[ah-open] sell"
+
+  options:
+    material: COMPARATOR
+    display-name: "&#8354f2&lOptions"
+    key: o
+    lore:
+      - "&7Choose which notices you receive."
+    click-actions:
+      - "[ah-open] options"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+
+  # One listing (the paged cells). The item keeps its own name and lore; these
+  # lines are added under it. {details} (sale-type lines) and {hint} (click
+  # help) come from messages.browse.cell in the language file. Every listing
+  # placeholder works here: {id} {seller} {item} {items} {quantity} {type}
+  # {state} {currency} {price} {total} {buyer-tax} {current-bid} {min-bid}
+  # {buyout} {bids} {bidder} {time-left} {expires} {created} {category} {tax}
+  # {version}, plus {variant} (fixed, auction, own, unavailable, ended,
+  # unaffordable). [ah-buy] buys it, opens the bid menu of an auction, or offers
+  # to remove your own listing; [ah-buyout] buys an auction out; [ah-preview]
+  # shows it up close; [ah-remove] lets staff return it to its seller.
+  listing:
+    lore:
+      - "&8&m                              "
+      - "{details}"
+      - "&7Seller: &f{seller}"
+      - "&7Ends in: &f{time-left}"
+      - "&8&m                              "
+      - "{hint}"
+    left-click-actions:
+      - "[ah-buy] {id}"
+    shift-left-click-actions:
+      - "[ah-buyout] {id}"
+    right-click-actions:
+      - "[ah-preview] {id}"
+    shift-right-click-actions:
+      - "[ah-remove] {id}"
+
+  # What a listing shows for a few seconds (display.unaffordable-ticks) after
+  # you failed to afford it. The listing lines above are still added under it.
+  # {needed} is what it costs you; every listing placeholder works here too.
+  unaffordable:
+    material: BARRIER
+    display-name: "&cNot Enough Money"
+    lore:
+      - "&7You need {needed}&7."
+
+  # Category button. {category} {count}
+  category:
+    material: BOOKSHELF
+    display-name: "&#8354f2&lCategory"
+    key: c
+    lore:
+      - "&7Showing: &f{category} &8({count})"
+      - ""
+      - "&eLeft-click &7to pick a category"
+      - "&eRight-click &7to show every category"
+    left-click-actions:
+      - "[ah-open] categories"
+    right-click-actions:
+      - "[ah-category] all"
+
+  # Sale type button. {filter}
+  type:
+    material: HOPPER
+    display-name: "&#8354f2&lSale Type"
+    key: y
+    lore:
+      - "&7Showing: {filter}"
+      - ""
+      - "&eLeft-click &7for the next type"
+      - "&eRight-click &7for the previous type"
+    left-click-actions:
+      - "[ah-filter] next"
+    right-click-actions:
+      - "[ah-filter] previous"
+
+  # Sort button. {sort}
+  sort:
+    material: REPEATER
+    display-name: "&#8354f2&lSort"
+    key: s
+    lore:
+      - "&7Order: {sort}"
+      - ""
+      - "&eLeft-click &7for the next order"
+      - "&eRight-click &7for the previous order"
+    left-click-actions:
+      - "[ah-sort] next"
+    right-click-actions:
+      - "[ah-sort] previous"
+
+  # Search button while no search is set. {search}
+  search:
+    material: OAK_SIGN
+    display-name: "&#8354f2&lSearch"
+    key: q
+    lore:
+      - "&7Search by name, lore, material or seller."
+      - ""
+      - "&eClick &7to type a search"
+    click-actions:
+      - "[ah-search]"
+
+  # Search button while a search is set. {search}
+  search-active:
+    material: WRITABLE_BOOK
+    glow: true
+    display-name: "&#8354f2&lSearch"
+    key: q
+    lore:
+      - "&7Searching: &f{search}"
+      - ""
+      - "&eLeft-click &7to search again"
+      - "&eRight-click &7to clear the search"
+    left-click-actions:
+      - "[ah-search]"
+    right-click-actions:
+      - "[ah-search] clear"
+
+  # Seller filter button while every seller is shown.
+  seller-all:
+    material: PLAYER_HEAD
+    display-name: "&#8354f2&lAll Sellers"
+    key: a
+    lore:
+      - "&7Use &f/ah see <player> &7to show one"
+      - "&7seller's listings only."
+
+  # Seller filter button while one seller is shown. {seller} {seller-uuid}
+  seller:
+    material: PLAYER_HEAD
+    skull-owner: "{seller-uuid}"
+    display-name: "&#8354f2&l{seller}"
+    key: a
+    lore:
+      - "&7Showing only the listings of &f{seller}&7."
+      - ""
+      - "&eClick &7to show every seller"
+    click-actions:
+      - "[ah-filter] all-sellers"
+
+  # Refresh button. {results} is how many listings match the current filters.
+  refresh:
+    material: SUNFLOWER
+    display-name: "&#8354f2&lRefresh"
+    key: r
+    lore:
+      - "&7Matching listings: &f{results}"
+      - ""
+      - "&eClick &7to load the latest listings"
+    click-actions:
+      - "[ah-refresh]"
+
+  # Pending money button while a claim would pay something. {pending} holds one
+  # line per currency (messages.menu.money-line).
+  claim:
+    material: GOLD_INGOT
+    glow: true
+    display-name: "&#8354f2&lPending Money"
+    key: m
+    lore:
+      - "&7Waiting for you:"
+      - "{pending}"
+      - ""
+      - "&eClick &7to claim it"
+    click-actions:
+      - "[ah-claim]"
+
+  # Pending money button while nothing can be claimed. {pending} is
+  # messages.menu.money-none, or messages.menu.money-held when money waits
+  # that a claim cannot pay now, because its currency is unavailable or it
+  # is frozen under an old currency setup.
+  claim-none:
+    material: GOLD_NUGGET
+    display-name: "&#8354f2&lPending Money"
+    key: m
+    lore:
+      - "{pending}"
+    click-actions:
+      - "[ah-claim]"

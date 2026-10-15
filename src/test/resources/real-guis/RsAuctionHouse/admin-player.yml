@@ -1,0 +1,254 @@
+# ============================================================
+#  RsAuctionHouse - staff view of a player (/ah admin open <player> <view>)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Tabs: active listings, expired items, purchased items and auctions
+#  the player leads. Needs rsauctionhouse.admin.open.
+#  Returning a listing, deleting it and taking a stored item into your
+#  inventory each take a second click within a few seconds: the first
+#  click arms the row and says so in chat.
+# ============================================================
+
+# Menu title. {player} is the inspected player.
+title: "&#8354f2&l{player}'s Items"
+
+# Enables the row pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one listing or stored item.
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         l  logs              h  history          t  transactions
+#   p  one row        s  selling tab       e  expired tab      u  purchased tab
+#   d  bids tab       i  summary           x  close
+#   <  previous page  >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "fflfhftff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fsfeiufdf"
+  - "<fffxfff>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Tab: active listings.
+  tab-selling:
+    material: OAK_SIGN
+    display-name: "&#8354f2&lActive Listings"
+    key: s
+    lore:
+      - "&eClick to show."
+    click-actions:
+      - "[ah-admin-filter] tab selling"
+
+  # Tab: expired storage.
+  tab-expired:
+    material: CHEST
+    display-name: "&#8354f2&lExpired Items"
+    key: e
+    lore:
+      - "&eClick to show."
+    click-actions:
+      - "[ah-admin-filter] tab expired"
+
+  # Tab: purchased storage.
+  tab-purchased:
+    material: ENDER_CHEST
+    display-name: "&#8354f2&lPurchased Items"
+    key: u
+    lore:
+      - "&eClick to show."
+    click-actions:
+      - "[ah-admin-filter] tab purchased"
+
+  # Tab: auctions the player leads.
+  tab-bids:
+    material: GOLD_NUGGET
+    display-name: "&#8354f2&lLeading Bids"
+    key: d
+    lore:
+      - "&eClick to show."
+    click-actions:
+      - "[ah-admin-filter] tab bids"
+
+  # Closes the menu.
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[close]"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name. {player} is the inspected player, {target}
+# their UUID. Listing cells show the real item (no display-name here) and receive every listing
+# placeholder, {version} included.
+templates:
+
+  # Audit logs of the player (rsauctionhouse.admin.logs). {player} {target}
+  logs:
+    material: WRITABLE_BOOK
+    display-name: "&#8354f2&lLogs"
+    key: l
+    lore:
+      - "&7Every logged action of &f{player}&7."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] admin-logs {target}"
+
+  # Trade history of the player (rsauctionhouse.admin.history). {player} {target}
+  history:
+    material: BOOK
+    display-name: "&#8354f2&lHistory"
+    key: h
+    lore:
+      - "&7Trade history of &f{player}&7."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] history {target}"
+
+  # Payouts of the player (rsauctionhouse.admin.transactions). {player} {target}
+  transactions:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lTransactions"
+    key: t
+    lore:
+      - "&7Money owed to and paid to &f{player}&7."
+      - ""
+      - "&eClick to open."
+    click-actions:
+      - "[ah-open] admin-transactions {target}"
+
+  # An active listing (selling and bids tabs). Staff removals tell the seller. Returning takes a
+  # second left click and deleting a second shift + left click, both within a few seconds.
+  # {delete-hint} says which delete click comes next; {return-armed} is
+  # messages.admin.return-armed while this row is armed for return, and empty otherwise.
+  listing:
+    lore:
+      - ""
+      - "&7Seller: &f{seller}"
+      - "&7Type: {type}"
+      - "&7Price: {price}"
+      - "&7Top bid: {current-bid} &8({bidder})"
+      - "&7Ends in: &f{time-left}"
+      - "&7State: {state}"
+      - "&8Listing #{id}"
+      - ""
+      - "&eLeft click twice: &fremove it and return it to the seller"
+      - "{delete-hint}"
+      - "&eRight click: &fpreview"
+      - "{return-armed}"
+    left-click-actions:
+      - "[ah-admin-remove] {id} return"
+    shift-left-click-actions:
+      - "[ah-admin-remove] {id} delete"
+    right-click-actions:
+      - "[ah-preview] {id}"
+
+  # A stored item (expired and purchased tabs). Taking it into your inventory takes a second
+  # left click within a few seconds, only works when all of it fits, is logged and tells the
+  # staff. {retrieve-armed} is messages.admin.retrieve-armed while this row is armed, and
+  # empty otherwise.
+  listing-stored:
+    lore:
+      - ""
+      - "&7Seller: &f{seller}"
+      - "&7Price: {price}"
+      - "&7State: {state}"
+      - "&7Since: &f{date}"
+      - "&8Listing #{id}"
+      - ""
+      - "&eLeft click twice: &ftake it into your inventory"
+      - "&eRight click: &fpreview"
+      - "{retrieve-armed}"
+    left-click-actions:
+      - "[ah-retrieve] {id}"
+    right-click-actions:
+      - "[ah-preview] {id}"
+
+  # Summary of the active listings tab. {player} {count}
+  info-selling:
+    material: OAK_SIGN
+    display-name: "&#8354f2&lActive Listings of {player}"
+    key: i
+    lore:
+      - "&7Listings: &f{count}"
+
+  # Summary of the expired tab. {player} {count} {limit}
+  info-expired:
+    material: CHEST
+    display-name: "&#8354f2&lExpired Items of {player}"
+    key: i
+    lore:
+      - "&7Items: &f{count} &8(newest {limit} at most)"
+
+  # Summary of the purchased tab. {player} {count} {limit}
+  info-purchased:
+    material: ENDER_CHEST
+    display-name: "&#8354f2&lPurchased Items of {player}"
+    key: i
+    lore:
+      - "&7Items: &f{count} &8(newest {limit} at most)"
+
+  # Summary of the bids tab. {player} {count}
+  info-bids:
+    material: GOLD_NUGGET
+    display-name: "&#8354f2&lAuctions {player} Leads"
+    key: i
+    lore:
+      - "&7Auctions: &f{count}"
+
+  # Summary of an empty tab. {player}
+  info-empty:
+    material: BARRIER
+    display-name: "&#8354f2&l{player}"
+    key: i
+    lore:
+      - "&7Nothing to show in this tab."
+
+  # Shown while a storage tab loads. {player}
+  info-loading:
+    material: CLOCK
+    display-name: "&#8354f2&l{player}"
+    key: i
+    lore:
+      - "&7Loading..."

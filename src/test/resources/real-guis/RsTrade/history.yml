@@ -1,0 +1,112 @@
+# ============================================================
+#  RsTrade - trade history (/rstrade history, presentation.history: gui)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+# ============================================================
+# A player's logged trades, newest first. Click one for its details. Items are listed by
+# material and amount.
+
+# Window title. {player} is the player whose trades are shown.
+title: "&#8354f2&lTrades of {player}"
+
+# Only plain left and right clicks (with or without shift) act on this menu.
+strict-clicks: true
+
+# Cell map, 6 rows of 9. f filler, e one trade per cell (the page size), < / > the page
+# arrows, x close.
+layout:
+  - "fffffffff"
+  - "feeeeeeef"
+  - "feeeeeeef"
+  - "feeeeeeef"
+  - "feeeeeeef"
+  - "<fffxfff>"
+
+# Named groups of cells the plugin paints.
+regions:
+  # One logged trade per cell, newest first.
+  entries: e
+  # The previous page arrow.
+  previous: "<"
+  # The next page arrow.
+  next: ">"
+
+items:
+  # Border and background.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Closes the menu.
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[close]"
+
+templates:
+  # A completed trade. {date} is when it ended, {partner} the other trader, {status} the
+  # outcome, {items} what was given (-) and received (+), {currencies} the money lines.
+  entry-completed:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&f{date}"
+    lore:
+      - "&7Partner: &f{partner}"
+      - "&7Status: {status}"
+      - ""
+      - "{items}"
+      - "{currencies}"
+      - ""
+      - "&eClick for details."
+    click-actions:
+      - "[rstrade-history-view] {trade} {target} {page}"
+
+  # A cancelled trade. Same placeholders, plus {reason} why it ended.
+  entry-cancelled:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&f{date}"
+    lore:
+      - "&7Partner: &f{partner}"
+      - "&7Status: {status}"
+      - "&7Reason: {reason}"
+      - ""
+      - "{items}"
+      - "{currencies}"
+      - ""
+      - "&eClick for details."
+    click-actions:
+      - "[rstrade-history-view] {trade} {target} {page}"
+
+  # Previous page. {current} is the page shown, {pages} the page count.
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous page"
+    lore:
+      - "&7Page &f{current}&7/&f{pages}"
+    click-actions:
+      - "[rstrade-history-page] {target} {page}"
+
+  # Shown instead of previous-page on the first page.
+  previous-page-disabled:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: "&7No previous page"
+    lore:
+      - "&8Page {current}/{pages}"
+
+  # Next page. {current} is the page shown, {pages} the page count.
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next page"
+    lore:
+      - "&7Page &f{current}&7/&f{pages}"
+    click-actions:
+      - "[rstrade-history-page] {target} {page}"
+
+  # Shown instead of next-page on the last page.
+  next-page-disabled:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: "&7No next page"
+    lore:
+      - "&8Page {current}/{pages}"

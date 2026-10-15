@@ -1,0 +1,67 @@
+# ============================================================
+#  RsCrates - wheel opening animation
+#  Several rows scroll together and slow to a stop, one of them on the winner.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  This is a frame, not a menu. Nothing in it can be clicked or taken while
+#  it spins: it is showing a reward that has already been paid for and is
+#  handed over when the spin ends, however the spin ends.
+#
+#  layout: one letter per cell, left to right and top to bottom. A space is
+#  an empty cell. The number of rows is the height of the menu, so deleting
+#  a row makes the frame shorter.
+#
+#  Every item below is painted on the cells its letter owns. Three names are
+#  read by the plugin and renaming one turns that part of the animation off:
+#
+#    spin-rows  every scrolling cell. They are grouped into rows by the row
+#               they sit on, and each row scrolls its own strip, so THE
+#               NUMBER OF SPINNING ROWS IS WHATEVER YOU DRAW HERE. Draw one
+#               row of them for a single wheel, four for four.
+#    winner     the cell the reward comes to rest on. It picks both the
+#               winning row and the column, so the other rows land on
+#               decoration that frames it. It sits INSIDE a spinning row,
+#               which is why it declares an explicit slot instead of a
+#               letter: a cell can only carry one letter. A slot that is not
+#               part of any spinning row is ignored and the middle of the
+#               middle row is used instead.
+#    filler     decoration, nothing else.
+#
+#  To remove one, take its letter out of the mask rather than deleting the item:
+#  an item whose letter the mask does not contain is simply not painted, and the
+#  mask is a value, so your edit survives the next boot.
+#
+#  There is deliberately no pointer item here: the winning cell is a spinning
+#  cell, so anything drawn on it would be painted over on the next frame.
+#
+#  Timings live in config.yml under animations.wheel (how long the spin lasts,
+#  how often it redraws, how many icons each row is built from) and
+#  animations.final-visual-delay-ticks (the pause before the reward arrives).
+#  Sounds and particles live under effects, and any crate may override them.
+#
+#  {crate} in the title is the crate's display name.
+# ============================================================
+
+title: "&#8354f2&lOpening &f{crate}"
+
+layout:
+  - "fsssssssf"
+  - "fsssssssf"
+  - "fsssssssf"
+
+items:
+  filler:
+    key: "f"
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  spin-rows:
+    key: "s"
+    material: WHITE_STAINED_GLASS_PANE
+    display-name: " "
+
+  winner:
+    slots: 13
+    material: LIME_STAINED_GLASS_PANE
+    display-name: " "

@@ -1,0 +1,90 @@
+# ============================================================
+#  RsLootBoxes - Editor: reward list submenu
+#  Managed by SnLib: new keys merge in on boot, your edits kept.
+#
+#  Shows one tier's rewards in pool order, one per 'r' cell.
+#  Clicking an item in your own inventory below adds it as a
+#  new reward (captured with full NBT, amount forced to 1).
+#
+#  Title placeholders: {tier} {id}
+#  Cell legend: r rewards | b back | o reorder toggle | f filler
+# ============================================================
+
+# Menu title; {tier} is the pool name, {id} the lootbox id.
+title: "&#8354f2&l{tier} Rewards &8» &f{id}"
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key, the middle click and double clicks
+# do nothing.
+strict-clicks: true
+
+# Ascii grid, one letter per cell (see the header legend).
+layout:
+  - "rrrrrrrrr"
+  - "rrrrrrrrr"
+  - "rrrrrrrrr"
+  - "rrrrrrrrr"
+  - "rrrrrrrrr"
+  - "ffffbfffo"
+
+# Named cell groups the plugin fills at runtime.
+regions:
+  # One icon per reward of the open tier, in pool order.
+  rewards: r
+  # Reorder mode toggle (reorder-on / reorder-off).
+  reorder: o
+
+items:
+  # Returns to the lootbox submenu.
+  back:
+    key: b
+    material: ARROW
+    display-name: "&7« Back"
+    lore:
+      - "&7Click an item in your inventory"
+      - "&7below to add it as a reward."
+      - ""
+      - "&8» Return to the lootbox"
+    click-actions:
+      - "[editor-back-box]"
+
+  # Decorative background.
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+templates:
+  # Painted over each reward's own item; the extra lines below are
+  # appended to its lore. {pct} and {weight} describe its win chance,
+  # {reward} carries the reward id of the clicked icon.
+  reward-icon:
+    lore:
+      - ""
+      - "&7Chance: &f{pct}% &8(weight {weight})"
+      - "&8» Click to edit"
+    click-actions:
+      - "[editor-click-reward] {reward}"
+
+  # Reorder toggle, ON state: clicks swap rewards instead of opening them.
+  reorder-on:
+    material: GREEN_DYE
+    display-name: "&aReorder Mode: &lON"
+    lore:
+      - "&7Left-click reward: move &fleft&7."
+      - "&7Right-click reward: move &fright&7."
+      - ""
+      - "&8» Click to disable"
+    click-actions:
+      - "[editor-toggle-reorder]"
+
+  # Reorder toggle, OFF state: clicks open the reward editor.
+  reorder-off:
+    material: RED_DYE
+    display-name: "&cReorder Mode: &lOFF"
+    lore:
+      - "&7Clicking a reward opens its editor."
+      - ""
+      - "&8» Click to enable reordering"
+    click-actions:
+      - "[editor-toggle-reorder]"

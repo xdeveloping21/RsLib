@@ -1,0 +1,269 @@
+# ============================================================
+#  RsCrates - editor: one reward's panel
+#  Every property of a single reward of a crate.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  HOW THIS FILE WORKS
+#  - layout is the picture: each row is exactly 9 cells and each letter
+#    names an element below. Delete a letter and that button disappears.
+#  - The "reward-item" cell shows the reward's real item, so you see what
+#    a player wins. The lore you write there is appended under the item's
+#    own lore; leave it out to show the item exactly as it is.
+#  - Every "[crates-editor-reward] ..." line is a button's behaviour.
+#  - material is the item the button is made of. Any item name from the
+#    game works: DIAMOND, CHEST, PLAYER_HEAD, LIME_DYE.
+#  - display-name and lore are yours. Colours: &a-style codes, or
+#    &#RRGGBB for an exact colour. An empty lore line is a blank line.
+#
+#  THREE THINGS THAT SOUND ALIKE AND ARE NOT
+#    can be won   off means the reward still spins and still shows in the
+#                 preview; it simply never wins. Deleting it is different.
+#    give item    off means the reward still wins, still announces and
+#                 still burns its limits; only the item is not handed
+#                 over, so the commands are the whole prize.
+#    limit window the length of the window the two limits are counted in,
+#                 NOT a wait between opens. Zero makes them lifetime caps.
+#
+#  PLACEHOLDERS available to every template here:
+#    {crate}  the crate id     {reward}  the reward id
+#    {value}  the current value of that control
+#    {chance} on the weight control, the resulting draw chance
+#    {list}   on the commands control, the commands themselves - numbered,
+#             one per line, and marked when one will not run as written
+
+# {crate} and {reward} both work in the title, so the window bar names what is being edited.
+title: "&#FF4D4DReward &8- &f{reward}"
+
+layout:
+  - "fffffffff"
+  - "ffffiffff"
+  - "fwalfgcmf"
+  - "fferfvdff"
+  - "fffffffff"
+  - "ffxfqffff"
+
+items:
+
+  # Decorative frame.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Deletes the reward. Only the shift-click is wired, which is what makes
+  # an ordinary click harmless: it fires nothing at all.
+  delete:
+    key: x
+    material: BARRIER
+    display-name: "&c&lDelete Reward"
+    lore:
+      - "&7Removes this reward from the crate."
+      - ""
+      - "&8- &cShift-click &7to confirm"
+    shift-left-click-actions:
+      - "[crates-editor-reward] delete"
+
+  # Back to the reward list. Same door as every other "Back" in the editor.
+  back:
+    key: q
+    material: OAK_DOOR
+    display-name: "&7Back"
+    lore:
+      - "&8- &7Return to the reward list"
+    click-actions:
+      - "[crates-editor-reward] back"
+
+  # Copies this reward to the end of the pool.
+  duplicate:
+    key: d
+    material: WRITABLE_BOOK
+    display-name: "&e&lDuplicate Reward"
+    lore:
+      - "&7Add a copy of this reward."
+      - ""
+      - "&8- &eClick &7to duplicate"
+    click-actions:
+      - "[crates-editor-reward] duplicate"
+
+templates:
+
+  # The reward's real item. Clicking it opens the capture that swaps it.
+  reward-item:
+    key: i
+    display-name: ""
+    lore:
+      - ""
+      - "&7This is what a player wins."
+      - ""
+      - "&8- &eClick &7to replace it with the item you hold"
+    click-actions:
+      - "[crates-editor-reward] replace-item"
+
+  # Relative draw weight. Chance is the weight over the summed weight of
+  # every reward that can be won.
+  weight:
+    key: w
+    material: GOLD_NUGGET
+    display-name: "&#FF4D4D&lWeight"
+    lore:
+      - "&7How likely this reward is."
+      - "&7Current&8: &f{value} &8(&f{chance}%&8)"
+      - ""
+      - "&8- &eClick &7to set it in chat"
+    click-actions:
+      - "[crates-editor-reward] weight"
+
+  # Stack size handed over on a win.
+  amount:
+    key: a
+    material: ANVIL
+    display-name: "&#FF4D4D&lAmount"
+    lore:
+      - "&7How many are given on a win."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to set it in chat"
+    click-actions:
+      - "[crates-editor-reward] amount"
+
+  # How many times one player may win this reward per window.
+  per-player-limit:
+    key: l
+    material: PLAYER_HEAD
+    display-name: "&#FF4D4D&lPer-Player Limit"
+    lore:
+      - "&7Wins allowed per player."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to set it in chat &8(0 = no limit)"
+    click-actions:
+      - "[crates-editor-reward] per-player-limit"
+
+  # How many times the whole server may win this reward per window.
+  global-limit:
+    key: g
+    material: BEACON
+    display-name: "&#FF4D4D&lGlobal Limit"
+    lore:
+      - "&7Wins allowed across all players."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to set it in chat &8(0 = no limit)"
+    click-actions:
+      - "[crates-editor-reward] global-limit"
+
+  # Length of the window the two limits above are counted in.
+  cooldown:
+    key: c
+    material: REPEATER
+    display-name: "&#FF4D4D&lLimit Window"
+    lore:
+      - "&7How long the limits above count for."
+      - "&7Current&8: &f{value}s"
+      - ""
+      - "&8- &eClick &7to set it in chat &8(0 = lifetime)"
+    click-actions:
+      - "[crates-editor-reward] cooldown"
+
+  # Commands the console runs when this reward is won. {list} prints them
+  # one per line, numbered, and marks any that will not run as written -
+  # a placeholder that does not exist, an empty line, a %papi% token with
+  # no PlaceholderAPI installed. Swap that line for "&7Added&8: &f{value}"
+  # to go back to showing only how many there are. The wording of a listed
+  # line is in lang/messages_en.yml under messages.editor.command-line.
+  commands:
+    key: m
+    material: COMMAND_BLOCK
+    display-name: "&#FF4D4D&lWin Commands"
+    lore:
+      - "&7Run by the console when this is won."
+      - "{list}"
+      - ""
+      - "&8- &eClick &7to add one in chat"
+      - "&8- &cShift-click &7to clear them all"
+    click-actions:
+      - "[crates-editor-reward] command-add"
+    shift-left-click-actions:
+      - "[crates-editor-reward] command-clear"
+    shift-right-click-actions:
+      - "[crates-editor-reward] command-clear"
+
+  # --- Can be won: two states sharing the "e" cell --------------------
+
+  enabled-on:
+    key: e
+    material: LIME_DYE
+    display-name: "&aCan Be Won&8: &aon"
+    lore:
+      - "&7This reward takes part in the draw."
+      - ""
+      - "&8- &eClick &7to make it display-only"
+    click-actions:
+      - "[crates-editor-reward] enabled"
+
+  enabled-off:
+    key: e
+    material: STRUCTURE_VOID
+    display-name: "&cCan Be Won&8: &coff"
+    lore:
+      - "&7Display-only&8: &7it still spins and still"
+      - "&7shows in the preview, but never wins."
+      - ""
+      - "&8- &eClick &7to let it be won"
+    click-actions:
+      - "[crates-editor-reward] enabled"
+
+  # --- Announce: two states sharing the "r" cell ----------------------
+
+  broadcast-on:
+    key: r
+    material: BELL
+    glow: true
+    display-name: "&aAnnounce&8: &aon"
+    lore:
+      - "&7Winning this is announced, and gets"
+      - "&7the rare-win particle burst."
+      - ""
+      - "&8- &eClick &7to keep it quiet"
+    click-actions:
+      - "[crates-editor-reward] broadcast"
+
+  broadcast-off:
+    key: r
+    material: GRAY_WOOL
+    display-name: "&cAnnounce&8: &coff"
+    lore:
+      - "&7Winning this is not announced."
+      - ""
+      - "&8- &eClick &7to announce it"
+    click-actions:
+      - "[crates-editor-reward] broadcast"
+
+  # --- Give item: two states sharing the "v" cell ---------------------
+
+  give-item-on:
+    key: v
+    material: CHEST
+    glow: true
+    display-name: "&aGive Item&8: &aon"
+    lore:
+      - "&7The item is handed to the winner,"
+      - "&7along with any commands."
+      - ""
+      - "&8- &eClick &7to run only the commands"
+    click-actions:
+      - "[crates-editor-reward] give-item"
+
+  give-item-off:
+    key: v
+    material: ITEM_FRAME
+    display-name: "&cGive Item&8: &coff"
+    lore:
+      - "&7The item is only the icon. Winning"
+      - "&7still counts and still announces;"
+      - "&7only the commands hand anything over."
+      - ""
+      - "&8- &eClick &7to give the item too"
+    click-actions:
+      - "[crates-editor-reward] give-item"

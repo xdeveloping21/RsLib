@@ -1,0 +1,66 @@
+title: "&#8354f2&lClan List"
+pagination: true
+paged-key: p
+layout:
+  - "fffffffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fffxfff>"
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  close:
+    material: BARRIER
+    display-name: "&cBack"
+    key: x
+    lore:
+      - "&7Return to the clan menu."
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[custom] back"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+      lore:
+        - "&8You are on the last page"
+
+templates:
+  entry:
+    material: WHITE_BANNER
+    display-name: "&#8354f2{clan} &7[{tag}]"
+    lore:
+      - "&7Leader: &f{leader}"
+      - "&7Members: &f{members}&7/&f{max}"
+      - "&7Online: &f{online}"
+      - "&7Status: &f{status}"
+      - " "
+      - "&8Click to view."
+    click-actions:
+      - "[custom] view-clan"

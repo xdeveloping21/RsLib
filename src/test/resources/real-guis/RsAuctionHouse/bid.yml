@@ -1,0 +1,173 @@
+# ============================================================
+#  RsAuctionHouse - bid menu of an auction
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lPlace a Bid"
+
+# Redraws every second (ticks) so the remaining time counts down.
+update-interval: 20
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler            i  the auction        c  confirm the picked bid
+#   r  quick raises      h  last bids          k  type a custom amount
+#   b  back              o  buy it out
+# Remove a button by replacing its character with f.
+layout:
+  - "ffffiffff"
+  - "ffffcffff"
+  - "ffrrrrrff"
+  - "fffffffff"
+  - "fhhhhhhhf"
+  - "fffkbofff"
+
+# Groups of cells the plugin fills in order. To remove one, take its letter out
+# of the layout.
+regions:
+  # The auction itself, redrawn on every update so its remaining time is live.
+  listing: i
+  # Quick-raise buttons (auction.quick-raise-multipliers), centred in these cells.
+  raises: r
+  # Last bids (auction.bid-history-size), newest first.
+  history: h
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Shown in the quick-raise cells no button uses.
+  raise-empty:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: r
+
+  # Shown in the bid history cells no bid uses.
+  history-empty:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: h
+
+# Cells the plugin fills, each bound by its name. A pick bids EXACTLY the amount
+# it shows: if the auction changed meanwhile, the bid is refused and the menu
+# refreshed, never raised.
+templates:
+
+  # The auction. These lines are added under the item's own lore. Every listing
+  # placeholder works here (see guis/main.yml), plus {min-escrow} (what bidding
+  # the minimum takes from you, the buyer tax included).
+  listing:
+    key: i
+    lore:
+      - "&8&m                              "
+      - "&7Top bid: {current-bid} &8({bids} bids)"
+      - "&7Top bidder: &f{bidder}"
+      - "&7Next bid: {min-bid} &8(you pay {min-escrow}&8)"
+      - "&7Buyout: {buyout}"
+      - "&7Ends in: &f{time-left}"
+
+  # Confirm button while an amount is picked (confirm.bid true). {bid} is the
+  # bid, {escrow} what it takes from you until you are outbid.
+  confirm:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&aConfirm Bid"
+    key: c
+    lore:
+      - "&7Bid: {bid}"
+      - "&7You pay: {escrow}"
+      - "&8Refunded if someone outbids you."
+    click-actions:
+      - "[ah-bid-confirm] {id}"
+
+  # Confirm button while no amount is picked yet (confirm.bid true).
+  confirm-idle:
+    material: PAPER
+    display-name: "&#8354f2&lPick an Amount"
+    key: c
+    lore:
+      - "&7Choose a quick raise below,"
+      - "&7or type your own amount."
+
+  # Shown instead of the confirm button when confirm.bid is false.
+  direct:
+    material: PAPER
+    display-name: "&#8354f2&lPick an Amount"
+    key: c
+    lore:
+      - "&7Your bid is placed as soon as"
+      - "&7you pick an amount below."
+
+  # One quick raise. {bid} {escrow} {multiplier}
+  raise:
+    material: GOLD_NUGGET
+    display-name: "&aBid {bid}"
+    lore:
+      - "&7You pay: {escrow}"
+      - "&8Refunded if someone outbids you."
+    click-actions:
+      - "[ah-bid-raise] {id}"
+
+  # Shown in the quick-raise cells when the auction cannot go any higher.
+  maxed:
+    material: BARRIER
+    display-name: "&cCannot Go Higher"
+    lore:
+      - "&7This auction is already at its highest amount."
+
+  # Custom amount button (asked in chat).
+  custom:
+    material: NAME_TAG
+    display-name: "&#8354f2&lCustom Amount"
+    key: k
+    lore:
+      - "&7Type your own bid in chat."
+      - "&7Minimum: {min-bid}"
+    click-actions:
+      - "[ah-bid-custom] {id}"
+
+  # Buyout button of an auction that offers one. {total} is what you pay.
+  buyout:
+    material: EMERALD
+    display-name: "&#8354f2&lBuy It Now"
+    key: o
+    lore:
+      - "&7Buy it out for {total}&7."
+    click-actions:
+      - "[ah-buyout] {id}"
+
+  # Shown instead of the buyout button when the auction offers none.
+  no-buyout:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: o
+
+  # Back button. {back} is where the menu was opened from.
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    click-actions:
+      - "[ah-open] {back}"
+
+  # One of the last bids. {rank} (1 = newest) {bidder} {bid} {date}
+  bid:
+    material: PAPER
+    display-name: "&f#{rank} &7{bid}"
+    lore:
+      - "&7Bidder: &f{bidder}"
+      - "&7Date: &f{date}"
+
+  # Shown in the first history cell when nobody has bid yet.
+  no-bids:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: "&7No Bids Yet"

@@ -126,7 +126,7 @@ public final class DeathStash {
             return;
         }
         try {
-            hop.syncLater(1L, () -> {
+            hop.entityLater(player, 1L, () -> {
                 if (player.isOnline() && !player.isDead()) {
                     giveBack(player);
                 }

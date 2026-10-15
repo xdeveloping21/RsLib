@@ -1,0 +1,235 @@
+# ============================================================
+#  RsAuctionHouse - options menu (/ah options)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every option has two faces sharing one cell: <option>-on is shown
+#  while the option is on, <option>-off while it is off. Clicking a
+#  face runs [ah-option] <option>, which flips it.
+#  Placeholder of every face: {state} (the enabled/disabled word of
+#  the status: section of the language file).
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lAuction Options"
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         a c g  announcement options
+#   d e h  notice options                    b  back
+# To hide an option, delete its letter from the map.
+layout:
+  - "fffffffff"
+  - "fffacgfff"
+  - "fffffffff"
+  - "fffdehfff"
+  - "ffffbffff"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Back to the auction house, where you left it.
+  back:
+    key: b
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    lore:
+      - "&7Return to the auction house."
+    click-actions:
+      - "[ah-open] main back"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+  # Listing announcements, shown while on.
+  broadcast-sell-on:
+    key: a
+    material: OAK_SIGN
+    glow: true
+    display-name: "&#8354f2&lListing Announcements"
+    lore:
+      - "&7New listings and auctions"
+      - "&7are announced in your chat."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn off."
+    click-actions:
+      - "[ah-option] broadcast-sell"
+
+  # Listing announcements, shown while off.
+  broadcast-sell-off:
+    key: a
+    material: GRAY_DYE
+    display-name: "&7&lListing Announcements"
+    lore:
+      - "&7New listings and auctions"
+      - "&7are announced in your chat."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn on."
+    click-actions:
+      - "[ah-option] broadcast-sell"
+
+  # Purchase announcements, shown while on.
+  broadcast-purchase-on:
+    key: c
+    material: EMERALD
+    glow: true
+    display-name: "&#8354f2&lPurchase Announcements"
+    lore:
+      - "&7Purchases on the auction house"
+      - "&7are announced in your chat."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn off."
+    click-actions:
+      - "[ah-option] broadcast-purchase"
+
+  # Purchase announcements, shown while off.
+  broadcast-purchase-off:
+    key: c
+    material: GRAY_DYE
+    display-name: "&7&lPurchase Announcements"
+    lore:
+      - "&7Purchases on the auction house"
+      - "&7are announced in your chat."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn on."
+    click-actions:
+      - "[ah-option] broadcast-purchase"
+
+  # Auction win announcements, shown while on.
+  broadcast-auction-on:
+    key: g
+    material: GOLD_INGOT
+    glow: true
+    display-name: "&#8354f2&lAuction Win Announcements"
+    lore:
+      - "&7Won auctions are announced"
+      - "&7in your chat."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn off."
+    click-actions:
+      - "[ah-option] broadcast-auction"
+
+  # Auction win announcements, shown while off.
+  broadcast-auction-off:
+    key: g
+    material: GRAY_DYE
+    display-name: "&7&lAuction Win Announcements"
+    lore:
+      - "&7Won auctions are announced"
+      - "&7in your chat."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn on."
+    click-actions:
+      - "[ah-option] broadcast-auction"
+
+  # Sale notices, shown while on.
+  notify-sold-on:
+    key: d
+    material: CHEST
+    glow: true
+    display-name: "&#8354f2&lSale Notices"
+    lore:
+      - "&7A message and a sound when"
+      - "&7one of your items sells."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn off."
+    click-actions:
+      - "[ah-option] notify-sold"
+
+  # Sale notices, shown while off.
+  notify-sold-off:
+    key: d
+    material: GRAY_DYE
+    display-name: "&7&lSale Notices"
+    lore:
+      - "&7A message and a sound when"
+      - "&7one of your items sells."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn on."
+    click-actions:
+      - "[ah-option] notify-sold"
+
+  # Outbid notices, shown while on.
+  notify-outbid-on:
+    key: e
+    material: BELL
+    glow: true
+    display-name: "&#8354f2&lOutbid Notices"
+    lore:
+      - "&7A message and a sound when"
+      - "&7someone outbids you."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn off."
+    click-actions:
+      - "[ah-option] notify-outbid"
+
+  # Outbid notices, shown while off.
+  notify-outbid-off:
+    key: e
+    material: GRAY_DYE
+    display-name: "&7&lOutbid Notices"
+    lore:
+      - "&7A message and a sound when"
+      - "&7someone outbids you."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn on."
+    click-actions:
+      - "[ah-option] notify-outbid"
+
+  # Join summary, shown while on.
+  join-summary-on:
+    key: h
+    material: WRITABLE_BOOK
+    glow: true
+    display-name: "&#8354f2&lJoin Summary"
+    lore:
+      - "&7When you join, a summary of what"
+      - "&7happened while you were away."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn off."
+    click-actions:
+      - "[ah-option] join-summary"
+
+  # Join summary, shown while off.
+  join-summary-off:
+    key: h
+    material: GRAY_DYE
+    display-name: "&7&lJoin Summary"
+    lore:
+      - "&7When you join, a summary of what"
+      - "&7happened while you were away."
+      - ""
+      - "&7Status: {state}"
+      - ""
+      - "&eClick to turn on."
+    click-actions:
+      - "[ah-option] join-summary"

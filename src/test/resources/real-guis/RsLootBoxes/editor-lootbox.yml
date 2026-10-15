@@ -1,0 +1,275 @@
+# ============================================================
+#  RsLootBoxes - Editor: lootbox submenu
+#  Managed by SnLib: new keys merge in on boot, your edits kept.
+#
+#  Title placeholder: {id}
+#  Cell legend: p preview | n name | i id | m material | g give
+#               u bullet | 1 2 3 hex stops | w glow toggle
+#               r normal pool | s super pool | d duplicates
+#               a announce | c duplicate | x delete | b back
+#               f filler
+# ============================================================
+
+# Menu title; {id} is the lootbox being edited.
+title: "&#8354f2&lEditing &8» &f{id}"
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key, the middle click and double clicks
+# do nothing.
+strict-clicks: true
+
+# Ascii grid, one letter per cell (see the header legend).
+layout:
+  - "ffffpffff"
+  - "fnfifmfgf"
+  - "fuf123fwf"
+  - "frfsfdfaf"
+  - "fffcfxfff"
+  - "ffffbffff"
+
+# Named single-cell groups the plugin fills with the lootbox's live state.
+regions:
+  # Rendered key item preview.
+  preview: p
+  # Key material button; its icon mirrors the current material.
+  material: m
+  # Give-key button; its icon mirrors the current material.
+  give: g
+  # Key glow toggle (glow-on / glow-off).
+  glow: w
+  # Allow-duplicates toggle (duplicates-on / duplicates-off).
+  duplicates: d
+  # Announcement toggle (announce-global / announce-personal).
+  announce: a
+
+items:
+  # Prompts for a new display name in chat.
+  name:
+    key: n
+    material: WRITABLE_BOOK
+    display-name: "&#8354f2Edit Display Name"
+    lore:
+      - "&7The raw text shown on the key,"
+      - "&7rendered as a 3-stop gradient."
+      - ""
+      - "&8» Click to edit in chat"
+    click-actions:
+      - "[editor-set-name]"
+
+  # Prompts for a new bullet character in chat.
+  bullet:
+    key: u
+    material: END_ROD
+    display-name: "&#8354f2Edit Bullet"
+    lore:
+      - "&7Character used in reward lists."
+      - ""
+      - "&8» Click to edit in chat"
+    click-actions:
+      - "[editor-set-bullet]"
+
+  # Prompts for the first gradient stop in chat.
+  hex-1:
+    key: "1"
+    material: RED_DYE
+    display-name: "&cEdit Hex 1 &8(left)"
+    lore:
+      - "&7Left color of the name gradient."
+      - ""
+      - "&8» Click to edit (#RRGGBB)"
+    click-actions:
+      - "[editor-set-hex] 1"
+
+  # Prompts for the middle gradient stop in chat.
+  hex-2:
+    key: "2"
+    material: WHITE_DYE
+    display-name: "&fEdit Hex 2 &8(center)"
+    lore:
+      - "&7Center color of the name gradient."
+      - ""
+      - "&8» Click to edit (#RRGGBB)"
+    click-actions:
+      - "[editor-set-hex] 2"
+
+  # Prompts for the last gradient stop in chat.
+  hex-3:
+    key: "3"
+    material: BLUE_DYE
+    display-name: "&9Edit Hex 3 &8(right)"
+    lore:
+      - "&7Right color of the name gradient."
+      - ""
+      - "&8» Click to edit (#RRGGBB)"
+    click-actions:
+      - "[editor-set-hex] 3"
+
+  # Copies this lootbox under the first free <id>-N id.
+  duplicate:
+    key: c
+    material: WRITABLE_BOOK
+    display-name: "&eDuplicate Lootbox"
+    lore:
+      - "&7Create a full copy with a new id."
+      - ""
+      - "&8» Click to duplicate"
+    click-actions:
+      - "[editor-duplicate-box]"
+
+  # Deletes this lootbox; any first click arms the confirm, then a
+  # shift-click within the confirm window deletes.
+  delete:
+    key: x
+    material: BARRIER
+    display-name: "&c&lDelete Lootbox"
+    lore:
+      - "&7Permanently removes this lootbox."
+      - ""
+      - "&8» Click, then shift-click to confirm"
+    click-actions:
+      - "[editor-delete-box]"
+
+  # Returns to the editor main menu.
+  back:
+    key: b
+    material: ARROW
+    display-name: "&7« Back"
+    lore:
+      - "&8» Return to the editor"
+    click-actions:
+      - "[editor-main]"
+
+  # Decorative background.
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+templates:
+  # Prompts for a new lootbox id in chat; {id} is the current id.
+  id:
+    key: i
+    material: NAME_TAG
+    display-name: "&#8354f2Edit ID"
+    lore:
+      - "&7Current: &f{id}"
+      - ""
+      - "&8» Click to edit in chat"
+    click-actions:
+      - "[editor-rename]"
+
+  # Opens the normal reward pool; {count} is its reward count.
+  items-normal:
+    key: r
+    material: CHEST
+    display-name: "&f&lNormal Rewards"
+    lore:
+      - "&7Pool: &f{count} &7reward(s)"
+      - ""
+      - "&8» Click to manage"
+    click-actions:
+      - "[editor-open-items] normal"
+
+  # Opens the super reward pool; {count} is its reward count.
+  items-super:
+    key: s
+    material: ENDER_CHEST
+    display-name: "&#FFD700&lSuper Rewards"
+    lore:
+      - "&7Pool: &f{count} &7reward(s)"
+      - ""
+      - "&8» Click to manage"
+    click-actions:
+      - "[editor-open-items] super"
+
+  # Preview cell; the icon is the rendered key item itself.
+  preview:
+    material: NAME_TAG
+
+  # Key material button, painted over the current material's icon.
+  material:
+    display-name: "&#8354f2Edit Key Material"
+    lore:
+      - "&7Current: &f{material}"
+      - ""
+      - "&8» Click to edit in chat"
+    click-actions:
+      - "[editor-set-material]"
+
+  # Give-key button, painted over the current material's icon.
+  give:
+    display-name: "&#22D3EEGive Key"
+    lore:
+      - "&7Receive one key of this lootbox."
+      - ""
+      - "&8» Click to receive"
+    click-actions:
+      - "[editor-give-key]"
+
+  # Glow toggle, ON state.
+  glow-on:
+    material: GLOWSTONE_DUST
+    display-name: "&aKey Glow: &lON"
+    lore:
+      - "&7The key item shimmers."
+      - ""
+      - "&8» Click to turn off"
+    click-actions:
+      - "[editor-toggle-glow]"
+
+  # Glow toggle, OFF state.
+  glow-off:
+    material: GUNPOWDER
+    display-name: "&cKey Glow: &lOFF"
+    lore:
+      - "&7The key item is plain."
+      - ""
+      - "&8» Click to turn on"
+    click-actions:
+      - "[editor-toggle-glow]"
+
+  # Allow-duplicates toggle, ON state.
+  duplicates-on:
+    material: LIME_DYE
+    display-name: "&aAllow Duplicates: &lON"
+    lore:
+      - "&7The same reward can roll twice."
+      - ""
+      - "&8» Click to turn off"
+    click-actions:
+      - "[editor-toggle-duplicates]"
+
+  # Allow-duplicates toggle, OFF state.
+  duplicates-off:
+    material: GRAY_DYE
+    display-name: "&cAllow Duplicates: &lOFF"
+    lore:
+      - "&7Every rolled reward is unique."
+      - ""
+      - "&8» Click to turn on"
+    click-actions:
+      - "[editor-toggle-duplicates]"
+
+  # Announcement toggle, global state.
+  announce-global:
+    material: BELL
+    display-name: "&aOpening Message: &lGLOBAL"
+    lore:
+      - "&7The opening announcement is"
+      - "&7broadcast to the whole server."
+      - ""
+      - "&8» Click to make it personal"
+    click-actions:
+      - "[editor-toggle-announce]"
+
+  # Announcement toggle, personal state.
+  announce-personal:
+    material: PAPER
+    display-name: "&eOpening Message: &lPERSONAL"
+    lore:
+      - "&7The opening announcement is"
+      - "&7shown only to the opener."
+      - ""
+      - "&8» Click to make it global"
+    click-actions:
+      - "[editor-toggle-announce]"

@@ -1,0 +1,218 @@
+# ============================================================
+#  RsCrates - crate preview (the full layout)
+#  Every reward a crate can give, page by page, read-only.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  ONE LAYOUT PER FILE
+#  A crate opens the layout its "preview-id" names, which is the name of
+#  a file in this folder. Two ship with the plugin, "preview" (this one)
+#  and "preview-compact". To add a third, copy this file under a new
+#  name, then point a crate at it in the crate editor. Name the new file
+#  in lang/messages_en.yml under "previews:" so the editor shows a label
+#  for it instead of the raw id.
+#
+#  THE REWARD ICONS
+#  Each icon IS the reward's own item - its enchantments, its model data,
+#  its head texture, the name a server owner wrote - and the "reward"
+#  template below only paints its lore underneath. That is why the
+#  template declares no material: the item is the appearance.
+#
+#  EVERY LORE LINE IS OPTIONAL. Delete a line from the template and it is
+#  gone. What each one shows:
+#    {tags}    the tags this reward carries FOR THIS PLAYER: the
+#              display-only tag when the reward is switched off in the
+#              crate file, and the deactivated tag when the player turned
+#              it off with the filter. It renders as a blank separator
+#              line when neither applies, which is why it is declared
+#              first. The tag TEXT lives in lang/messages_en.yml under
+#              messages.preview - blank one there to drop that tag.
+#    {chance}  the reward's share of the crate, as a percentage. It is
+#              the flat chance: a reward you have already hit your limit
+#              on still shows what it is worth when it can be won.
+#    {limit}   how many times it may be won, per player and server-wide.
+#
+#  A reward switched off in the crate file still shows here, at 0%, with
+#  the display-only tag. It is a showcase frame, not a rare one.
+#
+#  PLACEHOLDERS
+#    in the title       {crate} {crate-id}
+#    on a reward icon   {crate} {chance} {limit} {tags}
+#    on the info icon   {crate} {rewards} {fail} {fail-chance} {lore}
+#    on withdraw        {crate} {keys} {lore}
+#  {fail} is the fail tag from lang/messages_en.yml (messages.preview.fail-tag)
+#  for a crate that can fail, and nothing for one that cannot - it renders as
+#  a blank separator line then, the same way {tags} does. {fail-chance} is the
+#  bare percentage, for writing your own line.
+#  {lore} is the key item's own lore, one lore line per line it has. The two
+#  icons drawn from the key do not show it unless you write it: those lines are
+#  meant for a player holding the key, and on a button they sat above what the
+#  button is actually saying. A crate with no physical key, or a key with no
+#  lore, renders it as one blank line.
+#  %papi% placeholders resolve against whoever is looking at the menu.
+
+# {crate} here is the crate's display name, so one layout can name whichever
+# crate it is showing; {crate-id} is the id.
+title: "&#8354f2&lCrate Preview"
+
+# Only the four mouse clicks (left, right, shift + left, shift + right) and the
+# Q key lists declared below do anything; a double click, the number keys and
+# the middle click are ignored, so a fast double click can never fire twice.
+strict-clicks: true
+
+# Rewards are paged into the cells keyed "p" below.
+pagination: true
+paged-key: "p"
+
+# Each row is exactly 9 characters, one per slot.
+#   f  filler     p  reward cells     i  crate info
+#   <  previous page   >  next page   x  close
+#   w  withdraw   t  filter toggle
+layout:
+  - "ffffiffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fwfxftf>"
+
+items:
+  # Decorative background.
+  filler:
+    key: "f"
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Closes the menu.
+  close:
+    key: "x"
+    material: BARRIER
+    display-name: "&cClose"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+  # Page arrows. Each one turns into its "nav-disabled" look, and stops
+  # doing anything, when there is no page that way.
+  previous-page:
+    key: "<"
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    click-actions:
+      - "[previous-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    key: ">"
+    material: SPECTRAL_ARROW
+    display-name: "&#8354f2Next Page"
+    click-actions:
+      - "[next-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+      lore:
+        - "&8You are on the last page"
+
+templates:
+  # One reward. It has no slots of its own: the pages fill the "p" cells.
+  # No material either - the reward's item is the icon.
+  reward:
+    # Empty keeps each reward item's own name. Write one here to override
+    # the name of every reward in every crate using this layout.
+    display-name: ""
+    lore:
+      - "{tags}"
+      - "&7Chance&8: &f{chance}%"
+      - "&7Limit&8: &f{limit}"
+    click-actions:
+      - "[crates-reward]"
+
+  # Names the crate being previewed. Purely informative; it has no click.
+  # Drawn from the crate's own key item, so "material" below is only the
+  # fallback for a crate that has no physical key. The key's own lore is
+  # not shown here; add {lore} to bring it back.
+  info:
+    key: "i"
+    material: CHEST
+    display-name: "&#8354f2&l{crate}"
+    lore:
+      - "{fail}"
+      - "&7Rewards&8: &f{rewards}"
+
+  # ---- Filter toggle (both variants) ---------------------------------
+  # Shown only while filter.enabled is true in config.yml. The two
+  # variants MUST share one cell: the plugin draws whichever matches the
+  # current mode over the same slot, so giving them different keys would
+  # leave the old one on screen. To remove the feature from this layout,
+  # take "t" out of the layout above or delete both templates.
+  #
+  # A deactivated reward can still be rolled and still uses up its
+  # limits - it is only never handed to that player - and nothing here
+  # may suggest it changes anyone's chances, because it does not.
+  filter-off:
+    key: "t"
+    material: HOPPER
+    display-name: "&e&lFilter&8: &cOff"
+    lore:
+      - "&7Pick the rewards you would rather not receive."
+      - "&7A deactivated reward can still come out of the"
+      - "&7crate; it is simply not handed to you, and your"
+      - "&7chances do not change."
+      - ""
+      - "&8» &aClick &7to enter filter mode"
+    click-actions:
+      - "[crates-filter]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  filter-on:
+    key: "t"
+    material: COMPARATOR
+    glow: true
+    display-name: "&a&lFilter&8: &aOn"
+    lore:
+      - "&7Click a reward to turn it on or off for you."
+      - "&7Deactivated rewards are not handed to you, and"
+      - "&7your chances do not change."
+      - ""
+      - "&8» &cClick &7to leave filter mode"
+    click-actions:
+      - "[crates-filter]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # ---- Withdraw ------------------------------------------------------
+  # Shown only while withdraw.enabled is true in config.yml AND the crate
+  # accepts both virtual and physical keys, since a key withdrawn from a
+  # crate that takes no physical keys could never be used. To remove it
+  # from this layout, take "w" out of the layout above.
+  # The stack a right-click takes is withdraw.stack-amount in config.yml.
+  # Drawn from the crate's own key item, so "material" and "glow" below
+  # apply only to a crate that has no physical key. The key's own lore is
+  # not shown here; add {lore} to bring it back.
+  withdraw:
+    key: "w"
+    material: TRIPWIRE_HOOK
+    glow: true
+    display-name: "&e&lWithdraw keys &8» &f{crate}"
+    lore:
+      - "&7You have &f{keys} &7virtual key(s) for this crate."
+      - ""
+      - "&8» &aLeft-click &7takes &f1"
+      - "&8» &aRight-click &7takes a stack"
+      - "&8» &aPress Q &7takes as many as fit"
+      - ""
+      - "&7Only the keys that fit are handed over, and only"
+      - "&7those are taken off your balance. None are dropped."
+    click-actions:
+      - "[crates-withdraw]"
+      - "[sound] ENTITY_ITEM_PICKUP"
+    # Q (drop key). strict-clicks above ignores Q unless it has its own list.
+    drop-click-actions:
+      - "[crates-withdraw]"
+      - "[sound] ENTITY_ITEM_PICKUP"

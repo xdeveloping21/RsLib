@@ -1,0 +1,101 @@
+# ============================================================
+#  RsAuctionHouse - listing preview
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lPreview"
+
+# Enables the content pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one stack of the listing, or one item
+# inside a container item (shulker box, bundle).
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         i  the listing       p  its contents
+#   b  back           <  previous page     >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "ffffiffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fffbfff>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+
+  # The listing, showing its real item. These lines are added under the item's
+  # own lore. Every listing placeholder works here (see guis/main.yml), plus
+  # {details} {hint} {variant}.
+  listing:
+    key: i
+    lore:
+      - "&8&m                              "
+      - "{details}"
+      - "&7Seller: &f{seller}"
+      - "&7State: {state}"
+      - "&7Ends in: &f{time-left}"
+      - "&8&m                              "
+      - "{hint}"
+    left-click-actions:
+      - "[ah-buy] {id}"
+    shift-left-click-actions:
+      - "[ah-buyout] {id}"
+    right-click-actions:
+      - "[ah-preview] {id}"
+
+  # One stack of the listing, or one item inside its container (the paged
+  # cells). It shows the item exactly as it is; a display-name or lore written
+  # here would be added to it.
+  content:
+    material: CHEST
+
+  # Back button. {back} is where the preview was opened from.
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    click-actions:
+      - "[ah-open] {back}"

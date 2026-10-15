@@ -1,0 +1,94 @@
+title: "&#8354f2&lPermissions"
+layout:
+  - "fffffffff"
+  - "fffrrrfff"
+  - "ftttttttf"
+  - "fftttttff"
+  - "ffffxffff"
+
+# Role permission matrix, leader only.
+#
+# Runtime regions: groups of cells RsClans fills at runtime, one entry per cell,
+# in the order the cells appear (left to right, top to bottom).
+#   roles   - the editable roles, in RsClans' order: co-leader, officer, member.
+#   toggles - one switch per gated clan action, in RsClans' order.
+#
+# Move the letters anywhere in layout: to reposition a region; add or remove
+# letters to resize it (fewer cells simply means the last entries are not shown);
+# take a letter out entirely to remove the region. Row 4 above is "fftttttff", so
+# the toggles are 7 + 5 = 12, one per action - type a t over a filler pane of that
+# row to get a 13th cell the day a 13th action exists. Reordering the cells reorders the
+# PICTURE only: every switch carries its own action, so it can never end up
+# toggling a different permission. To choose the cells and their order by hand,
+# swap the letter for a slot list:
+#   toggles:
+#     slots: ["19-25", "28-30", "32-34"]
+# Do NOT delete the two lines below: they are re-added on the next restart and
+# RsClans warns that the region is missing.
+regions:
+  roles: r
+  toggles: t
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  close:
+    material: BARRIER
+    display-name: "&cBack"
+    key: x
+    lore:
+      - "&7Return to the clan menu."
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[custom] back"
+
+# These four templates are KEYLESS on purpose: each pair is two state variants of
+# the same cell (selected/unselected, allowed/denied), so neither can own the
+# placement - the region above decides the cell and RsClans decides which variant
+# paints it. Giving one a key: would make it render on its own, outside the matrix.
+templates:
+  role-selected:
+    material: ENCHANTED_BOOK
+    display-name: "&#8354f2&l{role}"
+    lore:
+      - "&7Editing this role's permissions."
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+
+  role-unselected:
+    material: BOOK
+    display-name: "&7{role}"
+    lore:
+      - "&8Click to edit this role."
+    click-actions:
+      - "[custom] perm-role"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # {action} and {state} are worded in lang/messages_en.yml (the actions block and
+  # lists.status-allowed / lists.status-denied); restyle them there, not here.
+  toggle-allowed:
+    material: LIME_DYE
+    display-name: "&#8354f2&l{action}"
+    lore:
+      - "&7Role: &f{role}"
+      - "&7State: {state}"
+      - " "
+      - "&8Click to deny."
+    click-actions:
+      - "[custom] perm-toggle"
+      - "[sound] UI_BUTTON_CLICK"
+
+  toggle-denied:
+    material: GRAY_DYE
+    display-name: "&7&l{action}"
+    lore:
+      - "&7Role: &f{role}"
+      - "&7State: {state}"
+      - " "
+      - "&8Click to allow."
+    click-actions:
+      - "[custom] perm-toggle"
+      - "[sound] UI_BUTTON_CLICK"

@@ -1,0 +1,69 @@
+# ============================================================
+#  RsAuctionHouse - removal confirmation (your own listing, or staff)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Shown when confirm.remove is true in config.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lRemove Listing"
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler   c  confirm   i  the listing   d  cancel
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "ffcfifdff"
+  - "fffffffff"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+# Cells the plugin fills, each bound by its name. Every listing placeholder
+# works in all of them, {version} included (see
+# guis/main.yml), plus {fee}: the fee the seller pays for cancelling an
+# auction that already has bids (auction.cancel-with-bids.fee-percent of
+# config.yml), or status.none of the language file when no fee is charged.
+# The listing goes back to its seller's expired items. The
+# confirm click removes the listing exactly as this screen shows it: if it
+# changed meanwhile, the removal is refused and the screen refreshed.
+templates:
+
+  # The listing. These lines are added under the item's own lore.
+  listing:
+    key: i
+    lore:
+      - "&8&m                              "
+      - "{details}"
+      - "&7Seller: &f{seller}"
+      - "&7Ends in: &f{time-left}"
+
+  # Confirm button. {fee}
+  confirm:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&aConfirm Removal"
+    key: c
+    lore:
+      - "&7Take &f{items} &7off the market."
+      - "&7It waits in the seller's expired items."
+      - "&7Cancel fee: &f{fee}"
+    click-actions:
+      - "[ah-remove-confirm] {id}"
+
+  # Cancel button. {back} is where the screen was opened from.
+  cancel:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&cCancel"
+    key: d
+    click-actions:
+      - "[ah-open] {back}"

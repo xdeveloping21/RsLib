@@ -1,0 +1,86 @@
+# ============================================================
+#  RsChat - [inv] snapshot viewer
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#
+#  Opened by clicking an [inv] tag in chat. It shows a frozen copy of the
+#  sender's inventory as it was when the message was sent. Every click and
+#  drag inside it is cancelled and no item can leave it.
+# ============================================================
+
+# Title of the viewer window. {player} is the name of the player whose inventory
+# this is - the sender of the message, never whoever is looking at it.
+# Any OTHER %placeholder% written here resolves against the VIEWER, not the
+# owner, which is usually the opposite of what a title like this wants.
+# (%player% is the one exception: it is intercepted and gives the owner's name,
+# same as {player}. Write {player} anyway - it is the form that always means
+# the owner.)
+title: "&#8354f2&lInventario de {player}"
+
+# Slot map: one line per row, one character per slot, read left to right and
+# top to bottom. A space is an empty slot. Move a letter to move what it holds;
+# delete it to leave that content out.
+#   h helmet      c chestplate   l leggings   b boots
+#   m main hand   o off hand     p the sender's head
+#   s the sender's main inventory, 27 cells in order
+#   t the sender's hotbar, 9 cells in order
+#   # filler
+layout:
+  - "hclb#m#op"
+  - "#########"
+  - "sssssssss"
+  - "sssssssss"
+  - "sssssssss"
+  - "ttttttttt"
+
+# Ordered cell groups the plugin fills one item per cell. Reordering their
+# cells reorders the picture only; each item keeps its own identity.
+regions:
+  storage: s
+  hotbar: t
+
+items:
+  # Placed in every cell marked '#'.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: "#"
+
+# The cells the sender's real items are painted into. The item supplies
+# everything visible - material, name, lore, enchantments - so of what is
+# declared here only a display-name or a lore would reach the cell, and neither
+# is declared: the replica shows each item exactly as its owner had it.
+#
+# A cell the sender had empty stays empty: nothing is painted into it at all,
+# and nothing you set here changes that. These entries only describe cells that
+# DO hold an item.
+templates:
+  helmet:
+    key: h
+  chestplate:
+    key: c
+  leggings:
+    key: l
+  boots:
+    key: b
+  main-hand:
+    key: m
+  off-hand:
+    key: o
+  # Painted over every cell of the storage and hotbar regions. Both fields are
+  # left empty on purpose: that is "declare nothing", so the item crosses to the
+  # cell untouched, keeping its own name and lore.
+  slot:
+    display-name: ""
+    lore: []
+
+  # Head of the player the snapshot belongs to. This cell is rendered from the
+  # definition below rather than from an item. {player} is their name.
+  owner:
+    key: p
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&#8354f2&l{player}"
+    lore:
+      - "&7Inventario tal como estaba"
+      - "&7al enviar el mensaje."

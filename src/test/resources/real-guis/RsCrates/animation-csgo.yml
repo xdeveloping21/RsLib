@@ -1,0 +1,67 @@
+# ============================================================
+#  RsCrates - CSGO opening animation
+#  Reward icons scroll across one row and slow to a stop on the winner.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  This is a frame, not a menu. Nothing in it can be clicked or taken while
+#  it spins: it is showing a reward that has already been paid for and is
+#  handed over when the spin ends, however the spin ends.
+#
+#  layout: one letter per cell, left to right and top to bottom. A space is
+#  an empty cell. The number of rows is the height of the menu, so deleting
+#  a row makes the frame shorter.
+#
+#  Every item below is painted on the cells its letter owns. Four names are
+#  read by the plugin and renaming one turns that part of the animation off:
+#
+#    strip   the scrolling row. Its cells are used in the order the mask
+#            spells them, so widening the row makes a longer strip.
+#    winner  the cell the reward comes to rest on. It sits INSIDE the strip
+#            (the icons scroll through it), which is why it declares an
+#            explicit slot instead of a letter: a cell can only carry one
+#            letter. A slot that is not part of the strip is ignored and the
+#            middle of the strip is used instead.
+#    filler  decoration, nothing else.
+#    marker  the pointers above and below the winning cell.
+#
+#  To remove one, take its letter out of the mask rather than deleting the item:
+#  an item whose letter the mask does not contain is simply not painted, and the
+#  mask is a value, so your edit survives the next boot.
+#
+#  Timings live in config.yml under animations.csgo (how long the spin lasts,
+#  how often it redraws, how many icons the strip is built from) and
+#  animations.final-visual-delay-ticks (the pause before the reward arrives).
+#  Sounds and particles live under effects, and any crate may override them.
+#
+#  {crate} in the title is the crate's display name.
+# ============================================================
+
+title: "&#8354f2&lOpening &f{crate}"
+
+layout:
+  - "ffffmffff"
+  - "sssssssss"
+  - "ffffmffff"
+
+items:
+  filler:
+    key: "f"
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  marker:
+    key: "m"
+    material: GOLD_BLOCK
+    display-name: "&#FFD700&lWINNER"
+    glow: true
+
+  strip:
+    key: "s"
+    material: WHITE_STAINED_GLASS_PANE
+    display-name: " "
+
+  winner:
+    slots: 13
+    material: LIME_STAINED_GLASS_PANE
+    display-name: " "

@@ -1,0 +1,157 @@
+# ============================================================
+#  RsKits - command item menu
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#
+#  Opened by RIGHT-CLICKING a command item inside the items editor grid
+#  (/rskits edit <id> -> Edit Items). It configures that one command item: an
+#  entry shown in the kit preview that runs commands on claim instead of being
+#  handed over.
+#
+#  A command item has no name of its own: it IS the slot it sits in. Every
+#  button acts on whichever command item you opened, and does nothing at all if
+#  the kit or that command item was deleted meanwhile.
+#
+#  Buttons fire on ANY click type. Left, right, shift and middle all do the
+#  same thing here on purpose.
+#
+#  Placeholders available in every display-name and lore below:
+#    {kit}     the kit id
+#    {slot}    the grid slot this command item occupies (0-52)
+#    {run-as}  who runs the commands, from the status: section of the lang file
+#    {count}   how many commands it currently has
+#  PlaceholderAPI placeholders resolve too, per viewer.
+#
+#  Sounds come from config.yml sounds: (gui-click, and toggle for run-as). Add
+#  a "[sound] SOUND_ID" line to any click-actions list below to layer another.
+#
+#  TO MOVE a button, move its letter in the layout. TO REMOVE one, delete its
+#  letter from the layout and leave the entry here.
+#  Colours: use &#RRGGBB. A bare #RRGGBB is not a colour and renders as text.
+# ============================================================
+
+title: "&#8354f2&lÍtem de comando &8- &e{kit}"
+
+# f filler   d the command item's icon   s set display   a add command
+# r run as   m remove last command       x delete        b back
+layout:
+  - "fffffffff"
+  - "ffffdffff"
+  - "ffsarmxff"
+  - "fffffffff"
+  - "ffffbffff"
+
+# sn:extensible
+items:
+  # Fills every cell no button claims. Delete it to leave those cells empty:
+  # the marker above is what keeps it deleted instead of writing it back on
+  # every boot.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+# Every entry below is filled in by the plugin, which is why they are templates
+# rather than items: their text carries the placeholders above. The action after
+# "[command-item]" is what the button does and must not be renamed.
+templates:
+
+  # The command item itself, read-only. The icon IS the display item you set,
+  # with its own name, enchantments and model kept exactly as they are; only the
+  # lore lines below are appended under it, and only inside this menu.
+  # This entry's key also places the "no-display" entry below.
+  display:
+    key: d
+    lore:
+      - ""
+      - "&7Casilla de la rejilla: &f{slot}"
+      - "&7Lo ejecuta: &f{run-as}"
+      - "&7Comandos: &f{count}"
+
+  # Shown in the same cell while the command item has no display set. A command
+  # item without one runs its commands but is invisible in the kit preview.
+  no-display:
+    material: COMMAND_BLOCK
+    display-name: "&#8354f2Ítem de comando"
+    lore:
+      - "&7Sin ícono asignado."
+      - ""
+      - "&7Lo ejecuta: &f{run-as}"
+      - "&7Comandos: &f{count}"
+
+  # Copies whatever you are holding into this command item as its icon.
+  set-display:
+    material: HOPPER
+    display-name: "&#8354f2Usar el ítem de la mano"
+    key: s
+    lore:
+      - "&7Usa el ítem de tu mano principal como"
+      - "&7ícono de este ítem de comando."
+      - "&7Con la mano vacía se quita el ícono."
+      - ""
+      - "&eClic para asignarlo"
+    click-actions:
+      - "[command-item] set-display"
+
+  # Asks for a command in chat and appends it.
+  add-command:
+    material: WRITABLE_BOOK
+    display-name: "&#8354f2Añadir comando"
+    key: a
+    lore:
+      - "&7Escribe un comando en el chat para añadirlo."
+      - "&7Usa &f%player%&7 para el nombre de quien reclama."
+      - ""
+      - "&7Comandos: &f{count}"
+      - ""
+      - "&eClic para escribirlo en el chat"
+    click-actions:
+      - "[command-item] add-command"
+
+  # Console runs with full permissions; the player runs with theirs.
+  run-as:
+    material: COMPARATOR
+    display-name: "&#8354f2Lo ejecuta: &f{run-as}"
+    key: r
+    lore:
+      - "&7Quién ejecuta los comandos al reclamar."
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[command-item] run-as"
+
+  # Drops the command that runs last.
+  remove-command:
+    material: SHEARS
+    display-name: "&cQuitar el último comando"
+    key: m
+    lore:
+      - "&7Comandos: &f{count}"
+      - ""
+      - "&eClic para quitarlo"
+    click-actions:
+      - "[command-item] remove-command"
+
+  # Removes the command item from the kit and returns to the grid.
+  delete:
+    material: BARRIER
+    display-name: "&cBorrar ítem de comando"
+    key: x
+    lore:
+      - "&7Quita este ítem de comando del kit."
+      - ""
+      - "&eClic para borrarlo"
+    click-actions:
+      - "[command-item] delete"
+
+  # Returns to the items editor grid.
+  back:
+    material: ARROW
+    display-name: "&e« Volver"
+    key: b
+    lore:
+      - "&7Regresa a la rejilla de ítems del kit."
+      - ""
+      - "&eClic para volver"
+    click-actions:
+      - "[command-item] back"

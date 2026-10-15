@@ -1,0 +1,191 @@
+# ============================================================
+#  RsCrates - editor: one crate's reward list
+#  Every reward of a crate, in the order it is drawn and previewed.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  HOW THIS FILE WORKS
+#  - layout is the picture: each row is exactly 9 cells and each letter
+#    names an element below. Delete a letter and that button disappears.
+#  - The reward icons are the crate's real items. The lore you write on
+#    the "reward" template is APPENDED under each item's own lore; the
+#    item keeps its own name, enchantments and model. Leave the lore out
+#    entirely to show the items exactly as players see them.
+#  - Every "[crates-editor-rewards] ..." line is a button's behaviour.
+#  - material is the item the button is made of. Any item name from the
+#    game works: DIAMOND, CHEST, PLAYER_HEAD, LIME_DYE.
+#  - display-name and lore are yours. Colours: &a-style codes, or
+#    &#RRGGBB for an exact colour. An empty lore line is a blank line.
+#
+#  TWO MODES, each a pair of entries sharing one cell:
+#    mass creation  clicking an item in YOUR OWN inventory turns it into
+#                   a reward, stack amount and all. Your item is never
+#                   taken; it is copied.
+#    ordering       clicking a reward moves it instead of opening it.
+#                   Order is what players see in the preview and in the
+#                   opening animation.
+#
+#  PLACEHOLDERS on the reward templates:
+#    {crate}   the crate id      {reward}  the reward id
+#    {weight}  its draw weight   {chance}  its chance, without the % sign
+#    {state}   whether it can be won at all
+
+# {crate} works in the title too, so the window bar names the crate being edited.
+title: "&#FF4D4DRewards &8- &f{crate}"
+
+# Needed so the reward list can page.
+pagination: true
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key and the middle click do nothing.
+strict-clicks: true
+
+layout:
+  - "fffffffff"
+  - "frrrrrrrf"
+  - "frrrrrrrf"
+  - "frrrrrrrf"
+  - "fffffffff"
+  - "pfqmaoffn"
+
+# Cells the reward icons are drawn into, in pool order.
+paged-key: r
+
+items:
+
+  # Decorative frame.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Back to the crate's panel. Same door as every other "Back" in the editor.
+  back:
+    key: q
+    material: OAK_DOOR
+    display-name: "&7Back"
+    lore:
+      - "&8- &7Return to the crate"
+    click-actions:
+      - "[crates-editor-rewards] back"
+
+  # Page back. The nav-disabled block is what it looks like on page one.
+  previous-page:
+    key: p
+    material: ARROW
+    display-name: "&e&lPrevious Page"
+    lore:
+      - "&8- &7Click to go back a page"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+
+  # Page forward. The nav-disabled block is what it looks like on the last page.
+  next-page:
+    key: n
+    material: SPECTRAL_ARROW
+    display-name: "&e&lNext Page"
+    lore:
+      - "&8- &7Click to go forward a page"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+
+templates:
+
+  # One per reward. The item itself is the icon; these lines go under it.
+  reward:
+    display-name: ""
+    lore:
+      - ""
+      - "&7Weight&8: &f{weight} &8(&f{chance}%&8)"
+      - "&7State&8: &f{state}"
+      - ""
+      - "&8- &eClick &7to edit this reward"
+    click-actions:
+      - "[crates-editor-rewards] reward {reward}"
+
+  # The same reward while ordering is on: the click moves it.
+  reward-order:
+    display-name: ""
+    lore:
+      - ""
+      - "&7Weight&8: &f{weight} &8(&f{chance}%&8)"
+      - "&7State&8: &f{state}"
+      - ""
+      - "&8- &eLeft-click &7to move it earlier"
+      - "&8- &eRight-click &7to move it later"
+    left-click-actions:
+      - "[crates-editor-rewards] move-earlier {reward}"
+    right-click-actions:
+      - "[crates-editor-rewards] move-later {reward}"
+
+  # Opens the capture: the item you are holding becomes a new reward.
+  add:
+    key: a
+    material: LIME_DYE
+    display-name: "&a&lAdd Reward"
+    lore:
+      - "&7This crate has &f{count} &7reward(s)."
+      - ""
+      - "&8- &aClick &7to add the item you are holding"
+    click-actions:
+      - "[crates-editor-rewards] add"
+
+  # --- Mass creation: two states sharing the "m" cell -----------------
+
+  mass-create-off:
+    key: m
+    material: DISPENSER
+    display-name: "&7Mass Creation&8: &coff"
+    lore:
+      - "&7Turn every item you click in your"
+      - "&7own inventory into a reward."
+      - ""
+      - "&8- &aClick &7to enable"
+    click-actions:
+      - "[crates-editor-rewards] mass-create"
+
+  mass-create-on:
+    key: m
+    material: DROPPER
+    glow: true
+    display-name: "&aMass Creation&8: &aon"
+    lore:
+      - "&7Click any item in your own inventory"
+      - "&7to add it as a reward, amount and all."
+      - "&7Your items are never taken."
+      - ""
+      - "&8- &cClick &7to disable"
+    click-actions:
+      - "[crates-editor-rewards] mass-create"
+
+  # --- Ordering: two states sharing the "o" cell ----------------------
+
+  order-off:
+    key: o
+    material: RAIL
+    display-name: "&7Ordering&8: &coff"
+    lore:
+      - "&7Rearrange rewards by clicking them."
+      - ""
+      - "&8- &aClick &7to enable"
+    click-actions:
+      - "[crates-editor-rewards] order"
+
+  order-on:
+    key: o
+    material: POWERED_RAIL
+    glow: true
+    display-name: "&aOrdering&8: &aon"
+    lore:
+      - "&7Left-click a reward to move it earlier,"
+      - "&7right-click to move it later."
+      - ""
+      - "&8- &cClick &7to disable"
+    click-actions:
+      - "[crates-editor-rewards] order"

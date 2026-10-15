@@ -1,0 +1,563 @@
+# ============================================================
+#  RsCrates - editor: one crate's panel
+#  Everything about a crate except its rewards, which have their own
+#  screen. Managed by SnLib: new keys merge in on boot, your values
+#  are kept.
+# ============================================================
+#
+#  HOW THIS FILE WORKS
+#  - layout is the picture: each row is exactly 9 cells and each letter
+#    names an element below. Delete a letter and that button disappears.
+#  - items are fixed buttons. templates are filled by the plugin, which
+#    is how their lore can show the crate's current values.
+#  - Every "[crates-editor-crate] ..." line is a button's behaviour.
+#  - material is the item the button is made of. Any item name from the
+#    game works: DIAMOND, CHEST, PLAYER_HEAD, LIME_DYE.
+#  - display-name and lore are yours. Colours: &a-style codes, or
+#    &#RRGGBB for an exact colour. An empty lore line is a blank line.
+#
+#  THREE-STATE CONTROLS (the mass-open toggle and the five effects)
+#  A crate can say three different things about one of these values:
+#    inherited  it says nothing, so config.yml decides
+#    off        it says "nothing here": really silent, really no particle,
+#               even when config.yml names a value
+#    a value    it says what to use, overriding config.yml
+#  Each state is a SEPARATE entry below, and all three share one layout
+#  letter, so only the matching one is ever drawn. Each state has its own
+#  item so you can tell them apart across the room; the colour of the name
+#  is what says which state it is. Restyle them freely - just keep all
+#  three, or a crate that reaches the missing state shows an empty cell.
+#  The fail chance has TWO states, inherited and a value: a declared 0 is
+#  what "off" means for a percentage, so it needs no third entry.
+#
+#  PLACEHOLDERS available to every template here:
+#    {crate}   the crate id, which is what you type in commands
+#    {value}   what this crate currently declares
+#    {global}  what config.yml says, for the inherited state
+
+# {crate} works in the title too, so the window bar names the crate being edited.
+title: "&#FF4D4DEditor &8- &f{crate}"
+
+layout:
+  - "fffffffff"
+  - "fnakipvmf"
+  - "ffowcuyff"
+  - "fffhfrfff"
+  - "fffffffff"
+  - "ffxbqdsff"
+
+items:
+
+  # Decorative frame.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Links this crate to a block in the world. Both gestures close the menu
+  # and then wait for your next click on a block - either mouse button lands
+  # it. A block that is already bound is refused rather than repointed, so
+  # moving a live crate block is always unbind first, then bind.
+  set-block:
+    key: b
+    material: LODESTONE
+    display-name: "&#FF4D4D&lCrate Block"
+    glow: true
+    lore:
+      - "&7Bind a block so players can open"
+      - "&7this crate by right-clicking it."
+      - ""
+      - "&8- &eLeft-click &7then click a block to bind"
+      - "&8- &cRight-click &7then click a bound block to unbind"
+      - "&8- &7An already bound block is refused&8:"
+      - "&8  &7unbind it first, then bind it here"
+    left-click-actions:
+      - "[crates-editor-crate] bind-block"
+    right-click-actions:
+      - "[crates-editor-crate] unbind-block"
+
+  # Full copy of this crate under a free "<id>-copy" id.
+  duplicate:
+    key: d
+    material: WRITABLE_BOOK
+    display-name: "&e&lDuplicate Crate"
+    lore:
+      - "&7Copy this crate, rewards included."
+      - ""
+      - "&8- &eClick &7to duplicate"
+    click-actions:
+      - "[crates-editor-crate] duplicate"
+
+  # Deletes the crate. Only the shift-click is wired, which is what makes
+  # an ordinary click harmless: it fires nothing at all.
+  delete:
+    key: x
+    material: BARRIER
+    display-name: "&c&lDelete Crate"
+    lore:
+      - "&7Removes this crate and its file,"
+      - "&7and frees every block bound to it."
+      - ""
+      - "&8- &cShift-click &7to confirm"
+    shift-left-click-actions:
+      - "[crates-editor-crate] delete"
+
+  # Back to the crate list. Every "Back" in the editor is this same door,
+  # and the arrows are only ever page arrows, so the two never look alike.
+  back:
+    key: q
+    material: OAK_DOOR
+    display-name: "&7Back"
+    lore:
+      - "&8- &7Return to the crate list"
+    click-actions:
+      - "[crates-editor-crate] back"
+
+  # Every edit is written the moment you make it, so this only closes.
+  save:
+    key: s
+    material: LIME_DYE
+    display-name: "&a&lClose"
+    lore:
+      - "&7Every change is saved as you make it."
+      - ""
+      - "&8- &aClick &7to close"
+    click-actions:
+      - "[close]"
+
+templates:
+
+  # The name players see for this crate, in menus and in its preview.
+  display-name:
+    key: n
+    material: NAME_TAG
+    display-name: "&#FF4D4D&lDisplay Name"
+    lore:
+      - "&7Crate id&8: &f{crate}"
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to rename in chat"
+    click-actions:
+      - "[crates-editor-crate] display-name"
+
+  # Cycles the opening animation in the order the plugin declares them.
+  animation:
+    key: a
+    material: CLOCK
+    display-name: "&#FF4D4D&lAnimation"
+    lore:
+      - "&7How an opening is shown."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to cycle"
+    click-actions:
+      - "[crates-editor-crate] animation"
+
+  # Cycles three combinations: physical, virtual, physical + virtual.
+  key-types:
+    key: k
+    material: IRON_DOOR
+    display-name: "&#FF4D4D&lAccepted Keys"
+    lore:
+      - "&7Which kinds of key open this crate."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &7&fPhysical &7is a key item players hold"
+      - "&8- &7&fVirtual &7is a balance they spend"
+      - "&8- &7Both means either one works"
+      - ""
+      - "&8- &eClick &7to cycle"
+    click-actions:
+      - "[crates-editor-crate] key-types"
+
+  # Opens the capture: the item you are holding becomes this crate's key.
+  key-item:
+    key: i
+    material: TRIPWIRE_HOOK
+    glow: true
+    display-name: "&#FF4D4D&lKey Item"
+    lore:
+      - "&7The physical key players hold."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to use the item you are holding"
+    click-actions:
+      - "[crates-editor-crate] key-item"
+
+  # Only ever read for a crate whose accepted keys include PERMISSION, which
+  # is set in config.yml or in the crate file - the button above does not
+  # offer it. A crate on physical or virtual keys ignores this entirely.
+  open-permission:
+    key: p
+    material: PAPER
+    display-name: "&#FF4D4D&lOpen Permission"
+    lore:
+      - "&7A node that opens this crate with no"
+      - "&7key at all. Only used by crates set to"
+      - "&7accept &fPERMISSION &7keys in their file."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to set it in chat &8(blank clears it)"
+    click-actions:
+      - "[crates-editor-crate] open-permission"
+
+  # Cycles the layouts listed under editor.preview-layouts in config.yml.
+  # Add yours there after you copy guis/preview.yml under a new name.
+  preview:
+    key: v
+    material: PAINTING
+    display-name: "&#FF4D4D&lPreview Layout"
+    lore:
+      - "&7The menu players see when they look"
+      - "&7at what this crate can give."
+      - "&7Current&8: &f{value}"
+      - ""
+      - "&8- &eClick &7to cycle"
+    click-actions:
+      - "[crates-editor-crate] preview"
+
+  # Entry point into this crate's rewards.
+  rewards:
+    key: r
+    material: CHEST
+    glow: true
+    display-name: "&#8354f2&lRewards"
+    lore:
+      - "&7Add, edit, reorder and remove rewards."
+      - "&7This crate has &f{count}&7."
+      - ""
+      - "&8- &eClick &7to open the list"
+    click-actions:
+      - "[crates-editor-crate] rewards"
+
+  # --- Mass open: three states sharing the "m" cell -------------------
+  # Whether a player may open several of this crate in one action.
+  # The cycle is inherited -> on -> off -> inherited.
+
+  mass-open-inherited:
+    key: m
+    material: HOPPER
+    display-name: "&7Mass Open&8: &7inherited"
+    lore:
+      - "&7This crate follows &fconfig.yml&7,"
+      - "&7which currently says &f{global}&7."
+      - ""
+      - "&8- &eClick &7to declare its own value"
+    click-actions:
+      - "[crates-editor-crate] mass-open"
+
+  mass-open-on:
+    key: m
+    material: SHULKER_BOX
+    glow: true
+    display-name: "&aMass Open&8: &aon"
+    lore:
+      - "&7This crate allows opening several"
+      - "&7at once, whatever &fconfig.yml &7says."
+      - ""
+      - "&8- &eClick &7to turn it off"
+    click-actions:
+      - "[crates-editor-crate] mass-open"
+
+  mass-open-off:
+    key: m
+    material: IRON_BARS
+    display-name: "&cMass Open&8: &coff"
+    lore:
+      - "&7This crate opens one at a time,"
+      - "&7whatever &fconfig.yml &7says."
+      - ""
+      - "&8- &eClick &7to follow the configuration again"
+    click-actions:
+      - "[crates-editor-crate] mass-open"
+
+  # --- Fail chance: two states sharing the "h" cell -------------------
+  # The percentage of opens that spend the key and win nothing. Inherited
+  # follows fail.chance in config.yml; a value overrides it for this crate.
+
+  fail-chance-inherited:
+    key: h
+    material: GRAY_DYE
+    display-name: "&7Fail Chance&8: &7inherited"
+    lore:
+      - "&7How often an open spends the key"
+      - "&7and wins nothing."
+      - "&7Follows &fconfig.yml&8: &f{global}%"
+      - ""
+      - "&8- &eLeft-click &7to set its own chance"
+    left-click-actions:
+      - "[crates-editor-crate] fail-chance"
+
+  fail-chance-value:
+    key: h
+    material: RED_DYE
+    glow: true
+    display-name: "&aFail Chance&8: &f{value}%"
+    lore:
+      - "&7This crate's own chance, in percent."
+      - "&7A declared &f0 &7means it never fails."
+      - ""
+      - "&8- &eLeft-click &7to change it"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] fail-chance"
+    shift-left-click-actions:
+      - "[crates-editor-crate] fail-chance-inherit"
+
+  # --- Open sound: three states sharing the "o" cell ------------------
+
+  open-sound-inherited:
+    key: o
+    material: NOTE_BLOCK
+    display-name: "&7Open Sound&8: &7inherited"
+    lore:
+      - "&7Played when an opening starts."
+      - "&7Follows &fconfig.yml&8: &f{global}"
+      - ""
+      - "&8- &eLeft-click &7to set its own sound"
+      - "&8- &cRight-click &7to silence it here"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value OPEN_SOUND"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off OPEN_SOUND"
+
+  open-sound-off:
+    key: o
+    material: COAL
+    display-name: "&cOpen Sound&8: &coff"
+    lore:
+      - "&7Silent for this crate, even though"
+      - "&7&fconfig.yml &7says &f{global}&7."
+      - ""
+      - "&8- &eLeft-click &7to set its own sound"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value OPEN_SOUND"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit OPEN_SOUND"
+
+  open-sound-value:
+    key: o
+    material: JUKEBOX
+    glow: true
+    display-name: "&aOpen Sound&8: &f{value}"
+    lore:
+      - "&7This crate's own sound."
+      - "&7Like &fBLOCK_CHEST_OPEN&7, or with a"
+      - "&7volume and pitch&8: &fBLOCK_CHEST_OPEN 1 1.2"
+      - ""
+      - "&8- &eLeft-click &7to change it"
+      - "&8- &cRight-click &7to silence it here"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value OPEN_SOUND"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off OPEN_SOUND"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit OPEN_SOUND"
+
+  # --- Win sound: three states sharing the "w" cell -------------------
+
+  win-sound-inherited:
+    key: w
+    material: BELL
+    display-name: "&7Win Sound&8: &7inherited"
+    lore:
+      - "&7Played when the reward is revealed."
+      - "&7Follows &fconfig.yml&8: &f{global}"
+      - ""
+      - "&8- &eLeft-click &7to set its own sound"
+      - "&8- &cRight-click &7to silence it here"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value WIN_SOUND"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off WIN_SOUND"
+
+  win-sound-off:
+    key: w
+    material: SCULK_SENSOR
+    display-name: "&cWin Sound&8: &coff"
+    lore:
+      - "&7Silent for this crate, even though"
+      - "&7&fconfig.yml &7says &f{global}&7."
+      - ""
+      - "&8- &eLeft-click &7to set its own sound"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value WIN_SOUND"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit WIN_SOUND"
+
+  win-sound-value:
+    key: w
+    material: MUSIC_DISC_PIGSTEP
+    glow: true
+    display-name: "&aWin Sound&8: &f{value}"
+    lore:
+      - "&7This crate's own sound."
+      - "&7Like &fENTITY_PLAYER_LEVELUP&7, or with a"
+      - "&7volume and pitch&8: &fENTITY_PLAYER_LEVELUP 1 1.2"
+      - ""
+      - "&8- &eLeft-click &7to change it"
+      - "&8- &cRight-click &7to silence it here"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value WIN_SOUND"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off WIN_SOUND"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit WIN_SOUND"
+
+  # --- Completion particle: three states sharing the "c" cell ---------
+
+  complete-particle-inherited:
+    key: c
+    material: BLAZE_POWDER
+    display-name: "&7Completion Particle&8: &7inherited"
+    lore:
+      - "&7Burst when the opening finishes."
+      - "&7Follows &fconfig.yml&8: &f{global}"
+      - ""
+      - "&8- &eLeft-click &7to set its own particle"
+      - "&8- &cRight-click &7to show none here"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value COMPLETE_PARTICLE"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off COMPLETE_PARTICLE"
+
+  complete-particle-off:
+    key: c
+    material: COBWEB
+    display-name: "&cCompletion Particle&8: &coff"
+    lore:
+      - "&7No burst for this crate, even though"
+      - "&7&fconfig.yml &7says &f{global}&7."
+      - ""
+      - "&8- &eLeft-click &7to set its own particle"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value COMPLETE_PARTICLE"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit COMPLETE_PARTICLE"
+
+  complete-particle-value:
+    key: c
+    material: FIREWORK_ROCKET
+    glow: true
+    display-name: "&aCompletion Particle&8: &f{value}"
+    lore:
+      - "&7This crate's own particle."
+      - "&7Like &fFLAME&7, &fCRIT &7or &fEND_ROD&7."
+      - ""
+      - "&8- &eLeft-click &7to change it"
+      - "&8- &cRight-click &7to show none here"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value COMPLETE_PARTICLE"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off COMPLETE_PARTICLE"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit COMPLETE_PARTICLE"
+
+  # --- Particle count: three states sharing the "u" cell --------------
+  # A declared 0 means zero particles. Only "inherited" defers to config.
+
+  particle-count-inherited:
+    key: u
+    material: SUGAR
+    display-name: "&7Particle Count&8: &7inherited"
+    lore:
+      - "&7How many completion particles."
+      - "&7Follows &fconfig.yml&8: &f{global}"
+      - ""
+      - "&8- &eLeft-click &7to set its own count"
+      - "&8- &cRight-click &7to show none here"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value COMPLETE_PARTICLE_COUNT"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off COMPLETE_PARTICLE_COUNT"
+
+  particle-count-off:
+    key: u
+    material: GUNPOWDER
+    display-name: "&cParticle Count&8: &coff"
+    lore:
+      - "&7No completion particles for this crate,"
+      - "&7even though &fconfig.yml &7says &f{global}&7."
+      - ""
+      - "&8- &eLeft-click &7to set its own count"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value COMPLETE_PARTICLE_COUNT"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit COMPLETE_PARTICLE_COUNT"
+
+  particle-count-value:
+    key: u
+    material: GLOWSTONE_DUST
+    glow: true
+    display-name: "&aParticle Count&8: &f{value}"
+    lore:
+      - "&7This crate's own count."
+      - "&7A declared &f0 &7means no particles."
+      - ""
+      - "&8- &eLeft-click &7to change it"
+      - "&8- &cRight-click &7to show none here"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value COMPLETE_PARTICLE_COUNT"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off COMPLETE_PARTICLE_COUNT"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit COMPLETE_PARTICLE_COUNT"
+
+  # --- Rare-win particle: three states sharing the "y" cell -----------
+
+  rare-particle-inherited:
+    key: y
+    material: AMETHYST_SHARD
+    display-name: "&7Rare Win Particle&8: &7inherited"
+    lore:
+      - "&7Extra burst when a win is announced."
+      - "&7Follows &fconfig.yml&8: &f{global}"
+      - ""
+      - "&8- &eLeft-click &7to set its own particle"
+      - "&8- &cRight-click &7to show none here"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value RARE_WIN_PARTICLE"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off RARE_WIN_PARTICLE"
+
+  rare-particle-off:
+    key: y
+    material: ECHO_SHARD
+    display-name: "&cRare Win Particle&8: &coff"
+    lore:
+      - "&7No extra burst for this crate, even"
+      - "&7though &fconfig.yml &7says &f{global}&7."
+      - ""
+      - "&8- &eLeft-click &7to set its own particle"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value RARE_WIN_PARTICLE"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit RARE_WIN_PARTICLE"
+
+  rare-particle-value:
+    key: y
+    material: NETHER_STAR
+    glow: true
+    display-name: "&aRare Win Particle&8: &f{value}"
+    lore:
+      - "&7This crate's own particle."
+      - "&7Like &fFLAME&7, &fCRIT &7or &fSOUL_FIRE_FLAME&7."
+      - ""
+      - "&8- &eLeft-click &7to change it"
+      - "&8- &cRight-click &7to show none here"
+      - "&8- &7Shift-left-click &7to follow the configuration"
+    left-click-actions:
+      - "[crates-editor-crate] effect-value RARE_WIN_PARTICLE"
+    right-click-actions:
+      - "[crates-editor-crate] effect-off RARE_WIN_PARTICLE"
+    shift-left-click-actions:
+      - "[crates-editor-crate] effect-inherit RARE_WIN_PARTICLE"

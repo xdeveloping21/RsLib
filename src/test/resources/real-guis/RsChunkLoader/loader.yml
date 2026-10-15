@@ -1,0 +1,80 @@
+# ============================================================
+#  RsChunkLoader - menú del cargador
+#  Se abre haciendo clic derecho en un cargador colocado SIN tener en la mano un
+#  ítem cargador. (Con un ítem cargador del mismo tamaño se le suma tiempo; con
+#  cualquier otra cosa - la mano vacía, una espada, tierra - se abre este menú.)
+#  Administrado por SnLib: las claves nuevas se fusionan al iniciar; tus valores y
+#  tus comentarios se conservan. No hay ninguna clave de versión que mantener.
+#  Marcadores en el título, en cada display-name y en cada línea de lore:
+#  {owner} {time} {size} {chunks} {status}
+#  Los colores hex &#RRGGBB y MiniMessage funcionan en todos. Los de PlaceholderAPI
+#  también, pero se resuelven SIN jugador: los del servidor se completan, los de
+#  cada jugador no tienen contra quién resolverse.
+#  OJO: los valores son una foto del momento en que se abre el menú; no se
+#  actualizan mientras sigue abierto.
+# ============================================================
+
+# Título de la ventana.
+title: "&#8354f2&lCargador de chunks"
+
+# Mapa de celdas, un carácter por casilla, nueve por fila.
+# f = borde, i = información, t = el botón de encender y pausar.
+# Para ocultar un elemento, borra su letra del mapa Y su sección más abajo. Si
+# quitas solo la letra, queda un elemento definido sin lugar y SnLib avisa en cada
+# arranque.
+layout:
+  - "fffffffff"
+  - "fffiftfff"
+  - "fffffffff"
+
+# Solo actúan los cuatro clics básicos del ratón. Las teclas 1-9, soltar, el clic
+# central y cambiar de mano no hacen nada.
+strict-clicks: true
+
+items:
+  # Borde de fondo.
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+templates:
+  # Resumen de solo lectura del cargador. No tiene acción, así que hacerle clic no hace nada.
+  info:
+    key: i
+    material: BEACON
+    glow: true
+    display-name: "&#8354f2&lCargador de chunks &7({size}x{size})"
+    lore:
+      - "&7Dueño: &f{owner}"
+      - "&7Chunks cargados: &f{chunks}"
+      - "&7Tiempo restante: {time}"
+      - "&7Estado: {status}"
+
+  # Cara que se muestra mientras el cargador está ENCENDIDO. Hacerle clic lo pausa.
+  # Las dos caras comparten la celda 't': solo se coloca una a la vez.
+  toggle-on:
+    key: t
+    material: LIME_DYE
+    glow: true
+    display-name: "&aCargador ENCENDIDO"
+    lore:
+      - "&7El tiempo baja y los chunks están cargados."
+      - ""
+      - "&eHaz clic para pausarlo &7(detiene el tiempo)."
+    click-actions:
+      - "[chunkloader-toggle]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # Cara que se muestra mientras el cargador está APAGADO. Hacerle clic lo enciende.
+  toggle-off:
+    key: t
+    material: GRAY_DYE
+    display-name: "&cCargador APAGADO"
+    lore:
+      - "&7El tiempo está en pausa y los chunks no están cargados."
+      - ""
+      - "&eHaz clic para activarlo."
+    click-actions:
+      - "[chunkloader-toggle]"
+      - "[sound] UI_BUTTON_CLICK"

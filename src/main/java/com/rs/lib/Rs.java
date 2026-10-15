@@ -17,7 +17,9 @@ import com.rs.lib.db.RsDb;
 import com.rs.lib.db.internal.MainHops;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
+import com.rs.lib.gui.GuiManager;
 import com.rs.lib.input.Inputs;
+import com.rs.lib.item.ItemActions;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.papi.RsPapi;
@@ -50,6 +52,7 @@ public final class Rs {
     private final UpdateChecker updates;
     private final Inputs inputs;
     private final ItemRegistry items;
+    private final GuiManager guis;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -71,6 +74,7 @@ public final class Rs {
         this.reload = new ReloadManager(this);
         this.updates = new UpdateChecker(this);
         this.items = new ItemRegistry(this);
+        items.bindActions(ItemActions.engine(this));
         if (spec.items() != null) {
             if (yml != null) {
                 items.loadAll(yml.managed(spec.items()));
@@ -79,6 +83,10 @@ public final class Rs {
             }
         }
         this.inputs = new Inputs(this);
+        this.guis = spec.guis() ? new GuiManager(this) : null;
+        if (guis != null) {
+            guis.load();
+        }
     }
 
     public JavaPlugin plugin() {
@@ -158,7 +166,15 @@ public final class Rs {
         return items;
     }
 
-    /** Reloads config, messages, commands and every registered {@code Reloadable}. */
+    /** Menus from {@code guis/}. Needs {@code RsSpec.builder().guis()}. */
+    public GuiManager guis() {
+        if (guis == null) {
+            throw missing("guis()", "guis()");
+        }
+        return guis;
+    }
+
+    /** Reloads config, messages, items, menus, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
     }
@@ -188,6 +204,10 @@ public final class Rs {
 
     public RsDb dbOrNull() {
         return db;
+    }
+
+    public GuiManager guisOrNull() {
+        return guis;
     }
 
     /** Arms the update watch the spec declares; called once the plugin has enabled. */
@@ -224,6 +244,9 @@ public final class Rs {
         shuttingDown = true;
         // Chat questions end before menus close, so a SHUT_DOWN callback finds no menu to reopen.
         step("chat questions", inputs::shutdown);
+        if (guis != null) {
+            step("menus", guis::shutdown);
+        }
         step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
         step("items", items::shutdown);

@@ -1,0 +1,46 @@
+# ============================================================
+#  RsChat - [ec] snapshot viewer
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#
+#  Opened by clicking an [ec] tag in chat. It shows a frozen copy of the
+#  sender's ender chest as it was when the message was sent. Every click and
+#  drag inside it is cancelled and no item can leave it.
+# ============================================================
+
+# Title of the viewer window. {player} is the name of the player whose ender
+# chest this is - the sender of the message, never whoever is looking at it.
+# Any OTHER %placeholder% written here resolves against the VIEWER, not the
+# owner, which is usually the opposite of what a title like this wants.
+# (%player% is the one exception: it is intercepted and gives the owner's name,
+# same as {player}. Write {player} anyway - it is the form that always means
+# the owner.)
+title: "&#8354f2&lCofre de Ender de {player}"
+
+# Slot map: one line per row, one character per slot, read left to right and
+# top to bottom. A space is an empty slot.
+#   e the sender's ender chest, 27 cells in order
+layout:
+  - "eeeeeeeee"
+  - "eeeeeeeee"
+  - "eeeeeeeee"
+
+# Ordered cell group the plugin fills one item per cell. Reordering its cells
+# reorders the picture only; each item keeps its own identity.
+regions:
+  contents: e
+
+# The cells the sender's real items are painted into. The item supplies
+# everything visible - material, name, lore, enchantments - so of what is
+# declared here only a display-name or a lore would reach the cell, and neither
+# is declared: the replica shows each item exactly as its owner had it.
+#
+# A cell the sender had empty stays empty: nothing is painted into it at all,
+# and nothing you set here changes that. The entry below only describes cells
+# that DO hold an item.
+templates:
+  # Both fields are left empty on purpose: that is "declare nothing", so the
+  # item crosses to the cell untouched, keeping its own name and lore.
+  slot:
+    display-name: ""
+    lore: []

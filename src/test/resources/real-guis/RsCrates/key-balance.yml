@@ -1,0 +1,146 @@
+# ============================================================
+#  RsCrates - key balance menu (a bare /rscrates)
+#  One icon per crate showing how many virtual keys you own.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  GESTURES on a crate icon
+#    Left-click   opens one crate
+#    Right-click  opens that crate's reward preview
+#    Q (drop)     opens every virtual key you own for it, when the crate
+#                 allows a mass open; otherwise it opens one, animated.
+#                 The menu stays open and the balance updates as the batch
+#                 drains; a summary of what came out lands in chat. A second
+#                 Q within access.mass-open-cooldown-ticks (config.yml) is
+#                 ignored.
+#
+#  WHICH CRATES APPEAR
+#  Only crates that accept VIRTUAL keys. A crate that takes physical keys
+#  only has no balance this menu could show, so it is left out entirely
+#  rather than drawn showing a permanent 0.
+#
+#  ORDER
+#  Crates that are not pinned below fill the "crates" region in
+#  ALPHABETICAL crate-id order. That is the whole ordering rule: crate
+#  files load in directory order, which is not the same on two machines,
+#  so the sort is what makes this layout look the same after a restart.
+#
+#  PINNING AND STYLING ONE CRATE
+#  Add a template whose id is the CRATE ID (see the commented examples).
+#    - with "slots:" (or a layout "key:")  the crate is PINNED there, and
+#      the cells it takes are removed from the shared pool, so pinning a
+#      crate inside the pool rectangle never pushes another one off.
+#    - without either, the crate keeps its place in the pool and only its
+#      look changes.
+#  "default" is reserved: it is the style every other crate is drawn with,
+#  so it cannot be used as a crate id.
+#
+#  THE ICON
+#  Every crate icon is drawn from that crate's own physical key ITEM, so
+#  the player sees the key they are being told they own - custom head,
+#  model data and all. The "material" and "glow" below apply only to a
+#  crate that has no physical key. The "display-name" and "lore" here
+#  always apply and are painted over the item.
+#
+#  The key item's OWN lore is not shown. Those lines are written for
+#  someone holding the key ("sneak + right-click to redeem") and on an
+#  icon they sat above the balance the icon exists to show. Write {lore}
+#  in the lore below to bring them back, wherever you want them.
+#
+#  PLACEHOLDERS on a crate icon
+#    {crate}        the crate's display name
+#    {keys}         how many virtual keys the player shown owns for it
+#    {fail-chance}  the percentage of opens that fail (fail.chance in
+#                   config.yml, or the crate's own settings.fail-chance),
+#                   without the % sign. 0 for a crate that never fails.
+#    {lore}         the key item's own lore, one lore line per line it
+#                   has. A crate with no physical key, or a key with no
+#                   lore, renders it as one blank line.
+#  %papi% placeholders resolve against whoever is looking at the menu.
+
+# {player} is whose balances are on screen. Normally that is the viewer; with
+# /rscrates balance <player> an admin inspects someone else, and then the title
+# names THEM - which is the only thing on screen saying whose keys these are.
+title: "&#8354f2&l{player}'s Keys"
+
+# Only the four mouse clicks (left, right, shift + left, shift + right) and the
+# Q key lists declared below do anything; a double click, the number keys and
+# the middle click are ignored, so a fast double click can never fire twice.
+strict-clicks: true
+
+# Each row is exactly 9 characters, one per slot.
+#   f  filler        c  crate cells (the "crates" region below)
+#   x  close
+layout:
+  - "fffffffff"
+  - "fcccccccf"
+  - "fcccccccf"
+  - "fcccccccf"
+  - "ffffxffff"
+
+# Cells the crates fill, in reading order. Make it bigger or smaller by
+# editing the layout above: crates that do not fit are not shown, this
+# menu has never had pages.
+regions:
+  crates:
+    key: "c"
+
+items:
+  # Decorative background.
+  filler:
+    key: "f"
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Closes the menu.
+  close:
+    key: "x"
+    material: BARRIER
+    display-name: "&cClose"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+templates:
+  # The icon every crate without one of its own is drawn with. Deleting
+  # this template leaves only the pinned crates on screen.
+  default:
+    material: TRIPWIRE_HOOK
+    display-name: "&#8354f2&l{crate}"
+    lore:
+      - "&7You own &f{keys} &7key(s)."
+      - ""
+      - "&8» &aLeft-click &7to open one"
+      - "&8» &aRight-click &7to see the rewards"
+      - "&8» &aPress Q &7to open every key you own"
+    click-actions:
+      - "[crates-key]"
+      - "[sound] UI_BUTTON_CLICK"
+    # Q (drop key). strict-clicks above ignores Q unless it has its own list,
+    # so a crate template without this list cannot mass-open.
+    drop-click-actions:
+      - "[crates-key]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # ---- One template per crate you want to pin or restyle (optional) ----
+  # The id is the crate id. Copy "default", add the cell you want, and
+  # change whatever should look different. A custom head works through
+  # "material: basehead-<base64>".
+  #
+  # vip:
+  #   slots: [4]
+  #   material: NETHER_STAR
+  #   display-name: "&6&l{crate}"
+  #   glow: true
+  #   lore:
+  #     - "&7You own &f{keys} &7key(s)."
+  #     - ""
+  #     - "&8» &aLeft-click &7to open one"
+  #     - "&8» &aRight-click &7to see the rewards"
+  #     - "&8» &aPress Q &7to open every key you own"
+  #   click-actions:
+  #     - "[crates-key]"
+  #     - "[sound] UI_BUTTON_CLICK"
+  #   drop-click-actions:
+  #     - "[crates-key]"
+  #     - "[sound] UI_BUTTON_CLICK"

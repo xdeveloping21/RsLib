@@ -1,0 +1,102 @@
+# ============================================================
+#  RsCrates - editor: the item capture
+#  The one editor screen that takes an item FROM you: it copies
+#  whatever you are holding in your main hand.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  HOW IT WORKS. Hold the item you want in your main hand, open this
+#  screen from the button that names the job, and click the capture
+#  cell. The crate gets a COPY - you keep what you are holding, and you
+#  can capture the same item into as many crates as you like.
+#
+#  There is nothing to drop into and no cell you can put an item in.
+#  Every click here is cancelled, exactly like every other menu in the
+#  plugin. Close the window, or click Back, and nothing changes.
+#
+#  STACK SIZE COMES FROM YOUR HAND. Holding 16 of something makes a
+#  reward of 16. The amount is also editable on the reward's own panel
+#  afterwards, which is the easier way to change it.
+#
+#  ONE WINDOW, THREE JOBS. It captures the item for a reward, for a new
+#  reward, or for a crate's physical key, depending on which button you
+#  came from. The three names are language values, not three files:
+#    messages.editor.deposit-mode-replace
+#    messages.editor.deposit-mode-add
+#    messages.editor.deposit-mode-key
+#  {mode} in the title below is whichever of those applies.
+#
+#  PLACEHOLDERS: {mode} what is being captured, {crate} the crate id,
+#  {reward} the reward id when one is being replaced.
+
+title: "&#FF4D4D{mode} &8- &f{crate}"
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key and the middle click do nothing.
+strict-clicks: true
+
+layout:
+  - "fffffffff"
+  - "fffcfdfff"
+  - "ffffqffff"
+
+items:
+
+  # Decorative frame.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Leaves without capturing anything. Same door as every other "Back".
+  back:
+    key: q
+    material: OAK_DOOR
+    display-name: "&7Back"
+    lore:
+      - "&8- &7Return without changing anything"
+    click-actions:
+      - "[crates-editor-deposit] back"
+
+templates:
+
+  # --- The capture cell: two states sharing the "d" cell --------------
+  # The first shows the item in your hand, with these lines added under
+  # its own lore. The second takes the cell when your hand is empty.
+
+  capture:
+    key: d
+    display-name: ""
+    lore:
+      - ""
+      - "&7This is what you are holding."
+      - ""
+      - "&8- &aClick &7to use it &8(you keep yours)"
+    click-actions:
+      - "[crates-editor-deposit] capture"
+
+  capture-empty:
+    key: d
+    material: BARRIER
+    display-name: "&cYour hand is empty"
+    lore:
+      - "&7Close this, hold the item you want,"
+      - "&7and open this screen again."
+    click-actions:
+      - "[crates-editor-deposit] capture"
+
+  # --- What you are replacing: two states sharing the "c" cell --------
+  # A picture, not a button. Clicking it does nothing, like every other
+  # cell here.
+
+  current:
+    key: c
+    display-name: ""
+    lore:
+      - ""
+      - "&7This is what it is now."
+
+  current-empty:
+    key: c
+    material: LIGHT_GRAY_STAINED_GLASS_PANE
+    display-name: "&7Nothing set yet"

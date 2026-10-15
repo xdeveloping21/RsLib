@@ -1,0 +1,137 @@
+# ============================================================
+#  RsTags - tag selector menu
+#  Opened by /rstags. Managed by SnLib: new keys merge in on boot, your edits
+#  are preserved.
+#
+#  LAYOUT letters:
+#    f = filler        t = tag slot (the "tags" region)
+#    < = previous page > = next page
+#    r = remove tag    x = close
+#
+#  Remove a button by deleting its letter from the layout below; resize the
+#  tag area by adding or removing t's. The number of t's is the page size,
+#  and the tags region fills them left to right, top to bottom.
+# ============================================================
+
+title: "&#8354f2&lTus etiquetas"
+
+pagination: true
+
+# Only the four mouse clicks (left, right and their shift variants) press a
+# button or equip a tag. Number keys 1-9, F (swap hands), Q (drop) and the
+# middle click do nothing. Set it to false to accept them again.
+strict-clicks: true
+
+layout:
+  - "fffffffff"
+  - "ftttttttf"
+  - "ftttttttf"
+  - "ftttttttf"
+  - "fffffffff"
+  # Fleet convention: page arrows in the bottom CORNERS, close bottom-CENTER.
+  # Worth keeping even if you restyle. Bottom-centre is where a player clicks to
+  # leave without looking, so the slot that ends a session (x = close) belongs
+  # there and the destructive one (r = remove-tag) does not. Remove-tag sits at
+  # slot 3, left of centre.
+  - "<ffrxfff>"
+
+# The region the owned tags are painted into, in layout order.
+regions:
+  tags: t
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Página anterior"
+    lore:
+      - "&7Retrocede una página."
+    key: "<"
+    # Keep [previous-page] BEFORE [custom] tags-rebind. Not for nav detection -
+    # SnLib scans the whole action list for the nav tag, so nav-disabled works at
+    # any position - but because the lines run in order: the rebind re-slices the
+    # entries for the CURRENT page, so running it first would paint the page the
+    # viewer just left.
+    click-actions:
+      - "[previous-page]"
+      - "[custom] tags-rebind"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No hay página anterior"
+      lore:
+        - "&8Estás en la primera página"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Página siguiente"
+    lore:
+      - "&7Avanza una página."
+    key: ">"
+    click-actions:
+      - "[next-page]"
+      - "[custom] tags-rebind"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No hay página siguiente"
+      lore:
+        - "&8Estás en la última página"
+
+  remove-tag:
+    material: BARRIER
+    display-name: "&#e74c3cQuitar etiqueta"
+    lore:
+      - "&7Quita la etiqueta que llevas equipada."
+      - "&#e74c3c¡Haz clic para quitarla!"
+    key: r
+    click-actions:
+      - "[custom] tags-clear"
+      - "[sound] UI_BUTTON_CLICK"
+
+  close:
+    material: REDSTONE
+    display-name: "&#e74c3cCerrar"
+    lore:
+      - "&7Cierra este menú."
+    key: x
+    click-actions:
+      - "[close]"
+      - "[sound] UI_BUTTON_CLICK"
+
+# Painted into the "tags" region, one per owned tag. A template painted by a
+# region declares no slots: and no key:.
+# Placeholders: {tag_display} the styled text, {tag_id} the identifier,
+# {tag_type} Global or Personal (restyle those two words in lang/messages_en.yml
+# under status:), {tag_ref} the handle the click carries back to the plugin.
+# Keep [custom] tags-toggle as a click action: it is what equips the tag.
+templates:
+  tag-inactive:
+    material: NAME_TAG
+    display-name: "{tag_display}"
+    lore:
+      - "&8ID: &7{tag_id}"
+      - "&8Tipo: &7{tag_type}"
+      - ""
+      - "&#a0e67e¡Haz clic para activarla!"
+    click-actions:
+      - "[custom] tags-toggle"
+      - "[sound] UI_BUTTON_CLICK"
+
+  tag-active:
+    material: NAME_TAG
+    glow: true
+    display-name: "{tag_display}"
+    lore:
+      - "&8ID: &7{tag_id}"
+      - "&8Tipo: &7{tag_type}"
+      - ""
+      - "&#a0e67eEquipada actualmente."
+      - "&#e74c3c¡Haz clic para desactivarla!"
+    click-actions:
+      - "[custom] tags-toggle"
+      - "[sound] UI_BUTTON_CLICK"

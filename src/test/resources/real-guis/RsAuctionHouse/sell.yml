@@ -1,0 +1,252 @@
+# ============================================================
+#  RsAuctionHouse - sell menu (/ah sell without a price, /ah auction without a
+#  starting price, the Sell button)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Shift-click stacks of your inventory to add them. Nothing leaves the
+#  inventory until Confirm: closing or cancelling returns nothing because
+#  nothing was taken.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lSell Items"
+
+# Keeps the player inventory usable so its stacks can be shift-clicked into the listing.
+player-inventory: open
+
+# Only the four basic mouse clicks act (the price buttons use left, right and their shift forms).
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         s  staged items      m  sale type        c  currency
+#   l  lower price    p  price             r  raise price      o  buyout
+#   d  duration       y  confirm           b  back             n  cancel
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "fsssssssf"
+  - "fsssssssf"
+  - "fffffffff"
+  - "fmclprodf"
+  - "ffyfbfnff"
+
+# Cells of the staged stacks, filled left to right. Fewer cells also means fewer stacks per
+# listing (bulk.max-stacks is the other cap).
+regions:
+  # The staged stacks.
+  staged: s
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Shown in a staging cell that holds no item yet.
+  staged-empty:
+    material: LIGHT_GRAY_STAINED_GLASS_PANE
+    display-name: "&7Empty Slot"
+    key: s
+    lore:
+      - "&7Shift-click an item in your"
+      - "&7inventory to add it here."
+
+  # Back to the items menu (the draft is dropped; nothing was taken).
+  back:
+    material: ARROW
+    display-name: "&#8354f2&lBack"
+    key: b
+    lore:
+      - "&7Return to your items."
+    click-actions:
+      - "[ah-open] items"
+
+  # Closes the menu without listing anything.
+  cancel:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&c&lCancel"
+    key: n
+    lore:
+      - "&7Close without listing anything."
+      - "&7Your items never left your inventory."
+    click-actions:
+      - "[ah-sell-cancel]"
+
+# Cells the plugin fills, each bound by its name. {currency} is the currency name; {price},
+# {min}, {max}, {fee}, {buyout} and {step-*} are formatted amounts.
+templates:
+
+  # A staged stack: the real item, with these lines added below its own lore. {slot} {quantity}
+  staged:
+    lore:
+      - ""
+      - "&cClick to remove it from the listing."
+    click-actions:
+      - "[ah-sell-unstage] {slot}"
+
+  # Sale type switch, when both types are available. {type}
+  mode:
+    material: COMPARATOR
+    display-name: "&#8354f2&lSale Type"
+    key: m
+    lore:
+      - "&7Current: {type}"
+      - ""
+      - "&eClick to switch."
+    click-actions:
+      - "[ah-sell-mode]"
+
+  # Sale type when only one is available to the player. {type}
+  mode-locked:
+    material: COMPARATOR
+    display-name: "&#8354f2&lSale Type"
+    key: m
+    lore:
+      - "&7Current: {type}"
+
+  # Currency switch, when several currencies are available. {currency}
+  currency:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lCurrency"
+    key: c
+    lore:
+      - "&7Current: {currency}"
+      - ""
+      - "&eLeft click: next"
+      - "&eRight click: previous"
+    left-click-actions:
+      - "[ah-sell-currency] next"
+    right-click-actions:
+      - "[ah-sell-currency] previous"
+
+  # Currency when only one is available to the player. {currency}
+  currency-locked:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lCurrency"
+    key: c
+    lore:
+      - "&7Current: {currency}"
+
+  # Lowers the price by the step of the click type (sell-menu.price-steps).
+  lower:
+    material: RED_DYE
+    display-name: "&c&lLower Price"
+    key: l
+    lore:
+      - "&7Price: {price}"
+      - ""
+      - "&7Left click: &f-{step-left}"
+      - "&7Right click: &f-{step-right}"
+      - "&7Shift + left click: &f-{step-shift-left}"
+      - "&7Shift + right click: &f-{step-shift-right}"
+    click-actions:
+      - "[ah-sell-price] down"
+
+  # The price; a click asks for an exact price in chat.
+  price:
+    material: NAME_TAG
+    display-name: "&#8354f2&lPrice: {price}"
+    key: p
+    lore:
+      - "&7Currency: {currency}"
+      - "&7Minimum: {min}"
+      - "&7Maximum: {max}"
+      - "&7Listing fee: {fee}"
+      - ""
+      - "&eClick to type an exact price."
+    click-actions:
+      - "[ah-sell-price-chat]"
+
+  # Raises the price by the step of the click type (sell-menu.price-steps).
+  raise:
+    material: LIME_DYE
+    display-name: "&a&lRaise Price"
+    key: r
+    lore:
+      - "&7Price: {price}"
+      - ""
+      - "&7Left click: &f+{step-left}"
+      - "&7Right click: &f+{step-right}"
+      - "&7Shift + left click: &f+{step-shift-left}"
+      - "&7Shift + right click: &f+{step-shift-right}"
+    click-actions:
+      - "[ah-sell-price] up"
+
+  # Auction buyout: typed in chat, removed with a right click. {buyout}
+  buyout:
+    material: EMERALD
+    display-name: "&#8354f2&lBuyout"
+    key: o
+    lore:
+      - "&7Buyout: {buyout}"
+      - "&7Anyone can end the auction at once"
+      - "&7by paying this price."
+      - ""
+      - "&eLeft click: type a buyout price"
+      - "&eRight click: remove it"
+    left-click-actions:
+      - "[ah-sell-buyout] set"
+    right-click-actions:
+      - "[ah-sell-buyout] clear"
+
+  # Shown instead of the buyout for buy-now listings, or when buyouts are disabled.
+  buyout-locked:
+    material: GRAY_DYE
+    display-name: "&7&lBuyout"
+    key: o
+    lore:
+      - "&7Not available for this listing."
+
+  # Auction length, cycling through the lengths the player may pick. {duration}
+  duration:
+    material: CLOCK
+    display-name: "&#8354f2&lDuration"
+    key: d
+    lore:
+      - "&7Auction length: &f{duration}"
+      - ""
+      - "&eLeft click: longer"
+      - "&eRight click: shorter"
+    left-click-actions:
+      - "[ah-sell-duration] next"
+    right-click-actions:
+      - "[ah-sell-duration] previous"
+
+  # Length of a buy-now listing (fixed). {duration}
+  duration-locked:
+    material: CLOCK
+    display-name: "&#8354f2&lDuration"
+    key: d
+    lore:
+      - "&7Buy-now listings last &f{duration}&7."
+
+  # Lists the staged items. {items} {item} {quantity} {stacks} {type} {currency} {price}
+  # {buyout} {duration} {fee}
+  confirm:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&a&lConfirm Listing"
+    key: y
+    lore:
+      - "&7Items: {items}"
+      - "&7Type: {type}"
+      - "&7Price: {price}"
+      - "&7Buyout: {buyout}"
+      - "&7Duration: &f{duration}"
+      - "&7Listing fee: {fee}"
+      - ""
+      - "&aClick to list it."
+    click-actions:
+      - "[ah-sell-confirm]"
+
+  # Shown instead of Confirm while nothing is staged.
+  confirm-empty:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: "&7&lConfirm Listing"
+    key: y
+    lore:
+      - "&7Shift-click an item in your"
+      - "&7inventory to add it first."

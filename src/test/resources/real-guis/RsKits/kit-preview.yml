@@ -1,0 +1,78 @@
+# ============================================================
+#  RsKits - kit preview
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#
+#  Opened by RIGHT-CLICKING a kit in a kits menu. It shows what that kit hands
+#  out, read-only: nothing here can be taken, and no click does anything except
+#  the back button.
+#
+#  WHY THIS MENU HAS AN EMPTY LAYOUT: slots 0-52 belong to the kit. Each item
+#  is drawn in the exact cell the items editor put it in, so the preview and
+#  /rskits edit <id> -> Edit Items are the same picture, and a filler laid over
+#  those cells would cover the kit. Only the last cell, 53, is ours - that is
+#  the back button. Command items are drawn at their cell too, using the
+#  display icon set for them; one with no display set runs its commands
+#  silently and is not drawn at all.
+#
+#  Placeholders available in the title and in the entries below:
+#    {kit}   the kit id
+#  PlaceholderAPI placeholders resolve too, per viewer. The name and lore of
+#  each previewed item resolve theirs as well, for the viewer, exactly as they
+#  will when the kit is claimed.
+#
+#  Sounds come from config.yml sounds: (gui-click on the back button). Add a
+#  "[sound] SOUND_ID" line to the click-actions list below to layer another.
+#
+#  THE BACK BUTTON'S LETTER HAS TO STAY WHERE IT IS, and the layout has to stay
+#  6 rows. It is not a style rule, it is the only cell that is free: 0-52 are
+#  the kit's and 53 is the last cell of the last row, which is where "b" sits.
+#    - Move "b" anywhere else, including earlier in the last row, and it lands
+#      on a cell the kit also draws into. Both target the same slot and whichever
+#      is written last wins, so either the button or one of the kit's items
+#      silently disappears - with no error anywhere.
+#    - Shorten the layout and the kit's items aim at cells this inventory no
+#      longer has, so they are simply never drawn.
+#  TO REMOVE the button, delete its letter and leave the entry here; the preview
+#  then closes on ESC like any other menu.
+#  Colours: use &#RRGGBB. A bare #RRGGBB is not a colour and renders as text.
+# ============================================================
+
+title: "&#8354f2&lVista previa &8- &e{kit}"
+
+# b back. Every other cell is the kit's, filled in by the plugin.
+layout:
+  - "         "
+  - "         "
+  - "         "
+  - "         "
+  - "         "
+  - "        b"
+
+items:
+
+  # Returns to the kits menu this preview was opened from, or closes the
+  # preview when there is none to go back to.
+  back:
+    material: ARROW
+    display-name: "&e« Volver"
+    key: b
+    lore:
+      - "&7Regresa al menú de kits."
+      - ""
+      - "&eClic para volver"
+    click-actions:
+      - "[kits-preview] back"
+
+templates:
+
+  # Every kit item and every command item icon is painted with THIS entry, in
+  # the cell the kit stores it in. The icon IS the stored item: its name,
+  # enchantments, model data and NBT are kept exactly as they are, because a
+  # kit item is arbitrary content an admin dropped into the editor and no item
+  # definition here could re-express it.
+  # display-name is left blank so each item keeps its real name. Write one and
+  # it REPLACES every previewed item's name; add lore lines and they are
+  # APPENDED under every previewed item.
+  content:
+    display-name: ""

@@ -1,0 +1,169 @@
+# ============================================================
+#  RsLootBoxes - Editor: reward detail submenu
+#  Managed by SnLib: new keys merge in on boot, your edits kept.
+#
+#  The 'v' cell shows the reward's own display item.
+#
+#  Title placeholders: {id} (reward id) {lootbox}
+#  Cell legend: v item | x delete | t amount | h method
+#               c change item | w weight | e enabled toggle
+#               u duplicate | b back | f filler
+# ============================================================
+
+# Menu title; {id} is the reward id, {lootbox} the lootbox id.
+title: "&#8354f2&lReward &8» &f{id}"
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key, the middle click and double clicks
+# do nothing.
+strict-clicks: true
+
+# Ascii grid, one letter per cell (see the header legend).
+layout:
+  - "fffffffff"
+  - "ffffvffff"
+  - "fffffffff"
+  - "fxthcweuf"
+  - "fffffffff"
+  - "ffffbffff"
+
+# Named single-cell groups the plugin fills with the reward's live state.
+regions:
+  # The reward's own display item.
+  item: v
+  # Delivery method toggle (method-nbt / method-command).
+  method: h
+  # Enabled toggle (enabled-on / enabled-off).
+  enabled: e
+
+items:
+  # Deletes this reward; any first click arms the confirm, then a
+  # shift-click within the confirm window deletes.
+  delete:
+    key: x
+    material: BARRIER
+    display-name: "&c&lDelete Reward"
+    lore:
+      - "&7Permanently removes this reward."
+      - ""
+      - "&8» Click, then shift-click to confirm"
+    click-actions:
+      - "[editor-delete-reward]"
+
+  # Arms the swap: the next click on your own inventory replaces the item.
+  change-item:
+    key: c
+    material: ITEM_FRAME
+    display-name: "&#8354f2Change Item"
+    lore:
+      - "&7Swap the reward for a different item,"
+      - "&7keeping its weight, amount, method"
+      - "&7and enabled state."
+      - ""
+      - "&8» Click, then click an item in your inventory"
+    click-actions:
+      - "[editor-arm-change-item]"
+
+  # Copies this reward at the end of its pool.
+  duplicate:
+    key: u
+    material: WRITABLE_BOOK
+    display-name: "&eDuplicate Reward"
+    lore:
+      - "&7Create a copy of this reward."
+      - ""
+      - "&8» Click to duplicate"
+    click-actions:
+      - "[editor-duplicate-reward]"
+
+  # Returns to the reward list.
+  back:
+    key: b
+    material: ARROW
+    display-name: "&7« Back"
+    lore:
+      - "&8» Return to the reward list"
+    click-actions:
+      - "[editor-back-items]"
+
+  # Decorative background.
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+templates:
+  # The reward's display item, shown exactly as it will be delivered.
+  reward-item:
+    material: CHEST
+
+  # Prompts for a new delivered amount in chat; {amount} is the current one.
+  amount:
+    key: t
+    material: ANVIL
+    display-name: "&#8354f2Edit Amount"
+    lore:
+      - "&7Current: &f{amount}"
+      - ""
+      - "&8» Click to edit in chat"
+    click-actions:
+      - "[editor-set-amount]"
+
+  # Prompts for a new roll weight in chat; {weight} is the current one.
+  weight:
+    key: w
+    material: GOLD_NUGGET
+    display-name: "&#8354f2Edit Weight"
+    lore:
+      - "&7Current: &f{weight}"
+      - ""
+      - "&8» Click to edit in chat"
+    click-actions:
+      - "[editor-set-weight]"
+
+  # Method toggle, NBT state: the display item itself is delivered.
+  method-nbt:
+    material: CHEST
+    display-name: "&#8354f2Edit Method"
+    lore:
+      - "&7Current: &f{method}"
+      - "&7Command: &f{command}"
+      - ""
+      - "&8» Click to toggle NBT / COMMAND"
+    click-actions:
+      - "[editor-toggle-method]"
+
+  # Method toggle, COMMAND state: a console command is dispatched instead.
+  method-command:
+    material: COMMAND_BLOCK
+    display-name: "&#8354f2Edit Method"
+    lore:
+      - "&7Current: &f{method}"
+      - "&7Command: &f{command}"
+      - ""
+      - "&8» Click to toggle NBT / COMMAND"
+    click-actions:
+      - "[editor-toggle-method]"
+
+  # Enabled toggle, ON state.
+  enabled-on:
+    material: LIME_DYE
+    display-name: "&aEnabled: &lON"
+    lore:
+      - "&7This reward can be won."
+      - ""
+      - "&8» Click to disable"
+    click-actions:
+      - "[editor-toggle-enabled]"
+
+  # Enabled toggle, OFF state.
+  enabled-off:
+    material: GRAY_DYE
+    display-name: "&cEnabled: &lOFF"
+    lore:
+      - "&7Display-only: it spins but"
+      - "&7can never be won."
+      - ""
+      - "&8» Click to enable"
+    click-actions:
+      - "[editor-toggle-enabled]"

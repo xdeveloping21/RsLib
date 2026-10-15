@@ -1,0 +1,116 @@
+# ============================================================
+#  RsDisplayShops - menú del comprador
+#  Se abre haciendo clic derecho en el bloque de una tienda que no es tuya.
+#  Administrado por SnLib: las claves nuevas se fusionan automáticamente al
+#  iniciar; tus valores y tus comentarios se conservan. No hay ninguna clave
+#  de versión que mantener.
+# ============================================================
+#
+# TOKENS. Cada elemento indica abajo cuáles puede usar; un token escrito donde
+# no corresponde se muestra como texto literal.
+#
+#   title       {owner}
+#   offer-*     {owner} {mode} {action} {price} {currency} {stock} {have}
+#   trade-one   {owner} {mode} {action} {amount} {price} {currency}
+#   trade-all   {owner} {mode} {action} {amount} {price} {currency}
+#
+# {price} NO ES EL MISMO NÚMERO EN TODAS PARTES. En la oferta es el precio de
+# UNA unidad; en un botón de intercambio es el TOTAL que cobra ese botón. Todos
+# los números se agrupan para que se lean con facilidad (1.500.000), a
+# diferencia del texto flotante sobre la tienda, que se mira de lejos y muestra
+# 1.5M.
+#
+# {mode} nombra la dirección desde el punto de vista de la TIENDA; {action}
+# nombra la misma dirección desde el TUYO, así que las dos siempre son palabras
+# opuestas. Una tienda que VENDE te ofrece una COMPRA. Los botones deben usar
+# {action}: si muestran {mode}, le dicen al comprador que venda justo en el
+# momento en que el clic lo hace comprar, y así fue como algunos jugadores
+# perdieron ítems y dinero por hacer clic en lo que habían leído.
+#
+# {stock} es lo que guarda la tienda de su ítem y {have} es lo que TÚ llevas de
+# él. Ambos se proporcionan a las dos variantes de la oferta, así que los dos
+# bloques de lore de abajo son intercambiables.
+#
+# PlaceholderAPI se resuelve para cada jugador que mira en el título, en cada
+# display-name y en cada línea de lore. Los colores hex &#RRGGBB, MiniMessage y
+# las etiquetas de línea [center] / [rgb] / [small] funcionan en todas partes.
+# ============================================================
+
+# Título de la ventana. {owner} es el nombre del dueño de la tienda.
+title: "&8Tienda de {owner}"
+
+# Mapa de celdas, un carácter por casilla, nueve por fila.
+# f = fondo, i = el ítem en oferta, o = intercambiar uno, a = intercambiar todo.
+# Para ocultar un elemento, borra su letra del mapa; su sección de abajo se
+# queda y simplemente no se coloca, sin ningún aviso. Las filas de aquí deciden
+# el tamaño del menú.
+layout:
+  - "fffffffff"
+  - "ffofifaff"
+  - "fffffffff"
+
+# Solo los cuatro clics básicos del mouse llegan a un botón de intercambio. Las
+# teclas de la barra de acceso rápido, soltar ítems, el clic central, el
+# intercambio con la mano secundaria y la segunda mitad de un doble clic no
+# hacen nada en absoluto: este menú mueve dinero, así que todo tipo de clic que
+# no sea un clic deliberado en un botón se descarta antes de que pueda llegar a
+# uno.
+strict-clicks: true
+
+items:
+  # Fondo. Puramente decorativo: no tiene ninguna acción, así que no hace nada.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+templates:
+  # El ítem en oferta, que se muestra mientras la tienda VENDE (tú le compras).
+  #
+  # A propósito no declara material ni display-name: la celda muestra el propio
+  # ítem de la tienda, con su nombre real, sus encantamientos y su propio lore,
+  # y las líneas de abajo se AGREGAN debajo. Agregar un display-name aquí
+  # renombra el ítem de todas las tiendas con ese único texto; agregar un
+  # material no hace nada, ya que lo que se dibuja es la pila que comercia la
+  # tienda.
+  offer-sell:
+    key: i
+    lore:
+      - ""
+      - "&7Modo: &f{mode}"
+      - "&7Precio por unidad: &f{price} {currency}"
+      - "&7Stock: &f{stock}"
+
+  # La misma celda mientras la tienda COMPRA (tú le vendes): lo que importa
+  # entonces es cuánto del ítem llevas encima, no lo que la tienda ya guarda.
+  offer-buy:
+    key: i
+    lore:
+      - ""
+      - "&7Modo: &f{mode}"
+      - "&7Precio por unidad: &f{price} {currency}"
+      - "&7Tienes: &f{have}"
+
+  # Intercambia exactamente una unidad. {price} es el total de esa unidad.
+  trade-one:
+    key: o
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&a{action} 1"
+    lore:
+      - "&7Total: &f{price} {currency}"
+    click-actions:
+      - "[custom] trade-one"
+
+  # Intercambia tantas unidades como ambas partes puedan permitirse en este
+  # momento: lo menor entre lo que hay disponible y lo que la parte que paga
+  # puede pagar. {amount} es ese número y {price} es su total; ambos se
+  # recalculan cada vez que se dibuja el menú.
+  trade-all:
+    key: a
+    material: GOLD_INGOT
+    display-name: "&6{action} total"
+    lore:
+      - "&7Cantidad: &f{amount}"
+      - "&7Total: &a{price} {currency}"
+    click-actions:
+      - "[custom] trade-all"

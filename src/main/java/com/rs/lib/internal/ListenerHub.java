@@ -14,6 +14,7 @@ import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.db.PlayerDataCache;
+import com.rs.lib.gui.GuiManager;
 import com.rs.lib.hook.HookListener;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
@@ -37,6 +38,8 @@ public final class ListenerHub {
         pm.registerEvents(PlayerDataCache.joinListener(), rslib);
         pm.registerEvents(Inputs.chatListener(), rslib);
         pm.registerEvents(ItemRegistry.sharedListener(), rslib);
+        pm.registerEvents(GuiManager.sharedListener(), rslib);
+        pm.registerEvents(GuiManager.protectionListener(), rslib);
     }
 
     private static final class Shared implements Listener {

@@ -1,0 +1,118 @@
+# ============================================================
+#  RsStaff - menú de inspección (el nombre del archivo es el id del menú)
+#  Administrado por SnLib: las claves nuevas se fusionan automáticamente al
+#  iniciar; tus valores y comentarios se conservan. Los textos de los menús se
+#  editan aquí: no dependen de lang en config.yml.
+# ============================================================
+
+# {target} es el jugador inspeccionado.
+title: "&#8354f2&lInspeccionando a &e{target}"
+
+# Ticks entre repintados automáticos: la vida, la armadura y el inventario
+# siguen al jugador en vivo. 0 desactiva el repintado.
+update-interval: 20
+
+strict-clicks: true
+
+# Forma del menú, seis filas.
+#   i = datos del jugador   z = congelar/descongelar   t = ir hacia él
+#   v = abrir inventario    e = abrir cofre de ender    x = cerrar
+#   a = armadura (casco, peto, grebas, botas)
+#   h = mano principal, mano secundaria
+#   c = contenido del inventario: 27 casillas del almacén y luego las 9 de la
+#       barra rápida
+#   f = panel de borde
+layout:
+  - "ifzftvefx"
+  - "aaaafhhff"
+  - "ccccccccc"
+  - "ccccccccc"
+  - "ccccccccc"
+  - "ccccccccc"
+
+# Grupos de celdas que rellena el plugin, una entrada por celda, en el orden de
+# la máscara.
+regions:
+  info: i
+  freeze: z
+  armour: a
+  hands: h
+  contents: c
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    flags: [HIDE_TOOLTIP]
+    key: f
+  close:
+    material: BARRIER
+    display-name: "&cCerrar"
+    key: x
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+templates:
+  # Resumen del jugador. Se rellena con {target}, {uuid}, {health},
+  # {max_health}, {food}, {ping}, {gamemode}, {world}, {x}, {y}, {z},
+  # {playtime}, {first_join}, {client}, {flying} y {status}.
+  info:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&e{target} {status}"
+    lore:
+      - "&7Vida: &c{health}&7/&c{max_health}"
+      - "&7Comida: &6{food}&7/&620"
+      - "&7Ping: &f{ping} ms"
+      - "&7Modo de juego: &f{gamemode} &8| &7Volando: &f{flying}"
+      - "&7Mundo: &f{world} &8({x}, {y}, {z})"
+      - "&7Tiempo jugado: &f{playtime}"
+      - "&7Primera vez: &f{first_join}"
+      - "&7Cliente: &f{client}"
+
+  # Botón de congelar mientras el jugador NO está congelado.
+  freeze-off:
+    material: PACKED_ICE
+    display-name: "&bCongelar a {target}"
+    click-actions:
+      - "[rsstaff-freeze] {target}"
+      - "[sound] UI_BUTTON_CLICK"
+  # Botón de congelar mientras el jugador SÍ está congelado.
+  freeze-on:
+    material: BLUE_ICE
+    display-name: "&aDescongelar a {target}"
+    glow: true
+    click-actions:
+      - "[rsstaff-freeze] {target}"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # Se enlazan una vez al abrir, con {target}; la clave (key) los ubica.
+  teleport:
+    material: ENDER_PEARL
+    key: t
+    display-name: "&aIr hacia {target}"
+    click-actions:
+      - "[rsstaff-tp] {target}"
+      - "[close]"
+  inventory:
+    material: CHEST
+    key: v
+    display-name: "&eAbrir inventario"
+    lore:
+      - "&7Vista en vivo. Para editar hace"
+      - "&7falta rsstaff.invsee.edit."
+    click-actions:
+      - "[rsstaff-invsee] {target}"
+  enderchest:
+    material: ENDER_CHEST
+    key: e
+    display-name: "&5Abrir cofre de ender"
+    click-actions:
+      - "[rsstaff-endersee] {target}"
+
+  # Una pieza de armadura, un ítem en mano o una casilla del inventario: el
+  # plugin entrega la pila real. No declares display-name ni lore para
+  # mostrarla tal cual.
+  content:
+    click-actions: []

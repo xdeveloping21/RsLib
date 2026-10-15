@@ -19,6 +19,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import com.rs.lib.action.Requirement;
+
 /**
  * A registered physical item: its appearance and its behaviour. Immutable; build one with
  * {@link #builder()} or write it in YAML (one top-level section per item):
@@ -91,7 +93,7 @@ public final class ItemDef {
     private final Recipe recipe;
     private final BiConsumer<Player, ItemStack> onApply;
     private final BiConsumer<Player, ItemStack> onRemove;
-    private volatile ItemActions.Check interactCheck;
+    private volatile Requirement interactCheck;
 
     private ItemDef(Builder b) {
         this.appearance = b.appearance;
@@ -291,15 +293,15 @@ public final class ItemDef {
      * The interact requirements, parsed once by the action engine of the plugin the item is
      * registered with. Before it is registered: true when there are none, false otherwise.
      */
-    public ItemActions.Check interactRequirement() {
-        ItemActions.Check check = interactCheck;
+    public Requirement interactRequirement() {
+        Requirement check = interactCheck;
         if (check != null) {
             return check;
         }
-        return interactRequirements.isEmpty() ? (player, resolver) -> true : (player, resolver) -> false;
+        return interactRequirements.isEmpty() ? Requirement.ALWAYS : Requirement.NEVER;
     }
 
-    void interactCheck(ItemActions.Check check) {
+    void interactCheck(Requirement check) {
         this.interactCheck = check;
     }
 

@@ -1,0 +1,140 @@
+# ============================================================
+#  RsCrates - editor: the crate list (/rscrates editor)
+#  One icon per crate, plus the button that creates a new one.
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+#
+#  HOW THIS FILE WORKS
+#  - layout is the picture: each row is exactly 9 cells and each letter
+#    names an element below. Delete a letter from the layout and that
+#    element disappears - that is the supported way to remove a button.
+#  - items are fixed buttons. templates are filled by the plugin at
+#    runtime; the "crate" template is drawn once per crate.
+#  - Every "[crates-editor-main] ..." line is a button's behaviour. Keep
+#    the line if you keep the button; it is what the plugin listens for.
+#  - material is the item the button is made of. Any item name from the
+#    game works: DIAMOND, CHEST, PLAYER_HEAD, LIME_DYE.
+#  - display-name and lore are yours. Colours: &a-style codes, or
+#    &#RRGGBB for an exact colour. An empty lore line is a blank line.
+#
+#  CRATE ICONS
+#  - To tell crates apart, pick any item up from your own inventory while
+#    this menu is open and click a crate with it. The crate is drawn with
+#    that item from then on, instead of the crate template's material. The
+#    crate keeps a copy: the item stays in your hand.
+#  - Shift + right-click a crate to draw it with the template again.
+#  - Only this list shows the icon. Players never see it.
+#  - An icon still gets the crate template's display-name and lore. The
+#    display-name replaces the item's own name; set it to "" to keep it.
+#
+#  PLACEHOLDERS on the crate template:
+#    {crate}         the crate id, which is what you type in commands
+#    {display-name}  the crate's shown name
+#    {rewards}       how many rewards it holds
+#    {lore}          the icon item's own lore, empty when it has none or the
+#                    crate has no icon. It is left out of the lore below; add
+#                    a "{lore}" line where you want it shown.
+
+title: "&#FF4D4DEditor &8- &fCrates"
+
+# Needed so the crate list can page: with more crates than cells, the
+# arrows below fill in and the rest move to page two.
+pagination: true
+
+# Lets you use your own inventory while this menu is open, which is how an
+# item is picked up to become a crate's icon. Nothing can be put INTO the
+# menu: clicks on its cells stay cancelled. Set it to locked and no new
+# icon can be set; the icons already set are still shown.
+player-inventory: open
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key and the middle click do nothing.
+strict-clicks: true
+
+layout:
+  - "fffffffff"
+  - "fcccccccf"
+  - "fcccccccf"
+  - "fcccccccf"
+  - "fffffffff"
+  - "pf+fqfffn"
+
+# Cells the crate icons are drawn into, in reading order.
+paged-key: c
+
+items:
+
+  # Decorative frame.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Creates a crate: asks for its id in chat.
+  create:
+    key: "+"
+    material: LIME_DYE
+    display-name: "&a&lCreate Crate"
+    lore:
+      - "&7Start a brand-new crate."
+      - "&7It is created with the seed values"
+      - "&7from &fconfig.yml &7under &fdefaults&7."
+      - ""
+      - "&8- &aClick &7to type an id in chat"
+    click-actions:
+      - "[crates-editor-main] create"
+
+  # Closes the editor.
+  close:
+    key: q
+    material: BARRIER
+    display-name: "&cClose"
+    click-actions:
+      - "[close]"
+
+  # Page back. The nav-disabled block is what it looks like on page one.
+  previous-page:
+    key: p
+    material: ARROW
+    display-name: "&e&lPrevious Page"
+    lore:
+      - "&8- &7Click to go back a page"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+
+  # Page forward. The nav-disabled block is what it looks like on the last page.
+  next-page:
+    key: n
+    material: SPECTRAL_ARROW
+    display-name: "&e&lNext Page"
+    lore:
+      - "&8- &7Click to go forward a page"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+
+templates:
+
+  # Drawn once per crate, into the "c" cells above. Clicking one opens
+  # that crate's panel; clicking one while holding an item makes that item
+  # its icon (see CRATE ICONS at the top). material is what a crate with no
+  # icon is drawn as.
+  crate:
+    material: CHEST
+    display-name: "&#FF4D4D&l{display-name}"
+    lore:
+      - "&7Id&8: &f{crate}"
+      - "&7Rewards&8: &f{rewards}"
+      - ""
+      - "&8- &eClick &7to edit this crate"
+      - "&8- &eClick with an item &7to make it its icon"
+      - "&8- &eShift + right-click &7to reset the icon"
+    click-actions:
+      - "[crates-editor-main] crate {crate}"
+    shift-right-click-actions:
+      - "[crates-editor-main] reset-icon {crate}"

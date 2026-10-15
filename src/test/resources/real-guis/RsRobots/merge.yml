@@ -1,0 +1,162 @@
+# ============================================================
+#  RsRobots - merge menu
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Remove a button by deleting its letter from the layout below; the item
+#  stays declared here and nothing is logged.
+# ============================================================
+
+title: "&#8354f2&lMerge Robots"
+
+# The storage picker below the inputs is paginated.
+pagination: true
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Row 1: the chance book, the input cells and the merge button.
+# Rows 2-5: the paginated picker of your stored robots.
+# Row 6: page arrows in the corners and the back button in the middle.
+layout:
+  - "fcfiiifmf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fffbfff>"
+
+# Cells the merge inputs are laid over, one robot per cell, in order.
+# Declaring fewer cells than merge.inputs in config.yml lowers how many
+# robots a merge consumes; the plugin follows what this menu declares.
+regions:
+  inputs: i
+
+# One tier row of the {chances} placeholder used by the chance template.
+# {tier_display} and {tier_rarity} come from the tiers section of config.yml,
+# {percent} is the rolled chance of that tier with one decimal.
+chance-line: "&8| &f{tier_display} &8- &f{percent}&7%"
+
+# Played once when the viewer closes the menu; a merge still animating is
+# cancelled and the robots stay in storage untouched.
+close-actions:
+  - "[merge-close]"
+
+# Buttons. Each entry is yours: rename, restyle, or delete one and it stays deleted.
+# sn:extensible
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  back:
+    material: BARRIER
+    display-name: "&cBack"
+    key: b
+    lore:
+      - "&7Return to your robots."
+    click-actions:
+      - "[merge-back]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No previous page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No next page"
+      lore:
+        - "&8You are on the last page"
+
+templates:
+  # One stored robot in the picker. Clicking it reserves the robot for the
+  # next free input cell; the robot stays in storage until the merge commits.
+  stored:
+    # {robot_icon} is the robot type's own icon from robots/<id>.yml, so a robot
+    # looks the same here as in the main menu. Replace it with a fixed material
+    # to give the picker a look of its own.
+    material: "{robot_icon}"
+    display-name: "{robot}"
+    lore:
+      - "&7Tier: &f{tier_display} &8({tier_rarity}&8)"
+      - "&7Multiplier: &fx{multiplier}"
+      - "&7Produces: &f{production}"
+      - "&7Every &f{interval}s"
+      - "&7Produced: &f{produced}&7/&f{limit}"
+      - "&7Status: {status}"
+      - " "
+      - "&eClick to place it in the merger."
+    click-actions:
+      - "[merge-pick] {instance}"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # An input cell with nothing in it yet.
+  input-empty:
+    material: LIGHT_GRAY_STAINED_GLASS_PANE
+    display-name: "&7Input &8#{position}"
+    lore:
+      - "&7Click a robot below to place it here."
+
+  # An input cell holding a reserved robot.
+  input-filled:
+    material: "{robot_icon}"
+    display-name: "{robot}"
+    glow: true
+    lore:
+      - "&7Tier: &f{tier_display} &8({tier_rarity}&8)"
+      - "&7Multiplier: &fx{multiplier}"
+      - " "
+      - "&eClick to take it back out."
+    click-actions:
+      - "[merge-take] {index}"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # Painted over the input cells while the merge animation runs. {frame} is
+  # the current entry of merge.animation.frame-materials in config.yml.
+  input-animating:
+    material: "{frame}"
+    display-name: "&#8354f2&lMerging..."
+    glow: true
+
+  # The live chance table. It recomputes on every input change.
+  chance:
+    material: BOOK
+    key: c
+    display-name: "&#8354f2&lMerge Chances"
+    lore:
+      - "&7Result tier, rolled from the robots you placed:"
+      - " "
+      - "{chances}"
+      - " "
+      - "&8Merging resets every upgrade and the produced counter."
+
+  # The merge button.
+  merge-button:
+    material: ANVIL
+    key: m
+    display-name: "&#8354f2&lMerge"
+    lore:
+      - "&7Placed: &f{placed}&7/&f{needed}"
+      - " "
+      - "&eClick to merge."
+    click-actions:
+      - "[merge-run]"
+      - "[sound] UI_BUTTON_CLICK"

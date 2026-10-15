@@ -1,0 +1,187 @@
+# ============================================================
+#  RsRankup - rank ladder (menu.mode: paginated)
+#  The whole ladder, one slot per rank, paginated. Every tile shows one of four
+#  states and the menu opens on the page holding your next rank.
+#  Opened by /rsrankup while config.yml has menu.mode: paginated.
+#
+#    claimed  you already hold this rank
+#    ready    this is your next rank AND you meet its requirements (clickable)
+#    next     this is your next rank but you do NOT meet its requirements yet
+#    locked   this rank is further ahead
+#
+#  Exactly one tile is ever "ready" or "next", never both.
+# ============================================================
+
+title: '&#8354f2&lRank Ladder'
+rows: 6
+
+# Real per-player page state. Do not turn this off: the ladder needs it.
+pagination: true
+
+# Only plain left/right clicks (and their shift forms) reach a tile. Without this, drop,
+# ctrl+drop, the number keys, swap-offhand and middle-click over the ready tile all buy a
+# rank, because Bukkit reports every one of them as a click on that slot.
+strict-clicks: true
+
+# r = the rank tiles, f = filler, p = previous page, n = next page, i = your rank
+# Move the r cells to change WHERE the ladder sits and HOW MANY ranks fit per
+# page. Fewer r cells simply means more pages.
+layout:
+  - "fffffffff"
+  - "frrrrrrrf"
+  - "frrrrrrrf"
+  - "frrrrrrrf"
+  - "fffffffff"
+  - "pfffifffn"
+
+# The ordered group of cells the ladder is laid over. Entry i of the current page
+# renders into cell i, reading the r cells left to right, top to bottom.
+#
+# Another order (needs SnLib 1.43.0 or newer): rewrite the region in its long form
+# and draw a flow, a grid the size of the layout where each r cell holds an arrow
+# (> right, < left, ^ up, v down) pointing to the cell of the NEXT rank. The first
+# rank goes on the cell no arrow points at; cells outside the r letter are ignored.
+# Quote every row. A drawing that is not ONE path through EVERY r cell warns in the
+# console, naming the slot, and the ladder keeps the default order.
+# Examples for the layout above; replace "ranks: r" with one of them:
+#
+# Snake (first row to the right, second back to the left, third to the right):
+# regions:
+#   ranks:
+#     key: r
+#     flow:
+#       - "         "
+#       - " >>>>>>v "
+#       - " v<<<<<< "
+#       - " >>>>>>> "
+#
+# Every row right to left, top row first:
+#     flow:
+#       - "         "
+#       - " v<<<<<< "
+#       - " v<<<<<< "
+#       - " <<<<<<< "
+#
+# Every row left to right, bottom row first:
+#     flow:
+#       - "         "
+#       - " >>>>>>> "
+#       - " >>>>>>^ "
+#       - " >>>>>>^ "
+#
+# Columns, top to bottom, left column first:
+#     flow:
+#       - "         "
+#       - " vvvvvvv "
+#       - " vvvvvvv "
+#       - " >>>>>>  "
+regions:
+  ranks: r
+
+# This section is yours: an entry you delete here stays deleted on the next boot.
+# The trade-off is the same door in both directions - a button a future version of
+# the plugin ships will not be inserted into this file either, so read the release
+# notes and add it by hand if you want it.
+# Deleting a letter from the layout above hides a button without removing it, which
+# is the reversible way to do the same thing.
+# sn:extensible
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: ' '
+    key: f
+
+  current-rank-info:
+    material: PAPER
+    display-name: '&#8354f2&lYour Rank'
+    lore:
+      - '&7Rank: &f%rsrankup_prefix%'
+      - '&7Next: &f%rsrankup_next_prefix%'
+    key: i
+
+  previous-page:
+    material: ARROW
+    display-name: '&#8354f2Previous Page'
+    key: p
+    click-actions:
+      # [previous-page] MUST stay first: it is what marks this item as navigation
+      # so nav-disabled works. The plugin's own action re-lays the ladder afterwards.
+      - "[previous-page]"
+      - "[rsrankup-repage]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: '&7No previous page'
+
+  next-page:
+    material: ARROW
+    display-name: '&#8354f2Next Page'
+    key: n
+    click-actions:
+      - "[next-page]"
+      - "[rsrankup-repage]"
+      - "[sound] UI_BUTTON_CLICK"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: '&7No next page'
+
+# ------------------------------------------------------------
+#  One template per state. Each carries that state's BEHAVIOUR; the tile itself is
+#  the rank's own menu-item from rankup.yml. Six appearance fields apply:
+#    display-name       REPLACES the rank item's name (leave it out to keep the name)
+#    lore               lines are APPENDED after the rank item's own lore
+#    material           the material EVERY tile of this state uses. Accepts
+#                       basehead-<base64> for a custom head, exactly like a rank
+#                       does. Leave it out and each rank keeps its own material.
+#    custom-model-data  the resource pack model number EVERY tile of this state
+#                       uses, as a bare number. Leave it out and each rank keeps
+#                       its own.
+#    item-model         the 1.21.2+ item model key EVERY tile of this state uses.
+#                       Leave it out and each rank keeps its own.
+#    glow               true/false for EVERY tile of this state. Leave it out and
+#                       each rank keeps its own menu-item glow.
+#  Each of material, custom-model-data, item-model and glow dresses the whole state
+#  in one line, independently of the others. A single rank that must look
+#  different in one state still wins: write the field under menu-item.states.<state>
+#  in rankup.yml (see the example on rank '3') and that rank ignores the template's
+#  value for it. Every OTHER appearance field is ignored here (amount,
+#  enchantments...), because the rank item already carries one.
+#
+#  {missing_hours} is produced for every rank. A {missing_<currency>} token only
+#  exists on ranks that require that currency, so currency lines belong on the
+#  rank's own lore, not here, or they render literally on the ranks without it.
+# ------------------------------------------------------------
+templates:
+  rank-claimed:
+    lore:
+      - ''
+      - '&a&l[OK] ALREADY REACHED'
+    click-actions:
+      - "[rsrankup-tile-claimed]"
+
+  rank-ready:
+    lore:
+      - ''
+      - '&a&lCLICK TO RANK UP'
+    click-actions:
+      - "[rsrankup-rankup]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  rank-next:
+    # No requirement is named here on purpose. {missing_hours} exists on every rank, so a
+    # playtime line renders "0h" on a rank gated purely on money - it would advertise a gap
+    # that is not there. The click answers with the exact shortfall, and per-requirement
+    # numbers belong on the rank's own lore in rankup.yml, where the rank declares them.
+    lore:
+      - ''
+      - '&cYou do not meet this rank yet.'
+      - '&7Click to see what you still need.'
+    click-actions:
+      - "[rsrankup-tile-missing]"
+
+  rank-locked:
+    lore:
+      - ''
+      - '&7Locked. Reach the previous ranks first.'
+    click-actions:
+      - "[rsrankup-tile-locked]"

@@ -1,0 +1,97 @@
+# ============================================================
+#  RsVouchers - category menu (opened from guis/categories.yml)
+#  Lists every voucher inside one category folder. Clicking one gives it.
+#  Managed by SnLib: new keys merge in on boot, your edits are kept.
+#
+#  Every entry here is the same kind of thing, so this menu uses the plain
+#  paginated region ('paged-key: p'). The header at 'h' names the category the
+#  player is looking at - the window title cannot, because SnLib resolves a
+#  title against the viewer and PlaceholderAPI only, never against values the
+#  plugin supplies.
+# ============================================================
+title: "&#8354f2&lVouchers"
+pagination: true
+# Only the four basic mouse clicks act. Number keys, Q-drop and swap-offhand are
+# discarded, so the give button cannot fire from a hotbar swap.
+strict-clicks: true
+paged-key: p
+layout:
+  - "ffffhffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fffbfff>"
+
+# sn:extensible
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  back:
+    material: BARRIER
+    display-name: "&cVolver"
+    lore:
+      - "&7Regresa a las categorías"
+    key: b
+    click-actions:
+      - "[voucher-root]"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Página anterior"
+    key: "<"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No hay página anterior"
+      lore:
+        - "&8Estás en la primera página"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Página siguiente"
+    key: ">"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No hay página siguiente"
+      lore:
+        - "&8Estás en la última página"
+
+templates:
+  # Names the open category. Placed by its own 'key', so move it by editing the
+  # layout above; take the 'h' out and it disappears.
+  category-header:
+    material: BOOK
+    display-name: "&#8354f2&l{category}"
+    lore:
+      - "&7Vouchers: &f{count}"
+    key: h
+
+  # Painted into the paged region, so it declares no placement of its own.
+  # {material} carries the voucher's own 'item.material', including the
+  # basehead-<base64> form, which renders as the textured head.
+  #
+  # This icon is BUILT FROM THIS TEMPLATE, not from the voucher file, so an
+  # appearance the template does not name is missing from the icon even though
+  # the real voucher has it.
+  voucher:
+    material: "{material}"
+    # The voucher's own 'item.item-model' (1.21.2+), so the icon wears the same
+    # resource-pack model the physical voucher does. Without this line the icon
+    # falls back to the bare material and the model looks broken in the menu
+    # only. It resolves to nothing for a voucher that declares none, and an
+    # empty key is skipped silently - leave the placeholder in place.
+    item-model: "{item-model}"
+    display-name: "{voucher}"
+    lore:
+      - "&8Haz clic para recibir este voucher"
+    click-actions:
+      - "[voucher-give] {id}"

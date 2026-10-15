@@ -238,7 +238,7 @@ final class ItemListener implements Listener {
             return;
         }
         // (2) requirements.
-        if (!def.interactRequirement().test(player, null)) {
+        if (!def.interactRequirement().test(player, registry.requirementResolver(player))) {
             registry.runActions(player, def.denyActions(), click, block);
             return;
         }

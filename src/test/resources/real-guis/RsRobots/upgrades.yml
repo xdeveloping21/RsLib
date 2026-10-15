@@ -1,0 +1,141 @@
+# ============================================================
+#  RsRobots - robot upgrade menu
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lRobot Upgrades"
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler   r  the robot being upgraded   t  one upgrade track   b  back
+# Remove a button by deleting its character from this mask.
+layout:
+  - "ffffrffff"
+  - "fftttttff"
+  - "fftttttff"
+  - "fffffffff"
+  - "ffffbffff"
+
+# Cells the upgrade tracks are laid over, one track per cell, in the order
+# config.yml declares them under upgrades.tracks. Fewer cells than tracks
+# shows the first ones only, so keep at least one cell per track you define.
+# To hide the tracks, take t out of the layout above and keep this entry.
+regions:
+  tracks: t
+
+# One line of the {cost} placeholder of a track tile, repeated per economy the
+# level costs.
+cost-line: "&8| &7{economy}&8: &f{amount}"
+
+# Buttons. Each entry is yours: rename, restyle, or delete one and it stays deleted.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Shown in the track cells no configured track reaches.
+  track-empty:
+    material: LIGHT_GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: t
+
+  back:
+    material: ARROW
+    display-name: "&#8354f2Back"
+    key: b
+    lore:
+      - "&7Return to your robots."
+    click-actions:
+      - "[upgrades-back]"
+      - "[sound] UI_BUTTON_CLICK"
+
+# Items the plugin fills with live data. Each one lists the placeholders it
+# receives; a placeholder the template does not use costs nothing.
+# The four track-* templates are painted by the tracks region, so none of them
+# declares a placement of its own: the plugin picks which one paints a cell
+# from the track's effect and from whether it is maxed.
+templates:
+
+  # The robot these tracks belong to. Placeholders: {robot_icon} {robot}
+  # {tier_display} {tier_rarity} {multiplier} {production} {interval}
+  # {produced} {limit} {status}
+  robot:
+    material: "{robot_icon}"
+    display-name: "{robot}"
+    key: r
+    lore:
+      - "&7Tier: {tier_display} &8({tier_rarity}&8)"
+      - "&7Multiplier: &fx{multiplier}"
+      - "&7Pays: &f{production}"
+      - "&7Every: &f{interval}s"
+      - "&7Produced: &f{produced}&7/&f{limit}"
+      - "&7State: {status}"
+
+  # A track whose levels shorten the payout interval (effect
+  # INTERVAL_MULTIPLIER). Placeholders: {track} {track_id} {track_icon}
+  # {level} {max_level} {next_level} {cost} {effect_current} {effect_next}
+  track-interval:
+    material: "{track_icon}"
+    display-name: "{track} &8| &fLevel {level}&7/&f{max_level}"
+    lore:
+      - "&7Pays every &f{effect_current}s&7, next level &a{effect_next}s"
+      - " "
+      - "&7Level &f{next_level} &7costs:"
+      - "{cost}"
+      - " "
+      - "&eClick to buy it."
+    click-actions:
+      - "[upgrades-buy]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # A track whose levels raise the production limit (effect PRODUCTION_CAP).
+  # Placeholders: {track} {track_id} {track_icon} {level} {max_level}
+  # {next_level} {cost} {effect_current} {effect_next}
+  track-limit:
+    material: "{track_icon}"
+    display-name: "{track} &8| &fLevel {level}&7/&f{max_level}"
+    lore:
+      - "&7Stops at &f{effect_current}&7, next level &a{effect_next}"
+      - " "
+      - "&7Level &f{next_level} &7costs:"
+      - "{cost}"
+      - " "
+      - "&eClick to buy it."
+    click-actions:
+      - "[upgrades-buy]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # A track that only gates economies (effect NONE). Placeholders: {track}
+  # {track_id} {track_icon} {level} {max_level} {next_level} {cost}
+  track-gate:
+    material: "{track_icon}"
+    display-name: "{track} &8| &fLevel {level}&7/&f{max_level}"
+    lore:
+      - "&7Unlocks what this robot is allowed to pay."
+      - " "
+      - "&7Level &f{next_level} &7costs:"
+      - "{cost}"
+      - " "
+      - "&eClick to buy it."
+    click-actions:
+      - "[upgrades-buy]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # A track with nothing left to sell this robot. Placeholders: {track}
+  # {track_id} {track_icon} {level} {max_level} {status}
+  track-maxed:
+    material: "{track_icon}"
+    display-name: "{track} &8| &fLevel {level}"
+    glow: true
+    lore:
+      - "&7State: {status}"
+      - " "
+      - "&8This robot bought every level of this track."

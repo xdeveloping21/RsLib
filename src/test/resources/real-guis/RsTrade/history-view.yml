@@ -1,0 +1,116 @@
+# ============================================================
+#  RsTrade - trade details (from the history menu)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+# ============================================================
+# Read-only view of one logged trade: what each side gave. The left side is the player
+# whose history is open, the right side their partner.
+
+# Window title. {player} is the left trader, {partner} the right one.
+title: "&#8354f2&l{player} &8| &#8354f2&l{partner}"
+
+# Only plain left and right clicks (with or without shift) act on this menu.
+strict-clicks: true
+
+# Cell map, 6 rows of 9. f filler, | divider, L / R the two heads, I the trade summary,
+# a / b the stacks each side gave, c / d the money each side paid, K back to the list.
+layout:
+  - "ffLfIfRff"
+  - "faaa|bbbf"
+  - "faaa|bbbf"
+  - "faaa|bbbf"
+  - "fccc|dddf"
+  - "ffffKffff"
+
+# Named groups of cells the plugin paints.
+regions:
+  # The trade summary.
+  info: I
+  # The stacks the left trader gave.
+  target-items: a
+  # The stacks the right trader gave.
+  partner-items: b
+  # The money the left trader paid.
+  target-currencies: c
+  # The money the right trader paid.
+  partner-currencies: d
+
+items:
+  # Border and background.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Line between the two sides.
+  divider:
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+    key: "|"
+
+templates:
+  # The left trader's head. {player} is their name, {uuid} their UUID.
+  target-head:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&#8354f2&l{player}"
+    key: L
+    lore:
+      - "&7Gave the items on the left."
+
+  # The right trader's head.
+  partner-head:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&#8354f2&l{player}"
+    key: R
+    lore:
+      - "&7Gave the items on the right."
+
+  # Back to the history page this trade was opened from.
+  back:
+    material: ARROW
+    display-name: "&#8354f2Back"
+    key: K
+    click-actions:
+      - "[rstrade-history-page] {target} {page}"
+
+  # Summary of a completed trade. {date} is when it ended, {started} when it began,
+  # {status} the outcome, {world} where it happened.
+  info-completed:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "{status}"
+    lore:
+      - "&7Started: &f{started}"
+      - "&7Ended: &f{date}"
+      - "&7World: &f{world}"
+
+  # Summary of a cancelled trade. Same placeholders, plus {reason} why it ended.
+  info-cancelled:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "{status}"
+    lore:
+      - "&7Reason: {reason}"
+      - "&7Started: &f{started}"
+      - "&7Ended: &f{date}"
+      - "&7World: &f{world}"
+
+  # A stack a side gave, shown as a copy of the logged item.
+  item:
+    lore: []
+
+  # A logged stack that could not be read back. {amount} and {item} (its material).
+  item-unreadable:
+    material: BARRIER
+    display-name: "&f{amount}x {item}"
+    lore:
+      - "&7This item could not be read."
+
+  # Money a side paid. {material} is the icon of the currency in config.yml, {amount} what
+  # was paid, {tax} the tax withheld, {received} what the other side got.
+  currency:
+    material: "{material}"
+    display-name: "&f{amount} {currency}"
+    lore:
+      - "&7Tax: &f{tax}"
+      - "&7Received: &f{received}"

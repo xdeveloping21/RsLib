@@ -1,0 +1,231 @@
+# ============================================================
+#  RsTrade - trade menu
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+# ============================================================
+# Both traders see this menu: their own side on the left, the partner's on the right.
+# Offered items leave the inventory while the trade runs and come back on a cancel; the
+# cells only ever show copies. Move or resize any element by editing its letter in
+# layout:. Every dynamic element is a region below, painted with the keyless template of
+# its current state. To remove an element, take its letter out of the layout; keep the
+# regions: and templates: entries themselves. Keep R: without a ready button no trade can
+# ever complete.
+
+# Window title. {partner} is the other trader; the title never changes during a trade.
+title: "&#8354f2&lTrade with {partner}"
+
+# Your own inventory stays usable: click or shift-click a stack to offer it.
+player-inventory: open
+
+# Only plain left and right clicks (with or without shift) act on this menu.
+strict-clicks: true
+
+# Cell map, 6 rows of 9. f filler, | divider, Y / P the two heads, o / p the offered
+# stacks, c / d the currency buttons, t the countdown, R your ready button, S the
+# partner status, x the cancel button.
+layout:
+  - "ffYfffPff"
+  - "fooo|pppf"
+  - "fooo|pppf"
+  - "fooo|pppf"
+  - "fccctdddf"
+  - "ffRfxfSff"
+
+# Named groups of cells the plugin paints.
+regions:
+  # Your offered stacks, one per cell. A side may offer as many stacks as the smaller of
+  # own-offer and partner-offer has cells, so both menus always show every stack.
+  own-offer: o
+  # The partner's offered stacks.
+  partner-offer: p
+  # Your currency buttons, one per enabled currency in config order.
+  own-currencies: c
+  # The partner's currency amounts, in the same order.
+  partner-currencies: d
+  # Your ready button.
+  own-status: R
+  # The partner's status.
+  partner-status: S
+  # The countdown indicator.
+  countdown: t
+
+items:
+  # Border and background.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Line between the two sides.
+  divider:
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+    key: "|"
+
+  # Cancels the trade; every offered item goes back to its owner.
+  cancel:
+    material: BARRIER
+    display-name: "&c&lCancel trade"
+    key: x
+    lore:
+      - "&7Ends the trade. Everything you"
+      - "&7offered comes back to you."
+    click-actions:
+      - "[rstrade-cancel]"
+
+templates:
+  # Your head. {player} is your name, {uuid} your UUID.
+  own-head:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&#8354f2&lYour offer"
+    key: "Y"
+    lore:
+      - "&7Put items on this side."
+
+  # The partner's head. {player} is their name, {uuid} their UUID.
+  partner-head:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&#8354f2&l{player}'s offer"
+    key: P
+    lore:
+      - "&7What you get."
+
+  # One of your offered stacks, shown as a copy. The lore is added under the item's own.
+  # {amount} is its amount, {entry} its id; clicking takes it back. Keep input: true so a
+  # stack held on the cursor still merges into it.
+  own-item:
+    input: true
+    lore:
+      - ""
+      - "&eClick to take it back."
+    click-actions:
+      - "[rstrade-take] {entry}"
+
+  # An empty cell of your side; place a stack here to offer it.
+  own-empty:
+    material: AIR
+    input: true
+
+  # One of the partner's offered stacks, shown as a copy. {player} is the partner.
+  partner-item:
+    lore:
+      - ""
+      - "&7Offered by &f{player}&7."
+
+  # An empty cell of the partner's side.
+  partner-empty:
+    material: AIR
+
+  # A currency you do not offer yet. {material} is the icon of the currency in config.yml,
+  # {currency} its name, {amount} the amount, {min} and {max} its limits.
+  own-currency:
+    material: "{material}"
+    display-name: "{currency}"
+    lore:
+      - "&7You offer: &f{amount}"
+      - "&7Min &f{min} &8| &7Max &f{max}"
+      - ""
+      - "&eClick to enter an amount."
+    click-actions:
+      - "[rstrade-currency] {currency_id}"
+
+  # A currency you offer. Same placeholders as own-currency, plus {player} (the partner),
+  # {partner} the partner's name, {net} what the partner receives after tax and {tax} the tax withheld (the partner's
+  # tax; 0 when they hold rstrade.bypass.tax).
+  own-currency-offered:
+    material: "{material}"
+    display-name: "{currency}"
+    glow: true
+    lore:
+      - "&7You offer: &a{amount}"
+      - "&f{partner} &7receives: &f{net} &8(&7tax &f{tax}&8)"
+      - "&7Min &f{min} &8| &7Max &f{max}"
+      - ""
+      - "&eClick to change the amount."
+      - "&eEnter 0 to remove it."
+    click-actions:
+      - "[rstrade-currency] {currency_id}"
+
+  # A currency the partner does not offer. {player} is the partner.
+  partner-currency:
+    material: "{material}"
+    display-name: "{currency}"
+    lore:
+      - "&f{player} &7offers: &f{amount}"
+
+  # A currency the partner offers. {net} is what you receive after tax and {tax} the tax
+  # withheld (your tax; 0 when you hold rstrade.bypass.tax).
+  partner-currency-offered:
+    material: "{material}"
+    display-name: "{currency}"
+    glow: true
+    lore:
+      - "&f{player} &7offers: &a{amount}"
+      - "&7You receive: &a{net} &8(&7tax &f{tax}&8)"
+
+  # A currency cell with no currency (fewer enabled currencies than cells).
+  no-currency:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+  # Your button while you are ready. {status} is the state word.
+  own-ready:
+    material: LIME_DYE
+    display-name: "{status}"
+    lore:
+      - "&7You accept this trade."
+      - ""
+      - "&eClick to take back your ready."
+    click-actions:
+      - "[rstrade-ready]"
+
+  # Your button while you are not ready.
+  own-not-ready:
+    material: GRAY_DYE
+    display-name: "{status}"
+    lore:
+      - "&7Check both sides, then confirm."
+      - ""
+      - "&eClick when you accept this trade."
+    click-actions:
+      - "[rstrade-ready]"
+
+  # The partner while ready. {player} is the partner, {status} the state word.
+  partner-ready:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&f{player}&7: {status}"
+    lore:
+      - "&7Your partner accepts this trade."
+
+  # The partner while not ready.
+  partner-not-ready:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&f{player}&7: {status}"
+    lore:
+      - "&7Your partner has not accepted yet."
+
+  # The partner while entering an amount.
+  partner-editing:
+    material: YELLOW_STAINED_GLASS_PANE
+    display-name: "&f{player}&7: {status}"
+    lore:
+      - "&7Your partner is entering an amount."
+
+  # The countdown cell while no countdown runs.
+  countdown-waiting:
+    material: CLOCK
+    display-name: "&7Waiting for both players"
+    lore:
+      - "&7The trade completes a few seconds"
+      - "&7after both players are ready."
+
+  # The countdown cell while it runs. {seconds} is the time left.
+  countdown-running:
+    material: CLOCK
+    display-name: "&a&lTrading in {seconds}s"
+    glow: true
+    lore:
+      - "&7Offers are locked now."
+      - "&7Take back your ready to stop it."

@@ -1,0 +1,28 @@
+title: "&#8354f2&lConfirm"
+layout:
+  - "fffffffff"
+  - "ffcfffdff"
+  - "fffffffff"
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  confirm:
+    material: LIME_STAINED_GLASS_PANE
+    display-name: "&aConfirm"
+    key: c
+    click-actions:
+      - "[custom] confirm"
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+  cancel:
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&cCancel"
+    key: d
+    click-actions:
+      - "[custom] cancel"
+      - "[sound] UI_BUTTON_CLICK"

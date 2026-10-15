@@ -1,0 +1,156 @@
+# ============================================================
+#  RsAuctionHouse - payouts (staff view of a player's money)
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every credit of the auction house is a payout row: PENDING until
+#  claimed, PAID once credited, HELD while it waits for staff review
+#  (a refund whose outcome was unknown after a crash; release or discard
+#  it with /ah admin held). Newest first, at most history.max-entries
+#  rows (config.yml). Read only. Needs rsauctionhouse.admin.transactions.
+# ============================================================
+
+# Menu title. {player} is the inspected player (or every player).
+title: "&#8354f2&lPayouts: {player}"
+
+# Enables the row pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one payout row.
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         i  summary           p  one row          s  state filter
+#   x  close          m  money still owed
+#   <  previous page  >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "ffffiffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fsfxfmf>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Closes the menu.
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[close]"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+
+  # One payout row. {payout-id} {player} {player-uuid} {state} {reason} {currency} {amount}
+  # {id} (listing) {created} {paid}. A row stored under an old currency setup shows its raw
+  # stored amount (messages.menu.amount-stored) as {amount}.
+  entry:
+    material: GOLD_NUGGET
+    display-name: "&#8354f2{amount} &8#{payout-id}"
+    lore:
+      - "&7Player: &f{player}"
+      - "&7State: {state}"
+      - "&7Reason: &f{reason}"
+      - "&7Currency: {currency}"
+      - "&7Listing: &f{id}"
+      - "&7Created: &f{created}"
+      - "&7Paid: &f{paid}"
+      - ""
+      - "&eClick to open this player."
+    click-actions:
+      - "[ah-open] admin-player {player-uuid}"
+
+  # State filter: every state, pending only, paid only, held for staff review only. {state}
+  state:
+    material: HOPPER
+    display-name: "&#8354f2&lState"
+    key: s
+    lore:
+      - "&7Showing: {state}"
+      - ""
+      - "&eLeft click: next"
+      - "&eRight click: previous"
+    left-click-actions:
+      - "[ah-admin-filter] state next"
+    right-click-actions:
+      - "[ah-admin-filter] state previous"
+
+  # Money still owed to the player, per currency, frozen totals listed apart. {player} {pending}
+  summary:
+    material: SUNFLOWER
+    display-name: "&#8354f2&lOwed to {player}"
+    key: m
+    lore:
+      - "{pending}"
+
+  # Shown instead of the owed money when the menu lists every player.
+  summary-all:
+    material: SUNFLOWER
+    display-name: "&#8354f2&lEvery Player"
+    key: m
+    lore:
+      - "&7Open a player's payouts from"
+      - "&7their staff view to see what"
+      - "&7they are still owed."
+
+  # Summary. {player} {count} {limit}
+  info:
+    material: BOOK
+    display-name: "&#8354f2&lPayouts: {player}"
+    key: i
+    lore:
+      - "&7Rows: &f{count} &8(newest {limit} at most)"
+
+  # Summary when no row matches. {player}
+  info-empty:
+    material: BOOK
+    display-name: "&#8354f2&lPayouts: {player}"
+    key: i
+    lore:
+      - "&7No payout matches this filter."
+
+  # Shown while the rows load. {player}
+  info-loading:
+    material: CLOCK
+    display-name: "&#8354f2&lPayouts: {player}"
+    key: i
+    lore:
+      - "&7Loading..."

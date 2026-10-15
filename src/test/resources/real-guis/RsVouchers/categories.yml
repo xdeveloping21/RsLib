@@ -1,0 +1,111 @@
+# ============================================================
+#  RsVouchers - root admin menu (/rsvouchers open)
+#  Lists every category folder under vouchers/, then every loose voucher.
+#  Clicking a category opens guis/vouchers.yml; clicking a voucher gives it.
+#  Managed by SnLib: new keys merge in on boot, your edits are kept.
+#
+#  This menu mixes TWO kinds of entry (a folder and a loose voucher), so the
+#  plugin fills it through 'regions:' rather than a 'paged-key:': a region lets
+#  the plugin pick a different template per entry, which a paged bind cannot.
+#  Pagination still works - the plugin pages the region itself, one page per
+#  screenful of the 'p' cells below.
+#
+#  Resize or move the region by editing the layout: add or remove 'p' cells and
+#  the page size follows. Remove every 'p' and the region turns off (a supported
+#  way to blank the menu, and it stays silent on purpose).
+# ============================================================
+title: "&#8354f2&lVouchers"
+pagination: true
+# Only the four basic mouse clicks act. Number keys, Q-drop and swap-offhand are
+# discarded, so the give button cannot fire from a hotbar swap.
+strict-clicks: true
+layout:
+  - "fffffffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<fffxfff>"
+
+# Cells the plugin fills, one entry per cell, in reading order.
+regions:
+  entries: p
+
+# sn:extensible
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  close:
+    material: BARRIER
+    display-name: "&cCerrar"
+    key: x
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Página anterior"
+    key: "<"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      # [previous-page] turns the page; [voucher-page] re-fills the region with
+      # that page's entries. Both are needed and the order matters.
+      - "[previous-page]"
+      - "[voucher-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No hay página anterior"
+      lore:
+        - "&8Estás en la primera página"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Página siguiente"
+    key: ">"
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[next-page]"
+      - "[voucher-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No hay página siguiente"
+      lore:
+        - "&8Estás en la última página"
+
+# Both templates paint cells of the 'entries' region, so neither declares a
+# placement of its own: the region already decided the cell.
+templates:
+  # One category folder under vouchers/.
+  category:
+    material: CHEST
+    display-name: "&#8354f2&l{category}"
+    lore:
+      - "&7Haz clic para explorar"
+      - "&7Vouchers: &f{count}"
+    click-actions:
+      - "[voucher-category] {category}"
+
+  # A loose voucher (one that sits directly in vouchers/, not in a folder).
+  # {material} carries the voucher's own 'item.material', including the
+  # basehead-<base64> form, which renders as the textured head.
+  #
+  # This icon is BUILT FROM THIS TEMPLATE, not from the voucher file, so an
+  # appearance the template does not name is missing from the icon even though
+  # the real voucher has it.
+  voucher:
+    material: "{material}"
+    # The voucher's own 'item.item-model' (1.21.2+), so the icon wears the same
+    # resource-pack model the physical voucher does. Without this line the icon
+    # falls back to the bare material and the model looks broken in the menu
+    # only. It resolves to nothing for a voucher that declares none, and an
+    # empty key is skipped silently - leave the placeholder in place.
+    item-model: "{item-model}"
+    display-name: "{voucher}"
+    lore:
+      - "&8Haz clic para recibir este voucher"
+    click-actions:
+      - "[voucher-give] {id}"

@@ -8,7 +8,7 @@ import java.util.logging.Level;
 import com.rs.lib.Rs;
 
 /**
- * Reloads a plugin without restarting it: YAML files, messages, commands, then every
+ * Reloads a plugin without restarting it: YAML files, messages, items, menus, commands, then every
  * {@link Reloadable} in the order it was registered. One failing step is logged and the
  * rest still run. Classes are never reloaded; a new jar needs a restart.
  */
@@ -51,6 +51,9 @@ public final class ReloadManager {
             step("messages", () -> rs.langOrNull().reload());
         }
         step("items", () -> rs.items().reload());
+        if (rs.guisOrNull() != null) {
+            step("menus", () -> rs.guisOrNull().load());
+        }
         step("commands", () -> {
             rs.commands().reRegisterAll();
             rs.commands().applyLang();

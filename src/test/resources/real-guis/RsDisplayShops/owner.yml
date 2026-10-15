@@ -1,0 +1,364 @@
+# ============================================================
+#  RsDisplayShops - menú del dueño
+#  Se abre haciendo clic derecho en el bloque de tu propia tienda (o en
+#  cualquier tienda, con bypass).
+#  Administrado por SnLib: las claves nuevas se fusionan automáticamente al
+#  iniciar; tus valores y tus comentarios se conservan. No hay ninguna clave
+#  de versión que mantener.
+# ============================================================
+#
+# TOKENS. Se pueden usar en el display-name y el lore de cada elemento de
+# abajo; un token escrito donde no se proporciona su valor se muestra como
+# texto literal.
+#
+#   title                 {item}
+#   la mayoría            {currency} {mode} {price} {stock}
+#   storage-entry         {amount}   (el stock de esa variante, abreviado)
+#   elementos de página   {page} {pages}
+#
+# {price} es el precio de UNA unidad, abreviado (1.2M): el mismo número que
+# muestra el texto flotante. {stock} es TODO lo que guarda la tienda, sumando
+# todas las variantes, escrito completo (1.500.000): la cantidad que vacía el
+# botón de retirar. No es {amount}, que es el stock de una sola variante,
+# abreviado.
+# {mode} nombra la dirección desde el punto de vista de la TIENDA.
+# PlaceholderAPI se resuelve para cada jugador que mira en el título, en cada
+# display-name y en cada línea de lore. Los colores hex &#RRGGBB, MiniMessage
+# y las etiquetas de línea [center] / [rgb] / [small] funcionan en todas
+# partes.
+#
+# LAYOUT. Un carácter por casilla, nueve por fila; las filas deciden el tamaño
+# del menú.
+#   f = fondo                      d = la celda del ítem que se comercia (recibe ítems)
+#   c = moneda                     m = modo                   p = pausa
+#   e = establecer precio exacto   s = cuadrícula de stock (paginada)
+#   < = página anterior            i = indicador de página    > = página siguiente
+#   w = retirar stock              k = recoger (quitar la tienda)
+#   + = depositar todo el stock que coincida
+# Para quitar un elemento, borra su letra del mapa; su sección de abajo se
+# queda y simplemente no se coloca. Así se desactiva el botón de retirar en los
+# servidores que no lo quieren. Quitar la k deja la tienda SIN ninguna forma de
+# retirarla (los bloques de tienda no se pueden romper), así que el plugin
+# avisa de ello.
+#
+# Si tienes una copia antigua de este archivo sin el + en el layout, tienes que
+# agregarlo a mano. La actualización fusiona las claves que le FALTAN a tu
+# archivo; nunca reescribe un valor que ya tengas, y tu layout es uno de esos
+# valores. Por eso, en el siguiente inicio aparece abajo la sección del botón
+# de depositar, pero la letra no aparece arriba: colócala tú mismo donde
+# quieras, o el botón simplemente no se coloca.
+# ============================================================
+
+# Título de la ventana. {item} es lo que comercia la tienda, o la etiqueta que
+# indica que no hay ítem.
+title: "&8Administrar: &r{item}"
+
+layout:
+  - "fffffffff"
+  - "ffffdffff"
+  - "ffcfmfpff"
+  - "ffffeffff"
+  - "sssssssss"
+  - "<f+wkfif>"
+
+# La cuadrícula de stock pagina las variantes de la tienda.
+pagination: true
+paged-key: s
+
+# Solo los cuatro clics básicos del mouse llegan a un control. Las teclas de la
+# barra de acceso rápido, soltar ítems, el clic central, el intercambio con la
+# mano secundaria y la segunda mitad de un doble clic se descartan antes de que
+# puedan llegar a uno: uno de estos controles elimina una tienda.
+strict-clicks: true
+
+# Quien mira sigue usando su propio inventario mientras este menú está abierto:
+# tomar una pila con el cursor (para mostrársela a la celda del ítem), mover
+# pilas, soltar ítems. Un Shift + clic ahí se le informa al plugin como un
+# depósito de stock en lugar de mover la pila. Esto va de la mano con la celda
+# de entrada de abajo.
+player-inventory: open
+
+# Tareas internas del plugin al cerrarse el menú de forma normal; déjalo como
+# está.
+close-actions:
+  - "[owner] closed"
+
+items:
+  # Fondo. Puramente decorativo: no tiene ninguna acción, así que no hace nada.
+  filler:
+    key: f
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+
+  # La celda del ítem que se comercia mientras AÚN no hay ningún ítem asignado.
+  # input: true es lo que hace que esta celda pueda RECIBIR un ítem; el plugin
+  # lee la pila con la que apuntas a ella y tu ítem nunca se te quita.
+  item-display:
+    key: d
+    input: true
+    material: BARRIER
+    display-name: "&7Sin ítem asignado"
+    lore:
+      - "&8Muestra un ítem a esta celda para definir"
+      - "&8qué vende o compra la tienda."
+      - ""
+      - "&7• &fHaz clic&7 en esta celda con uno en el cursor"
+      - "&7• &fArrastra&7 uno hasta esta celda"
+      - ""
+      - "&8El ítem se lee, no se consume."
+    click-actions:
+      - "[owner] assign-hint"
+
+templates:
+  # La celda del ítem que se comercia mientras NO hay ningún ítem asignado, tal
+  # como la vuelve a dibujar el plugin. Tiene el mismo aspecto que el ítem
+  # item-display de arriba (ese dibuja el primer fotograma; este, cada redibujado
+  # posterior): mantén ambos iguales cuando les cambies el estilo.
+  item-display-empty:
+    key: d
+    input: true
+    material: BARRIER
+    display-name: "&7Sin ítem asignado"
+    lore:
+      - "&8Muestra un ítem a esta celda para definir"
+      - "&8qué vende o compra la tienda."
+      - ""
+      - "&7• &fHaz clic&7 en esta celda con uno en el cursor"
+      - "&7• &fArrastra&7 uno hasta esta celda"
+      - ""
+      - "&8El ítem se lee, no se consume."
+    click-actions:
+      - "[owner] assign-hint"
+
+  # La celda del ítem que se comercia una vez que SÍ hay un ítem asignado. La
+  # celda muestra el ítem real de la tienda (su nombre, sus encantamientos y su
+  # propio lore) y estas líneas se AGREGAN debajo. Sigue siendo una celda de
+  # entrada: mostrarle otro ítem reemplaza el ítem que se comercia, y tu pila
+  # solo se lee.
+  item-display-set:
+    key: d
+    input: true
+    lore:
+      - ""
+      - "&7Esto es lo que comercia la tienda."
+      - "&8Haz clic con otro ítem, o arrastra"
+      - "&8uno hasta aquí, para cambiarlo."
+      - "&8El ítem se lee, no se consume."
+    click-actions:
+      - "[owner] assign-hint"
+
+  # Alterna la moneda en la que cobra la tienda: clic izquierdo hacia adelante,
+  # clic derecho hacia atrás.
+  currency:
+    key: c
+    material: SUNFLOWER
+    display-name: "&eMoneda"
+    lore:
+      - "&7Actual: &f{currency}"
+      - ""
+      - "&8» &7Haz clic para cambiarla."
+    click-actions:
+      - "[owner] currency"
+
+  # Cambia entre BUY y SELL.
+  mode:
+    key: m
+    material: COMPARATOR
+    display-name: "&eModo"
+    lore:
+      - "&7Actual: &f{mode}"
+      - ""
+      - "&8» &7Haz clic para alternarlo."
+    click-actions:
+      - "[owner] mode"
+
+  # Se muestra mientras la tienda está en funcionamiento. Una tienda pausada no
+  # se abre para los compradores, y tampoco una tienda cuyo dueño no está
+  # conectado.
+  pause-active:
+    key: p
+    material: LIME_DYE
+    display-name: "&aActiva"
+    lore:
+      - "&7Haz clic para pausarla."
+    click-actions:
+      - "[owner] pause"
+
+  # Se muestra mientras la tienda está pausada.
+  pause-paused:
+    key: p
+    material: GRAY_DYE
+    display-name: "&7Pausada"
+    lore:
+      - "&7Haz clic para reanudarla."
+    click-actions:
+      - "[owner] pause"
+
+  # Cierra el menú y pide el nuevo precio en el chat. Lo que escribes se
+  # consume, no se muestra a los demás, y el menú se vuelve a abrir una vez
+  # aplicado.
+  price-set:
+    key: e
+    material: PAPER
+    display-name: "&eEstablecer precio exacto"
+    lore:
+      - "&7Actual: &f{price}"
+      - ""
+      - "&7Haz clic para escribir el nuevo"
+      - "&7precio directamente en el chat."
+      - "&8Acepta 1k, 1.5m y 1.500.000."
+    click-actions:
+      - "[owner] price"
+
+  # Quita la tienda. Es la ÚNICA forma de quitar una tienda: nadie puede romper
+  # los bloques de tienda. El primer clic arma la confirmación de abajo; solo un
+  # segundo clic dentro de unos segundos la ejecuta.
+  pickup:
+    key: k
+    material: BARRIER
+    display-name: "&cRecoger tienda"
+    lore:
+      - "&7Quita la tienda y te devuelve"
+      - "&7todos los ítems guardados + el bloque."
+      - "&7Lo que no quepa se suelta"
+      - "&7en el suelo."
+      - ""
+      - "&8Se rechaza si la tienda guarda"
+      - "&8más de limits.max-pickup-stacks."
+    click-actions:
+      - "[owner] pickup"
+
+  # El botón de recoger mientras está armado. Hacer clic ahora quita la tienda;
+  # si no lo tocas durante unos segundos, vuelve el botón normal.
+  pickup-confirm:
+    key: k
+    material: RED_STAINED_GLASS_PANE
+    display-name: "&4Haz clic otra vez para confirmar"
+    lore:
+      - "&cEsto quita la tienda y te devuelve"
+      - "&csu stock y el bloque."
+      - ""
+      - "&8Expira en unos segundos."
+    click-actions:
+      - "[owner] pickup"
+
+  # Saca todo el stock que puedas cargar; lo que no quepa SE QUEDA en la
+  # tienda. Quita la w del layout para desactivar este botón.
+  # {stock} es el stock de toda la tienda (sumando todas las variantes), porque
+  # eso es lo que vacía este botón.
+  withdraw:
+    key: w
+    material: CHEST
+    display-name: "&eRetirar stock"
+    lore:
+      - "&7Haz clic para sacar todo el"
+      - "&7stock que puedas cargar. Lo que"
+      - "&7no quepa se queda en la tienda."
+      - ""
+      - "&7Abajo se muestra cada ítem;"
+      - "&7haz clic en uno para retirar solo ese."
+      - ""
+      - "&7Total guardado: &f{stock}"
+      - ""
+      - "&8Para abastecer: Shift + clic en ítems"
+      - "&8iguales de tu inventario, o usa el"
+      - "&8botón de depositar."
+    click-actions:
+      - "[owner] withdraw-all"
+
+  # Mueve TODAS las pilas que coincidan de tu inventario al stock, con un solo
+  # clic.
+  #
+  # Existe porque el Shift + clic no es un gesto que tengan todos los clientes.
+  # Los jugadores de Bedrock, y cualquiera que se conecte a través de Geyser, no
+  # pueden enviarlo en absoluto, así que, hasta que se agregó este botón, no
+  # tenían forma de abastecer una tienda: un clic con el cursor en la celda del
+  # ítem ASIGNA lo que comercia la tienda en lugar de depositarlo.
+  #
+  # NO está en tu layout si tienes una copia antigua de este archivo sin el +:
+  # consulta la nota al principio del archivo. Pon un + donde lo quieras (el
+  # valor predeterminado es la casilla 47, la tercera celda de la última fila) o
+  # el botón no se coloca, y nada te avisa, porque no colocarlo es una opción
+  # válida.
+  deposit:
+    key: "+"
+    material: HOPPER
+    display-name: "&aDepositar todo"
+    lore:
+      - "&7Haz clic para mover todas las pilas"
+      - "&7iguales de tu inventario al"
+      - "&7stock de la tienda."
+      - ""
+      - "&7Total guardado: &f{stock}"
+      - ""
+      - "&8Solo ítems idénticos al que"
+      - "&8comercia la tienda, y solo de tus"
+      - "&836 casillas: ni la armadura, ni la"
+      - "&8mano secundaria, ni tu cursor."
+    click-actions:
+      - "[owner] deposit-all"
+
+  # Una variante de stock en la cuadrícula. La celda muestra el propio ítem
+  # guardado, con su nombre y su lore, y estas líneas agregadas debajo.
+  # {amount} es cuánto de esa variante guarda la tienda, abreviado.
+  storage-entry:
+    key: s
+    lore:
+      - "&7Stock: &f{amount}"
+      - "&7Clic izquierdo para sacar una pila."
+      - "&7Shift + clic para sacarlo todo."
+    click-actions:
+      - "[owner] withdraw-stack"
+    shift-left-click-actions:
+      - "[owner] withdraw-variant"
+    shift-right-click-actions:
+      - "[owner] withdraw-variant"
+
+  # Se muestra en la primera celda de la cuadrícula mientras la tienda no guarda
+  # nada, sobre el ítem que comercia. Una tienda sin ítem asignado no muestra
+  # nada aquí.
+  storage-empty:
+    key: s
+    lore:
+      - "&7Stock: &f{amount}"
+      - "&7Shift + clic en ítems iguales de tu"
+      - "&7inventario para depositar stock, o usa"
+      - "&7el botón de depositar."
+    click-actions:
+      - "[owner] deposit-hint"
+
+  # Las flechas de página y el indicador entre ellas. Cada flecha muestra su
+  # variante desactivada cuando no hay adónde ir, y el indicador solo cuenta
+  # cuando hay más de una página.
+  page-prev:
+    key: "<"
+    material: ARROW
+    display-name: "&e« Página anterior"
+    lore:
+      - "&7Página &f{page}&7 de &f{pages}"
+    click-actions:
+      - "[owner] page-prev"
+  page-prev-off:
+    key: "<"
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+  page-next:
+    key: ">"
+    material: ARROW
+    display-name: "&ePágina siguiente »"
+    lore:
+      - "&7Página &f{page}&7 de &f{pages}"
+    click-actions:
+      - "[owner] page-next"
+  page-next-off:
+    key: ">"
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "
+  page-indicator:
+    key: i
+    material: OAK_SIGN
+    display-name: "&ePágina &f{page}&e/&f{pages}"
+  page-indicator-off:
+    key: i
+    material: BLACK_STAINED_GLASS_PANE
+    display-name: " "

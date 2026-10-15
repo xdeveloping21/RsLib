@@ -1,0 +1,184 @@
+# ============================================================
+#  RsKits - kit edit menu
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#
+#  Opened by /rskits edit <id>. Every button acts on the kit named in the title,
+#  re-resolved at the moment you click it, and does nothing at all if that kit
+#  was deleted or reloaded away meanwhile.
+#
+#  Buttons fire on ANY click type. Left, right, shift and middle all do the
+#  same thing here on purpose.
+#
+#  Placeholders available in every display-name and lore below:
+#    {kit}       the kit id
+#    {value}     on a toggle button, whether that flag is on, from the status:
+#                section of the lang file
+#    {cooldown}  on the cooldown button, the cooldown the kit is configured
+#                with, or the ready label when it has none
+#  PlaceholderAPI placeholders resolve too, per viewer.
+#
+#  Sounds come from config.yml sounds: (toggle when a flag flips, gui-click for
+#  the cooldown and items buttons). Add a "[sound] SOUND_ID" line to any
+#  click-actions list below to layer another.
+#
+#  TO MOVE a button, move its letter in the layout. TO REMOVE one, delete its
+#  letter from the layout and leave the entry here.
+#  Colours: use &#RRGGBB. A bare #RRGGBB is not a colour and renders as text.
+# ============================================================
+
+title: "&#8354f2&lEditando &8- &e{kit}"
+
+# f filler                e can be claimed        p requires permission
+# o one-time only         a auto-equip armour     h auto-equip off hand
+# d drop items when full  c cooldown              i edit items
+layout:
+  - "fffffffff"
+  - "fepoahdcf"
+  - "fffffffff"
+  - "ffffiffff"
+  - "fffffffff"
+
+# sn:extensible
+items:
+  # Fills every cell no button claims. Delete it to leave those cells empty:
+  # the marker above is what keeps it deleted instead of writing it back on
+  # every boot.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+# Every entry below is filled in by the plugin, which is why they are templates
+# rather than items: their text carries the placeholders above. The action after
+# "[kit-edit]" is what the button does and must not be renamed.
+templates:
+
+  # A disabled kit stays visible in the kit menu and says so when clicked, so
+  # turning this off takes a kit out of circulation without hiding it.
+  enabled:
+    material: LIME_DYE
+    display-name: "&#8354f2Activado"
+    key: e
+    lore:
+      - "&7Si este kit se puede reclamar."
+      - ""
+      - "&7Actual: {value}"
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[kit-edit] enabled"
+
+  # While on, a claim also needs rskits.kit.<id>. While off, the kit is open to
+  # everyone who can run the command.
+  requires-permission:
+    material: IRON_BARS
+    display-name: "&#8354f2Requiere permiso"
+    key: p
+    lore:
+      - "&7Pide &frskits.kit.{kit} &7para reclamarlo."
+      - ""
+      - "&7Actual: {value}"
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[kit-edit] requires-permission"
+
+  # Only claims made while this is on count against the allowance, and turning
+  # it off gives everyone their claim back.
+  one-time:
+    material: CLOCK
+    display-name: "&#8354f2Un solo uso"
+    key: o
+    lore:
+      - "&7Permite reclamarlo una sola vez por jugador."
+      - ""
+      - "&7Actual: {value}"
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[kit-edit] one-time"
+
+  # Armour is not a separate part of a kit: any armour piece in the grid equips
+  # itself at claim time while this is on.
+  auto-armor:
+    material: DIAMOND_CHESTPLATE
+    display-name: "&#8354f2Equipar armadura"
+    key: a
+    lore:
+      - "&7Equipa la armadura en los huecos vacíos al reclamar."
+      - "&7La armadura que ya lleva puesta nunca se reemplaza."
+      - ""
+      - "&7Actual: {value}"
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[kit-edit] auto-armor"
+
+  # Shields and totems fill the off hand on their own; anything else has to be
+  # marked as THE off-hand item in the items editor first.
+  auto-offhand:
+    material: SHIELD
+    display-name: "&#8354f2Equipar mano secundaria"
+    key: h
+    lore:
+      - "&7Equipa el ítem de mano secundaria si ese hueco está vacío."
+      - "&7Los escudos y los tótems cuentan solos; marca cualquier"
+      - "&7otro ítem con shift + clic derecho en el editor."
+      - ""
+      - "&7Actual: {value}"
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[kit-edit] auto-offhand"
+
+  # The one flag that changes whether a claim happens at all rather than how it
+  # is delivered.
+  drop-items-when-full:
+    material: HOPPER
+    display-name: "&#8354f2Soltar ítems si está lleno"
+    key: d
+    lore:
+      - "&7Qué pasa cuando el inventario está lleno."
+      - "&7Activado: lo que sobra cae a los pies del jugador."
+      - "&7Desactivado: el reclamo se rechaza y no gasta"
+      - "&7ni el enfriamiento ni el uso único."
+      - ""
+      - "&7Actual: {value}"
+      - ""
+      - "&eClic para alternar"
+    click-actions:
+      - "[kit-edit] drop-items-when-full"
+
+  # Closes the menu, asks for a duration in chat and comes back. Accepts plain
+  # seconds or a "1d 2h 30m" spelling.
+  cooldown:
+    material: REPEATER
+    display-name: "&#8354f2Enfriamiento"
+    key: c
+    lore:
+      - "&7Tiempo antes de poder reclamarlo otra vez."
+      - ""
+      - "&7Actual: &f{cooldown}"
+      - ""
+      - "&eClic para editarlo en el chat"
+    click-actions:
+      - "[kit-edit] cooldown"
+
+  # Opens the free-placement grid: the slot an item sits in there is the slot
+  # the kit preview shows it in.
+  items:
+    material: CHEST
+    display-name: "&#8354f2Editar ítems"
+    key: i
+    glow: true
+    lore:
+      - "&7Define los ítems, la armadura y la mano"
+      - "&7secundaria que entrega este kit."
+      - ""
+      - "&7Consejo: &fshift + clic derecho&7 sobre un ítem"
+      - "&7del editor lo vuelve el de mano secundaria."
+      - ""
+      - "&eClic para abrir"
+    click-actions:
+      - "[kit-edit] items"

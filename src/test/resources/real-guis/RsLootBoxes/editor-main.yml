@@ -1,0 +1,56 @@
+# ============================================================
+#  RsLootBoxes - Editor: main menu (/rslootbox editor)
+#  Managed by SnLib: new keys merge in on boot, your edits kept.
+#
+#  The 'boxes' region lists every lootbox as its rendered key
+#  item, in alphabetical id order, one per 'b' cell. Move or
+#  shrink the list by editing the layout below.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lLootbox Editor"
+
+# Only plain clicks (left, right, shift + left, shift + right) run an action
+# here; number keys, Q, the off-hand key, the middle click and double clicks
+# do nothing.
+strict-clicks: true
+
+# Ascii grid, 9 cells per row: b = lootbox list, c = create, f = filler.
+layout:
+  - "bbbbbbbbb"
+  - "bbbbbbbbb"
+  - "bbbbbbbbb"
+  - "bbbbbbbbb"
+  - "bbbbbbbbb"
+  - "ffffcffff"
+
+# Named cell groups the plugin fills at runtime.
+regions:
+  # One rendered key item per loaded lootbox.
+  boxes: b
+
+items:
+  # Creates a blank lootbox after asking for its id in chat.
+  create:
+    key: c
+    material: LIME_WOOL
+    display-name: "&a&lCreate Lootbox"
+    lore:
+      - "&7Add a brand-new lootbox."
+      - ""
+      - "&8» Click to create"
+    click-actions:
+      - "[editor-create]"
+
+  # Decorative background.
+  filler:
+    key: f
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+
+templates:
+  # Behavior of each 'boxes' cell; the icon is the rendered key item itself.
+  # {box} carries the lootbox id of the clicked icon.
+  box-icon:
+    click-actions:
+      - "[editor-open-box] {box}"

@@ -1,0 +1,188 @@
+# ============================================================
+#  RsAuctionHouse - audit logs (/ah admin logs [player])
+#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  comments are preserved.
+#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Newest first, at most history.max-entries rows (config.yml).
+#  Needs rsauctionhouse.admin.logs.
+# ============================================================
+
+# Menu title.
+title: "&#8354f2&lAuction Logs"
+
+# Enables the row pages; the previous/next buttons stop working without it.
+pagination: true
+
+# Layout character whose cells each show one log row.
+paged-key: p
+
+# Discards clicks outside the four basic mouse buttons.
+strict-clicks: true
+
+# Cell map, one string per row.
+#   f  filler         p  one row           t  type filter      d  period filter
+#   x  close          i  summary           u  player filter
+#   <  previous page  >  next page
+# Remove a button by replacing its character with f.
+layout:
+  - "fffffffff"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "fpppppppf"
+  - "<tdfxfiu>"
+
+# Buttons.
+# sn:extensible
+items:
+
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Closes the menu.
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[close]"
+
+  previous-page:
+    material: ARROW
+    display-name: "&#8354f2Previous Page"
+    key: "<"
+    click-actions:
+      - "[previous-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Previous Page"
+      lore:
+        - "&8You are on the first page"
+
+  next-page:
+    material: ARROW
+    display-name: "&#8354f2Next Page"
+    key: ">"
+    click-actions:
+      - "[next-page]"
+    nav-disabled:
+      material: GRAY_STAINED_GLASS_PANE
+      display-name: "&7No Next Page"
+      lore:
+        - "&8You are on the last page"
+
+# Cells the plugin fills, each bound by its name.
+templates:
+
+  # One log row. {type} {log-id} {date} {actor} {target} {id} (listing) {currency} {amount}
+  # {detail} {player-uuid} (the target, else the actor), {has-player} and {has-listing} (true
+  # or false), {can-open-player} (true when the row names a player and you have
+  # rsauctionhouse.admin.open), {can-preview} (true when the row names a listing you can preview:
+  # it is still on sale, or you have rsauctionhouse.admin.open) and {links} (the click help of the
+  # links you can use on this row). A click you cannot use on a row does nothing.
+  entry:
+    material: PAPER
+    display-name: "&#8354f2{type} &8#{log-id}"
+    lore:
+      - "&7Date: &f{date}"
+      - "&7By: &f{actor}"
+      - "&7For: &f{target}"
+      - "&7Listing: &f{id}"
+      - "&7Amount: {amount}"
+      - "&7Details: &f{detail}"
+      - "{links}"
+    left-click-requirements:
+      - "{can-open-player} == true"
+    left-click-actions:
+      - "[ah-open] admin-player {player-uuid}"
+    right-click-requirements:
+      - "{can-preview} == true"
+    right-click-actions:
+      - "[ah-preview] {id}"
+
+  # Log type filter: every type, or one. {type}
+  type:
+    material: NAME_TAG
+    display-name: "&#8354f2&lType"
+    key: t
+    lore:
+      - "&7Showing: {type}"
+      - ""
+      - "&eLeft click: next"
+      - "&eRight click: previous"
+    left-click-actions:
+      - "[ah-admin-filter] type next"
+    right-click-actions:
+      - "[ah-admin-filter] type previous"
+
+  # Period filter: all time, or one of history.log-ranges (config.yml). {range}
+  range:
+    material: CLOCK
+    display-name: "&#8354f2&lPeriod"
+    key: d
+    lore:
+      - "&7Showing: &f{range}"
+      - ""
+      - "&eLeft click: next"
+      - "&eRight click: previous"
+    left-click-actions:
+      - "[ah-admin-filter] range next"
+    right-click-actions:
+      - "[ah-admin-filter] range previous"
+
+  # Player filter, when set; a click shows every player again. {player} {player-uuid}
+  player:
+    material: PLAYER_HEAD
+    skull-owner: "{player-uuid}"
+    display-name: "&#8354f2&lPlayer: &f{player}"
+    key: u
+    lore:
+      - "&7Only rows where &f{player} &7acted"
+      - "&7or was the target."
+      - ""
+      - "&eClick to show every player."
+    click-actions:
+      - "[ah-admin-filter] player clear"
+
+  # Player filter, when none is set.
+  player-none:
+    material: PLAYER_HEAD
+    display-name: "&#8354f2&lEvery Player"
+    key: u
+    lore:
+      - "&7Open a player's logs from"
+      - "&7their staff view to filter."
+
+  # Summary; a click resets every filter. {count} {limit}
+  info:
+    material: BOOK
+    display-name: "&#8354f2&lAuction Logs"
+    key: i
+    lore:
+      - "&7Rows: &f{count} &8(newest {limit} at most)"
+      - ""
+      - "&eClick to reset the filters."
+    click-actions:
+      - "[ah-admin-filter] reset"
+
+  # Summary when no row matches. {limit}
+  info-empty:
+    material: BOOK
+    display-name: "&#8354f2&lAuction Logs"
+    key: i
+    lore:
+      - "&7No row matches these filters."
+      - ""
+      - "&eClick to reset the filters."
+    click-actions:
+      - "[ah-admin-filter] reset"
+
+  # Shown while the rows load.
+  info-loading:
+    material: CLOCK
+    display-name: "&#8354f2&lAuction Logs"
+    key: i
+    lore:
+      - "&7Loading..."

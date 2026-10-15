@@ -18,6 +18,7 @@ public final class RsSpec {
     private final boolean updates;
     private final String updatesProduct;
     private final String items;
+    private final boolean guis;
 
     private RsSpec(Builder b) {
         this.config = b.config;
@@ -28,6 +29,7 @@ public final class RsSpec {
         this.updates = b.updates;
         this.updatesProduct = b.updatesProduct;
         this.items = b.items;
+        this.guis = b.guis;
     }
 
     public static Builder builder() {
@@ -79,6 +81,11 @@ public final class RsSpec {
         return items;
     }
 
+    /** True when the plugin has menus ({@code rs().guis()}, loaded from {@code guis/}). */
+    public boolean guis() {
+        return guis;
+    }
+
     public static final class Builder {
 
         private String config;
@@ -89,6 +96,7 @@ public final class RsSpec {
         private boolean updates;
         private String updatesProduct;
         private String items;
+        private boolean guis;
 
         private Builder() {
         }
@@ -169,6 +177,16 @@ public final class RsSpec {
                 throw new IllegalArgumentException("items file name is blank");
             }
             this.items = fileName.trim();
+            return this;
+        }
+
+        /**
+         * Menus: every {@code guis/*.yml} (seeded from the jar and merged like the config) is
+         * loaded on start and on reload, reached with {@code rs().guis()}. Needs
+         * {@link #config(String)}.
+         */
+        public Builder guis() {
+            this.guis = true;
             return this;
         }
 

@@ -1,0 +1,55 @@
+# ============================================================
+#  RsCustomCrafting - menu of the "default" recipe set
+#
+#  The file name IS the recipe set id: this file is the menu of the set named
+#  "default" in recipes.yml. To give another set its own menu, copy this file
+#  to guis/<set>.yml and restyle it - a set with no file of its own opens this
+#  one instead.
+#
+#  Recipes are NOT listed here. Every recipe of the set is placed by its own
+#  "slot" in recipes.yml and looks exactly like its "display" block there, so
+#  adding a recipe never means editing this file.
+#
+#  Managed by SnLib: new keys merge in on boot, your values are kept.
+# ============================================================
+
+# Menu title. Read once per boot; PlaceholderAPI tokens resolve per viewer.
+title: "&8Custom Crafting"
+
+# Only a plain left/right click (and its shift form) may act on a cell. Leave
+# this on. Clicking a recipe SPENDS the ingredients and occupies the workstation
+# for the whole craft, and there is no undo; without this, a number key, Q, F or
+# the middle button over a recipe pays for a craft the player never asked for.
+strict-clicks: true
+
+# Cell mask, one line per row, 9 characters per line. 'f' is a border cell and
+# a space is a free cell a recipe can sit on. The number of lines is the number
+# of rows.
+layout:
+  - "fffffffff"
+  - "         "
+  - "fffffffff"
+
+# sn:extensible
+items:
+
+  # Border. Renders in every 'f' cell above; take the character out of the
+  # layout to drop it, or give it more cells to widen the frame.
+  border:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: "&f"
+    key: f
+
+templates:
+
+  # Behaviour of a recipe cell. The plugin binds one of these per recipe of the
+  # set and hands over the icon built from that recipe's "display" block, so
+  # the look lives in recipes.yml and only the click lives here. {id} is the
+  # clicked recipe's id.
+  #
+  # Declare NO display-name and NO lore here: a display-name REPLACES the
+  # recipe's own name and lore lines are APPENDED after its own, so the icon
+  # would stop matching what recipes.yml says.
+  recipe:
+    click-actions:
+      - "[craft] {id}"

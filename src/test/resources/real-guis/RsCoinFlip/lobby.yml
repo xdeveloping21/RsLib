@@ -1,0 +1,115 @@
+# ============================================================
+#  RsCoinFlip - menú del lobby (el nombre del archivo es el id del menú)
+#  Gestionado por SnLib: las claves nuevas se agregan solas al arrancar;
+#  tus valores y comentarios se conservan.
+#  El texto de los menús NO depende de la clave lang: de config.yml. Para
+#  cambiarlo, edita los valores de abajo; tus cambios sobreviven a cada
+#  actualización.
+# ============================================================
+
+# Título de la ventana.
+title: "&#8354f2&lCoinflips activos"
+
+# Ticks entre repintados automáticos, para que un coinflip creado o tomado por otro
+# aparezca y desaparezca solo. SnLib lleva un temporizador por menú abierto y lo
+# cancela al cerrar, salir, echar, recargar y deshabilitar. 0 desactiva el repintado.
+update-interval: 10
+
+# Solo los cuatro clics del ratón (izquierdo, derecho y sus formas con shift) llegan a
+# las listas de acciones. Una tecla de la barra rápida, Q o F se descartan, así que
+# ninguna tecla suelta une a un coinflip ni gasta dinero.
+strict-clicks: true
+
+# Forma del menú: un carácter por casilla, nueve por fila, seis filas.
+#   f = panel del borde             g = un coinflip activo
+#   s = tus estadísticas            x = cerrar
+#   c = cancelar tu propio coinflip
+# Borra una letra de la máscara para quitar ese botón.
+layout:
+  - "fffffffff"
+  - "fgggggggf"
+  - "fgggggggf"
+  - "fgggggggf"
+  - "fgggggggf"
+  - "ffsfxfcff"
+
+# Grupos de casillas que rellena el plugin, una entrada por casilla, en el orden de
+# la máscara.
+regions:
+  # Coinflips que esperan rival, los más antiguos primero. Los que no caben en la última
+  # casilla no se muestran; agranda el bloque g para ver más.
+  games: g
+  # Una sola casilla, que se pinta solo mientras tengas un coinflip que nadie tomó.
+  cancel: c
+
+items:
+  # Borde del menú.
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  # Lo que muestra la casilla de cancelar mientras no tienes nada que cancelar. No hace
+  # nada: el botón de cancelar solo existe cuando el plugin lo pinta.
+  cancel-slot:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: c
+
+  # Abre tus estadísticas por moneda.
+  stats:
+    material: BOOK
+    display-name: "&eTus estadísticas"
+    key: s
+    glow: true
+    lore:
+      - "&7Haz clic para ver tus totales"
+      - "&7por moneda."
+    click-actions:
+      - "[cf-stats]"
+      - "[sound] UI_BUTTON_CLICK"
+
+  # Cierra el menú.
+  close:
+    material: BARRIER
+    display-name: "&cCerrar"
+    key: x
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+templates:
+  # Un coinflip en espera. El plugin rellena {creator}, {currency}, {amount}, el dueño de
+  # la cabeza y {game}, el id al que se une el clic. Deja {game} en la línea de la acción:
+  # el clic busca el coinflip por su id, nunca por la casilla en la que está.
+  coinflip:
+    material: PLAYER_HEAD
+    skull-owner: "{uuid}"
+    display-name: "&e{creator}"
+    lore:
+      - "&7Moneda: {currency}"
+      - "&7Apuesta: &a{amount}"
+      - ""
+      - "&aClic izquierdo para unirte."
+    # left-click-actions, NO click-actions: la lista genérica corre con CUALQUIER tipo de
+    # clic, así que un clic derecho apostaría dinero real aunque el lore promete uno
+    # izquierdo. El grupo LEFT de SnLib sigue ClickType.isLeftClick: LEFT, SHIFT_LEFT,
+    # DOUBLE_CLICK y CREATIVE unen los cuatro. strict-clicks descarta aquí el clic central
+    # y todas las teclas. Clic derecho y shift + derecho no gastan el dinero de nadie.
+    # El doble clic son dos izquierdos: si la primera mitad se rechaza y la lista se
+    # repinta bajo el cursor, RsCoinFlip ignora la segunda mitad (hallazgo H2), para que
+    # no apueste en el coinflip que ahora ocupa esa casilla.
+    left-click-actions:
+      - "[cf-join] {game}"
+
+  # Cancela tu coinflip pendiente. Se pinta sobre la casilla c solo mientras tengas uno,
+  # así que el panel de debajo nunca cancela nada.
+  cancel-button:
+    material: BARRIER
+    display-name: "&cCancelar mi coinflip"
+    lore:
+      - "&7Haz clic para cancelar tu"
+      - "&7coinflip pendiente."
+    click-actions:
+      - "[cf-cancel]"
+      - "[sound] UI_BUTTON_CLICK"

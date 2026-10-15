@@ -23,16 +23,21 @@ public final class YamlChecks {
     }
 
     /**
-     * Reports, for the keys directly under {@code sec}: a key ending in {@code -actions} or
-     * {@code -requirements}, or named in {@code lists}, that is not a list or holds an
-     * element that is not text; a key in {@code ints} that is not a whole number; a key in
-     * {@code sections} that is not a section.
+     * Reports, for the keys directly under {@code sec}: a key ending in {@code -actions}, or
+     * named in {@code lists}, that is not a list or holds an element that is not text; a key
+     * in {@code ints} that is not a whole number; a key in {@code sections} that is not a
+     * section. Keys ending in {@code -requirements} are left to the requirement reader
+     * ({@code ActionEngine.requirements}), which reports the same mistakes and makes the
+     * list always fail, so they are not reported twice.
      */
     public static void check(ConfigurationSection sec, Consumer<String> warn, Set<String> lists,
                              Set<String> ints, Set<String> sections) {
         for (String key : sec.getKeys(false)) {
             String lower = key.toLowerCase(Locale.ROOT);
-            if (lower.endsWith("-actions") || lower.endsWith("-requirements") || lists.contains(lower)) {
+            if (lower.endsWith("-requirements")) {
+                continue;
+            }
+            if (lower.endsWith("-actions") || lists.contains(lower)) {
                 checkList(sec, key, warn);
             } else if (ints.contains(lower)) {
                 if (!(sec.get(key) instanceof Number)) {

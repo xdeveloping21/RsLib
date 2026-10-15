@@ -44,6 +44,8 @@ import org.bukkit.potion.PotionEffectType;
 
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
+import com.rs.lib.action.Requirement;
+import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
 import com.rs.lib.util.InvUtil;
@@ -249,7 +251,12 @@ public final class ItemRegistry {
         return id.trim();
     }
 
-    private ItemActions.Check parseCheck(String id, ItemDef def) {
+    /** How the requirement operands of {@code player} are resolved (PlaceholderAPI through the bound engine). */
+    java.util.function.Function<String, String> requirementResolver(Player player) {
+        return actions.resolver(player);
+    }
+
+    private Requirement parseCheck(String id, ItemDef def) {
         return actions.requirement(def.interactRequirements(),
                 ItemWarnings.to(logger, "item " + id + " -> interact-requirements"));
     }
@@ -370,14 +377,31 @@ public final class ItemRegistry {
         }
     }
 
+    /** Every 40 ticks: each online player's held effects, applied on that player's own thread. */
     private void applyHeldEffects() {
+        RsScheduler scheduler = rs.scheduler();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            PlayerInventory inventory = player.getInventory();
-            held(player, inventory.getItemInMainHand(), Hold.MAINHAND);
-            held(player, inventory.getItemInOffHand(), Hold.OFFHAND);
-            for (ItemStack armour : inventory.getArmorContents()) {
-                held(player, armour, Hold.ARMOR);
+            if (scheduler.ownsHere(player)) {
+                applyHeldEffects(player);
+            } else {
+                try {
+                    scheduler.entity(player, () -> applyHeldEffects(player));
+                } catch (RuntimeException disabled) {
+                    return;
+                }
             }
+        }
+    }
+
+    private void applyHeldEffects(Player player) {
+        if (closed || !player.isOnline()) {
+            return;
+        }
+        PlayerInventory inventory = player.getInventory();
+        held(player, inventory.getItemInMainHand(), Hold.MAINHAND);
+        held(player, inventory.getItemInOffHand(), Hold.OFFHAND);
+        for (ItemStack armour : inventory.getArmorContents()) {
+            held(player, armour, Hold.ARMOR);
         }
     }
 

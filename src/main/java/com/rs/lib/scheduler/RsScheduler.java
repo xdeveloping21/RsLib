@@ -89,6 +89,16 @@ public final class RsScheduler {
     }
 
     /**
+     * Repeats {@code task} on the thread that owns {@code entity}, first after {@code delayTicks}
+     * then every {@code periodTicks} (both at least one): the main thread on Paper, the entity's
+     * own scheduler on Folia, where the task stops by itself once the entity is gone.
+     */
+    public TaskHandle entityTimer(Entity entity, long delayTicks, long periodTicks, Runnable task) {
+        return backend.entityTimer(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks),
+                atLeastOne(periodTicks), task);
+    }
+
+    /**
      * Computes a value off the main thread. The future completes exceptionally when the
      * supplier throws or the plugin is already disabled; this method itself never throws.
      */
@@ -188,6 +198,8 @@ public final class RsScheduler {
 
         TaskHandle entityLater(Entity entity, long delay, Runnable task);
 
+        TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task);
+
         void cancelAll();
     }
 
@@ -241,6 +253,11 @@ public final class RsScheduler {
         @Override
         public TaskHandle entityLater(Entity entity, long delay, Runnable task) {
             return syncLater(delay, task);
+        }
+
+        @Override
+        public TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task) {
+            return timer(delay, period, task);
         }
 
         @Override
@@ -302,6 +319,12 @@ public final class RsScheduler {
         @Override
         public TaskHandle entityLater(Entity entity, long delay, Runnable task) {
             ScheduledTask scheduled = entity.getScheduler().runDelayed(plugin, t -> task.run(), null, delay);
+            return scheduled == null ? Handle.NONE : handle(scheduled);
+        }
+
+        @Override
+        public TaskHandle entityTimer(Entity entity, long delay, long period, Runnable task) {
+            ScheduledTask scheduled = entity.getScheduler().runAtFixedRate(plugin, t -> task.run(), null, delay, period);
             return scheduled == null ? Handle.NONE : handle(scheduled);
         }
 

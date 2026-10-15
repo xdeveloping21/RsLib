@@ -1,0 +1,113 @@
+title: "&#8354f2&lClan Menu"
+layout:
+  - "fffffffff"
+  - "ffabcdeff"
+  - "fffffffff"
+  - "ffgifjkff"
+  - "ffffxffff"
+
+items:
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    display-name: " "
+    key: f
+
+  info:
+    material: BEACON
+    display-name: "&#8354f2&lClan Info"
+    key: a
+    lore:
+      - "&7View your clan's details."
+    click-actions:
+      - "[custom] info"
+      - "[sound] UI_BUTTON_CLICK"
+
+  members:
+    material: PLAYER_HEAD
+    display-name: "&#8354f2&lMembers"
+    key: b
+    lore:
+      - "&7View and manage members."
+    click-actions:
+      - "[custom] members"
+      - "[sound] UI_BUTTON_CLICK"
+
+  top:
+    material: GOLD_INGOT
+    display-name: "&#8354f2&lLeaderboards"
+    key: c
+    lore:
+      - "&7Top clans by points."
+    click-actions:
+      - "[custom] top"
+      - "[sound] UI_BUTTON_CLICK"
+
+  permissions:
+    material: COMPARATOR
+    display-name: "&#8354f2&lPermissions"
+    key: d
+    lore:
+      - "&7Edit role permissions."
+    click-actions:
+      - "[custom] permissions"
+      - "[sound] UI_BUTTON_CLICK"
+
+  list:
+    material: BOOK
+    display-name: "&#8354f2&lClan List"
+    key: e
+    lore:
+      - "&7Browse all clans."
+    click-actions:
+      - "[custom] list"
+      - "[sound] UI_BUTTON_CLICK"
+
+  home:
+    material: RED_BED
+    display-name: "&#8354f2&lClan Home"
+    key: g
+    lore:
+      - "&7Teleport to your clan home."
+    click-actions:
+      - "[custom] home"
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+  pvp:
+    material: DIAMOND_SWORD
+    display-name: "&#8354f2&lFriendly Fire"
+    key: i
+    lore:
+      - "&7Toggle clan friendly fire."
+    click-actions:
+      - "[custom] pvp"
+      - "[sound] UI_BUTTON_CLICK"
+
+  chat:
+    material: PAPER
+    display-name: "&#8354f2&lClan Chat"
+    key: j
+    lore:
+      - "&7Toggle the clan chat channel."
+    click-actions:
+      - "[custom] chat"
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
+
+  stats:
+    material: NETHER_STAR
+    display-name: "&#8354f2&lStats"
+    key: k
+    lore:
+      - "&7Clan kills, deaths and KDR."
+    click-actions:
+      - "[custom] stats"
+      - "[sound] UI_BUTTON_CLICK"
+
+  close:
+    material: BARRIER
+    display-name: "&cClose"
+    key: x
+    click-actions:
+      - "[sound] UI_BUTTON_CLICK"
+      - "[close]"
