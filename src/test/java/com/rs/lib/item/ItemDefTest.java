@@ -50,20 +50,23 @@ class ItemDefTest {
         assertTrue(warnings.isEmpty(), warnings.toString());
     }
 
-    /** COMMAND_ONLY blocks crafting (no recipe, no grid result); equipping follows the item's own flags. */
+    /**
+     * Trampa 7: COMMAND_ONLY means no manual equipping (only {@code apply} equips it); it does not
+     * touch crafting, so its recipe is kept and registered like any other.
+     */
     @Test
-    void commandOnlyBlocksCraftingNotEquipping() {
-        ItemDef def = read("obtain-via: command-only\n");
+    void commandOnlyBlocksManualEquipAndKeepsItsRecipe() {
+        ItemDef def = read("obtain-via: command-only\n"
+                + "recipe:\n  type: SHAPELESS\n  ingredients: [DIRT, SAND]\n");
         assertEquals(ObtainMode.COMMAND_ONLY, def.obtainVia());
-        assertFalse(def.noManualEquip());
-        assertFalse(ItemRegistry.craftable(def));
-        assertTrue(ItemListener.commandOnly(false, def));
-        assertTrue(ItemListener.commandOnly(true, null));
-        assertFalse(ItemListener.commandOnly(false, null));
-        assertTrue(read("obtain-via: command-only\nno-manual-equip: true\n").noManualEquip());
-        ItemDef open = read("material: STONE\n");
-        assertTrue(ItemRegistry.craftable(open));
-        assertFalse(ItemListener.commandOnly(false, open));
+        assertTrue(def.noManualEquip());
+        assertTrue(ItemListener.equipRefused(EquipmentSlot.HEAD, null, def.noManualEquip()));
+        assertTrue(ItemListener.equipRefused(EquipmentSlot.OFF_HAND, EquipmentSlot.OFF_HAND, def.noManualEquip()));
+        assertFalse(ItemListener.equipRefused(EquipmentSlot.HAND, null, def.noManualEquip()));
+        assertEquals("SHAPELESS", def.recipe().type());
+        assertEquals(List.of("DIRT", "SAND"), def.recipe().shapelessIngredients());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertFalse(read("material: STONE\n").noManualEquip());
         assertTrue(def.droppable());
         assertTrue(def.tradeable());
         read("obtain-via: SOMETIMES\n");

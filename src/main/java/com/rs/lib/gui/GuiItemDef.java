@@ -136,7 +136,10 @@ public final class GuiItemDef {
         return located && slots.length > 0;
     }
 
-    /** {@code update-interval} in ticks; 0 when it is not refreshed on its own. */
+    /**
+     * {@code update-interval} in ticks; 0 when it is not refreshed on its own. Read on templates
+     * too, but only a declared item is refreshed on it.
+     */
     public int updateInterval() {
         return updateInterval;
     }

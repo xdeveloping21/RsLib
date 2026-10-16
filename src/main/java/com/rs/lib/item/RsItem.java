@@ -256,7 +256,10 @@ public final class RsItem {
         return this;
     }
 
-    /** Vanilla damage taken, kept between 0 and the material's durability. */
+    /**
+     * Vanilla damage taken, kept between 0 and the material's durability; a material without
+     * durability is reported and keeps no damage.
+     */
     public RsItem damage(int damage) {
         this.damage = Math.max(0, damage);
         return this;
@@ -438,7 +441,7 @@ public final class RsItem {
         }
         applyEnchantments(meta);
         if (glow) {
-            ItemCompat.glow(meta, type);
+            ItemCompat.glow(meta, type, warn);
         }
         applyFlags(meta);
         applyColor(meta);
@@ -594,9 +597,9 @@ public final class RsItem {
         if (damage == null) {
             return;
         }
-        if (meta instanceof Damageable damageable) {
-            int max = type.getMaxDurability();
-            damageable.setDamage(max > 0 ? Math.min(damage, max) : damage);
+        Integer applied = ItemParts.damage(damage, type.getMaxDurability(), type.name(), warn);
+        if (applied != null && meta instanceof Damageable damageable) {
+            damageable.setDamage(applied);
         }
     }
 

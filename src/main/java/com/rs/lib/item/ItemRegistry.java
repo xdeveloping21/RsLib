@@ -899,21 +899,12 @@ public final class ItemRegistry {
 
     // ------------------------------------------------------------------ recipes
 
-    /** Whether the recipe of {@code def} may be registered: not for a {@link ObtainMode#COMMAND_ONLY} item. */
-    static boolean craftable(ItemDef def) {
-        return def.obtainVia() != ObtainMode.COMMAND_ONLY;
-    }
-
     private void addRecipe(String id, ItemDef def) {
         NamespacedKey key = new NamespacedKey(plugin, RECIPE_PREFIX + ItemCompat.keyPart(id.toLowerCase(Locale.ROOT)));
         Consumer<String> warn = ItemWarnings.to(logger, "item " + id + " -> recipe");
         try {
             if (Bukkit.getRecipe(key) != null) {
                 Bukkit.removeRecipe(key);
-            }
-            if (!craftable(def)) {
-                warn.accept("Item '" + id + "' is command-only; its recipe was not registered.");
-                return;
             }
             ItemStack result = create(id, null);
             org.bukkit.inventory.Recipe recipe = toBukkit(key, result, def.recipe(), warn);

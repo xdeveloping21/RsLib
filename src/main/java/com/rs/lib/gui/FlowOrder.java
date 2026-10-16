@@ -18,7 +18,8 @@ import java.util.function.Consumer;
  * cell once. Anything else (a loop, a cell off the path, two complete paths, a character that
  * is not an arrow) is reported once, naming the first slot in trouble, and the default order
  * is kept. An arrow on a cell that is not ordered is reported too (the grid is usually shifted
- * against the layout). Pure; slots are {@code row*9+column}.</p>
+ * against the layout); any other character there, such as a frame letter copied from the
+ * layout, is ignored. Pure; slots are {@code row*9+column}.</p>
  */
 final class FlowOrder {
 
@@ -59,7 +60,7 @@ final class FlowOrder {
         }
         for (int slot = 0; slot < CELLS; slot++) {
             char c = grid.at(slot);
-            if (c != ' ' && !flow.ordered[slot]) {
+            if (isArrow(c) && !flow.ordered[slot]) {
                 warn.accept("'" + key + "' has '" + c + "' on slot " + slot + ", which is not one of the cells it orders;"
                         + " is the grid shifted against the layout?");
                 break;
@@ -231,6 +232,11 @@ final class FlowOrder {
             col += dc;
         }
         return -1;
+    }
+
+    /** True for the four arrows; any other character outside the ordered cells (a copied frame letter) is ignored. */
+    private static boolean isArrow(char c) {
+        return c == '>' || c == '<' || c == '^' || c == 'v' || c == 'V';
     }
 
     /** 0 for left and right, 1 for up and down. */

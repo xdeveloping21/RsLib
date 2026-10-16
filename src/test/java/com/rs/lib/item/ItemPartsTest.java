@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -12,6 +13,7 @@ import java.util.function.Consumer;
 import org.bukkit.Material;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.Test;
 
 /** The pure parsing behind the appearance keys; applying the values to an item needs a server. */
@@ -166,6 +168,53 @@ class ItemPartsTest {
         ItemParts.MaterialSpec spec = ItemParts.material("basehead-" + value, m -> true, warn);
         assertEquals(Material.PLAYER_HEAD, spec.material());
         assertEquals(value, spec.texture());
+    }
+
+    /** A recognised texture form with a broken payload is a plain head, silently; anything else is a material name. */
+    @Test
+    void brokenTextureFormsGiveAPlainHeadSilently() {
+        for (String raw : List.of("texture-not base64", "base64:@@@", "basehead-", "TEXTURE:abc",
+                "https://textures.minecraft.net/texture/a b")) {
+            ItemParts.MaterialSpec spec = ItemParts.material(raw, m -> true, warn);
+            assertEquals(Material.PLAYER_HEAD, spec.material(), raw);
+            assertNull(spec.texture(), raw);
+        }
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertEquals(Material.STONE, ItemParts.material("headtexture", m -> true, warn).material());
+        assertEquals(1, warnings.size(), warnings.toString());
+    }
+
+    /** damage is kept within the durability; a material without durability is reported and skipped. */
+    @Test
+    void damageNeedsDurability() {
+        assertEquals(1561, ItemParts.damage(5000, 1561, "DIAMOND_SWORD", warn));
+        assertEquals(0, ItemParts.damage(-3, 250, "IRON_SWORD", warn));
+        assertEquals(0, ItemParts.damage(0, 250, "IRON_SWORD", warn), "0 still stamps pristine durability");
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertNull(ItemParts.damage(10, 0, "STONE", warn));
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).contains("STONE has none"), warnings.toString());
+    }
+
+    /** Without the glint override (1.20.4) glow falls back to a hidden enchantment, with a warning. */
+    @Test
+    void glowWithoutTheGlintOverrideWarns() {
+        assertFalse(ItemCompat.needsHiddenGlow(meta(false), true, warn), "the override needs nothing else");
+        assertFalse(ItemCompat.needsHiddenGlow(meta(true), false, warn), "a real enchantment already glows");
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertTrue(ItemCompat.needsHiddenGlow(meta(false), false, warn));
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).startsWith("glow needs Minecraft 1.20.5 or newer"), warnings.toString());
+    }
+
+    private static ItemMeta meta(boolean enchanted) {
+        return (ItemMeta) Proxy.newProxyInstance(ItemPartsTest.class.getClassLoader(), new Class<?>[] {ItemMeta.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "hasEnchants" -> enchanted;
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
     }
 
     @Test

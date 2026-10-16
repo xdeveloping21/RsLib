@@ -94,6 +94,9 @@ final class GuiParser {
 
     private GuiDef read() {
         Consumer<String> top = at("");
+        if (root.getKeys(false).isEmpty()) {
+            top.accept("the file is empty or could not be read; it loads as a default menu without items");
+        }
         YamlChecks.check(root, top, ROOT_LISTS, ROOT_INTS, ROOT_SECTIONS);
         String title = text(root, "title", DEFAULT_TITLE);
         layout = Layout.parse(root.get("layout"), "layout", top);
@@ -238,19 +241,19 @@ final class GuiParser {
             String path = "regions." + regionId;
             Consumer<String> w = at(path);
             int[] cells = regionCells(section, regionId, w);
-            boolean pagedOverlap = false;
+            int pagedOverlap = -1;
             String earlier = null;
             for (int cell : cells) {
-                if (cell < paged.length && paged[cell]) {
-                    pagedOverlap = true;
+                if (pagedOverlap < 0 && cell >= 0 && cell < paged.length && paged[cell]) {
+                    pagedOverlap = cell;
                 }
                 String before = taken.put(cell, regionId);
                 if (earlier == null && before != null && !before.equals(regionId)) {
                     earlier = before;
                 }
             }
-            if (pagedOverlap) {
-                w.accept("shares cells with 'paged-key'; a paged bind wins there");
+            if (pagedOverlap >= 0) {
+                w.accept("shares cells with 'paged-key', first at slot " + pagedOverlap + "; a paged bind wins there");
             }
             if (earlier != null) {
                 w.accept("shares cells with region '" + earlier + "'; this region, declared later, wins there");

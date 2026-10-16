@@ -40,6 +40,9 @@ final class ItemParts {
     static final int DEFAULT_EFFECT_TICKS = 200;
     static final String HIDE_ALL = "HIDE_ALL";
     static final String HIDE_TOOLTIP = "HIDE_TOOLTIP";
+    /** How a head texture starts ({@link HeadUtil}'s prefixes and a skin URL). */
+    private static final String[] TEXTURE_PREFIXES = {"texture-", "texture:", "base64-", "base64:", "basehead-",
+            "http://", "https://"};
 
     private static final String[] ATTRIBUTE_PREFIXES = {"generic", "player", "zombie", "horse"};
     private static final Set<String> OPERATIONS = Set.of("ADD_NUMBER", "ADD_SCALAR", "MULTIPLY_SCALAR_1");
@@ -208,6 +211,19 @@ final class ItemParts {
             out.add(new Effect(id, level, ticks));
         }
         return out;
+    }
+
+    /**
+     * The vanilla damage to write for {@code damage} on a material whose durability is
+     * {@code maxDurability}: kept between 0 and that durability. Null, with a report, when the
+     * material has no durability.
+     */
+    static Integer damage(int damage, int maxDurability, String material, Consumer<String> warn) {
+        if (maxDurability <= 0) {
+            warn.accept("damage needs a material with durability; " + material + " has none, so it is ignored.");
+            return null;
+        }
+        return Math.max(0, Math.min(damage, maxDurability));
     }
 
     // ------------------------------------------------------------------ colors
@@ -450,7 +466,8 @@ final class ItemParts {
 
     /**
      * Reads a material spec. A head texture (any form {@link HeadUtil} accepts) gives a player
-     * head with that texture; otherwise the material is looked up by name or key, ignoring case.
+     * head with that texture, and a texture form with a broken payload a plain player head,
+     * silently; otherwise the material is looked up by name or key, ignoring case.
      * An unknown name, and a block that has no item form ({@code WATER}, {@code FIRE}), is
      * reported and gives STONE, so one typo never empties a whole menu.
      *
@@ -464,6 +481,10 @@ final class ItemParts {
         if (texture != null) {
             return new MaterialSpec(Material.PLAYER_HEAD, texture);
         }
+        if (looksLikeTexture(raw)) {
+            // A texture form whose payload is broken: a plain head, silently.
+            return new MaterialSpec(Material.PLAYER_HEAD, null);
+        }
         Material material = lookupMaterial(raw);
         if (material == null) {
             warn.accept("Unknown material '" + raw.trim() + "'; using STONE.");
@@ -474,6 +495,17 @@ final class ItemParts {
             return new MaterialSpec(Material.STONE, null);
         }
         return new MaterialSpec(material, null);
+    }
+
+    /** True when {@code raw} starts like a head texture: one of its prefixes or a skin URL. */
+    static boolean looksLikeTexture(String raw) {
+        String text = raw.trim();
+        for (String prefix : TEXTURE_PREFIXES) {
+            if (text.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A material by constant name or key ({@code diamond_sword}, {@code minecraft:diamond_sword}); null when none. */

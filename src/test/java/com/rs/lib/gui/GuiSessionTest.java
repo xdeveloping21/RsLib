@@ -638,6 +638,28 @@ class GuiSessionTest {
         assertEquals(0, kit.liveTimers());
     }
 
+    /** A template's own update-interval is read but never scheduled; only the menu timer repaints its cells. */
+    @Test
+    void templateUpdateIntervalIsNotScheduled() {
+        Gui gui = kit.gui("shop", """
+                templates:
+                  t: {material: CLOCK, update-interval: 10, display-name: '%vip%'}
+                """);
+        assertEquals(10, gui.template("t").item().updateInterval());
+        GuiSession session = open(gui, steve);
+        assertEquals(0, kit.liveTimers(), "no timer for a template");
+        session.bind(1, gui.template("t"));
+        assertEquals(0, kit.liveTimers());
+
+        Gui ticking = kit.gui("ticking", """
+                update-interval: 20
+                templates:
+                  t: {material: CLOCK, update-interval: 10, display-name: '%vip%'}
+                """);
+        open(ticking, alex);
+        assertEquals(1, kit.liveTimers(), "only the menu's own timer");
+    }
+
     /** Calls from another thread are moved to the player's thread. */
     @Test
     void callsElsewhereAreMoved() {
