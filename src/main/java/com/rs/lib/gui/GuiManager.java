@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import com.rs.lib.Rs;
@@ -49,6 +50,10 @@ import com.rs.lib.yml.YmlManager;
  * persistent data. RsLib's shared listener deletes any stamped stack that leaves a menu (click,
  * number key, off-hand key, drag, use, swap, drop, death, item spawn); stacks with
  * {@value #LEGACY_ITEM_TAG}, the stamp SnLib menus use, are treated the same way outside menus.</p>
+ *
+ * <h2>List editors</h2>
+ * <p>{@link #listEditor} and {@link #itemEditor} edit a copy of a list in one of these menus,
+ * with the {@code [list-editor]} buttons; see {@link ListEditor}.</p>
  */
 public final class GuiManager {
 
@@ -68,6 +73,7 @@ public final class GuiManager {
     private final Map<String, RsYml> files = new LinkedHashMap<>();
     private final Map<String, String> folders = new LinkedHashMap<>();
     private final Set<GuiSession> open = ConcurrentHashMap.newKeySet();
+    private final ListEditors editors;
     private volatile boolean shutDown;
     private volatile boolean reopenAfterReload;
     private boolean emptyCheckDone;
@@ -77,6 +83,8 @@ public final class GuiManager {
         this.rs = Objects.requireNonNull(rs, "rs");
         this.host = GuiHost.of(rs);
         this.warnings = new GuiWarnings(host.logger());
+        this.editors = new ListEditors(this, ListEditors.of(rs));
+        host.actions().register(ListEditor.ACTION, editors::handle);
         rs.actions().menuOpener((player, id, context) -> {
             Gui gui = get(id.trim());
             if (gui == null) {
@@ -94,6 +102,8 @@ public final class GuiManager {
         this.rs = null;
         this.host = host;
         this.warnings = new GuiWarnings(host.logger());
+        this.editors = new ListEditors(this, ListEditors.of(null));
+        host.actions().register(ListEditor.ACTION, editors::handle);
     }
 
     /** The listener RsLib registers once for the clicks, drags and closes of every plugin's menus. */
@@ -436,6 +446,26 @@ public final class GuiManager {
         host.actions().register(tag, handler);
     }
 
+    // ------------------------------------------------------------------ list editors
+
+    /**
+     * An editor of a copy of {@code elements} in menu {@code menuId} of this plugin; set it up,
+     * then {@link ListEditor#open(Player)} it. See {@link ListEditor} for what the menu needs.
+     */
+    public <T> ListEditor<T> listEditor(String menuId, List<T> elements) {
+        return new ListEditor<>(this, menuId, elements);
+    }
+
+    /**
+     * {@link #listEditor} for items (a kit, a reward pool): each item is drawn as itself, copied
+     * in and out, and the player adds copies of the item in their hand or of items they offer
+     * to the menu; their own stacks never move.
+     */
+    public ListEditor<ItemStack> itemEditor(String menuId, List<ItemStack> items) {
+        return new ListEditor<>(this, menuId, items).copier(ItemStack::clone).icon(item -> item)
+                .fromItem(item -> item);
+    }
+
     /** Every open session of the plugin's menus. */
     public List<GuiSession> openSessions() {
         return new ArrayList<>(open);
@@ -471,12 +501,14 @@ public final class GuiManager {
     /** Closes every menu and stops opening new ones; called by the context when the plugin stops. */
     public void shutdown() {
         shutDown = true;
+        editors.shutdown();
         closeAll();
         LIVE.remove(this);
     }
 
     void quit(Player player) {
         UUID id = player.getUniqueId();
+        editors.quit(id);
         for (GuiSession session : openSessions()) {
             if (session.viewerId().equals(id)) {
                 session.close();
@@ -520,6 +552,10 @@ public final class GuiManager {
 
     GuiWarnings warnings() {
         return warnings;
+    }
+
+    ListEditors editors() {
+        return editors;
     }
 
     boolean refusesOpening() {

@@ -109,6 +109,11 @@ public final class InputRequest<T> {
      * @throws IllegalStateException when called twice or from another thread
      */
     public CompletableFuture<InputResult<T>> open() {
+        return openSession().future;
+    }
+
+    /** {@link #open()}, handing back the session itself (the wizard ends it when it ends). */
+    InputSession<T> openSession() {
         inputs.requireOwnerThread(player);
         if (!opened.compareAndSet(false, true)) {
             throw new IllegalStateException("This question was already opened");
