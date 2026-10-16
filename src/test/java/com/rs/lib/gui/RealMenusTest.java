@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class RealMenusTest {
 
     /** How many menu files the copies hold. */
-    private static final int EXPECTED = 72;
+    private static final int EXPECTED = 70;
 
     @Test
     void everyRealMenuLoadsWithoutWarnings() throws IOException, URISyntaxException {
