@@ -10,52 +10,32 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.inventory.BlastingRecipe;
-import org.bukkit.inventory.CampfireRecipe;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.FurnaceRecipe;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.RecipeChoice;
-import org.bukkit.inventory.ShapedRecipe;
-import org.bukkit.inventory.ShapelessRecipe;
-import org.bukkit.inventory.SmokingRecipe;
-import org.bukkit.inventory.StonecuttingRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
 import com.rs.lib.action.Requirement;
 import com.rs.lib.internal.PluginLanguage;
-import com.rs.lib.scheduler.RsScheduler;
-import com.rs.lib.scheduler.TaskHandle;
-import com.rs.lib.text.RsText;
 import com.rs.lib.util.Formats;
 import com.rs.lib.util.InvUtil;
 import com.rs.lib.yml.RsYml;
-
-import net.kyori.adventure.text.Component;
 
 /**
  * The registered physical items of one plugin, reached with {@code rs().items()}.
@@ -115,16 +95,15 @@ public final class ItemRegistry {
     private final NamespacedKey keyNoManualEquip;
     private final NamespacedKey keyKeepOnDeath;
     private final NamespacedKey keyObtainVia;
-    private final NamespacedKey keyDurability;
-    private final NamespacedKey keyDurabilityLine;
     private final Map<String, ItemDef> defs = new LinkedHashMap<>();
     private final Map<String, RsYml> singleSources = new LinkedHashMap<>();
     private final Map<RsYml, Set<String>> fileSources = new LinkedHashMap<>();
     private final Map<String, RedeemEntry> redeemables = new ConcurrentHashMap<>();
-    private final Set<NamespacedKey> recipes = new LinkedHashSet<>();
-    private final EquipmentBackup backup;
+    private final ItemRecipes recipes;
+    private final ItemDurability durability;
+    private final ItemEquipment equipment;
+    private final HeldEffects heldEffects;
     private volatile ItemActions actions;
-    private TaskHandle heldEffects;
     private volatile boolean closed;
 
     /** Created by the context. */
@@ -140,13 +119,15 @@ public final class ItemRegistry {
         this.keyNoManualEquip = new NamespacedKey(plugin, TAG_NO_MANUAL_EQUIP);
         this.keyKeepOnDeath = new NamespacedKey(plugin, TAG_KEEP_ON_DEATH);
         this.keyObtainVia = new NamespacedKey(plugin, TAG_OBTAIN_VIA);
-        this.keyDurability = new NamespacedKey(plugin, TAG_DURABILITY);
-        this.keyDurabilityLine = new NamespacedKey(plugin, TAG_DURABILITY_LINE);
+        this.durability = new ItemDurability(this, new NamespacedKey(plugin, TAG_DURABILITY),
+                new NamespacedKey(plugin, TAG_DURABILITY_LINE));
         this.actions = ItemActions.unbound(logger);
         Path file = plugin.getDataFolder().toPath().resolve("data").resolve("equipment-backup.yml");
-        this.backup = new EquipmentBackup(file, logger);
+        this.equipment = new ItemEquipment(this, new EquipmentBackup(file, logger), logger);
+        this.recipes = new ItemRecipes(plugin, logger);
+        this.heldEffects = new HeldEffects(this, ctx, logger);
         BY_NAMESPACE.put(namespace, this);
-        ctx.onQuit(this::handleQuit);
+        ctx.onQuit(equipment::handleQuit);
     }
 
     /** The listener RsLib registers once for every plugin's items. */
@@ -208,8 +189,8 @@ public final class ItemRegistry {
         if (def.recipe() != null) {
             addRecipe(checked, def);
         }
-        if (def.hasHeldEffects()) {
-            startHeldEffects();
+        if (def.values().hasHeldEffects()) {
+            heldEffects.start();
         }
     }
 
@@ -284,7 +265,7 @@ public final class ItemRegistry {
         }
         ItemAppearance appearance = ItemAppearance.parse(section, ItemWarnings.source(yml, path),
                 ItemAppearance.TextResolver.of(yml), warn);
-        return ItemDef.fromSection(section, appearance, warn);
+        return ItemDefParser.parse(section, appearance, warn);
     }
 
     private static String checkId(String id) {
@@ -355,22 +336,18 @@ public final class ItemRegistry {
         }
         reloadRecipes();
         if (anyHeldEffects()) {
-            startHeldEffects();
+            heldEffects.start();
         }
     }
 
     /** Stops the held effects timer. */
     public void cancelTasks() {
-        TaskHandle task = heldEffects;
-        heldEffects = null;
-        if (task != null) {
-            task.cancel();
-        }
+        heldEffects.cancel();
     }
 
     /** Removes this plugin's recipes and adds the current ones again. */
     public void reloadRecipes() {
-        removeRecipes();
+        recipes.removeAll();
         List<Map.Entry<String, ItemDef>> all;
         synchronized (defs) {
             all = new ArrayList<>(defs.entrySet());
@@ -394,86 +371,18 @@ public final class ItemRegistry {
         cancelTasks();
         for (Player player : Bukkit.getOnlinePlayers()) {
             try {
-                restoreAll(player);
+                equipment.restoreAll(player);
             } catch (RuntimeException e) {
                 logger.log(Level.WARNING, "Could not give back the equipment of " + player.getName(), e);
             }
         }
-        removeRecipes();
+        recipes.removeAll();
         BY_NAMESPACE.remove(namespace, this);
     }
 
     private boolean anyHeldEffects() {
         synchronized (defs) {
-            return defs.values().stream().anyMatch(ItemDef::hasHeldEffects);
-        }
-    }
-
-    private void startHeldEffects() {
-        if (heldEffects != null || closed) {
-            return;
-        }
-        try {
-            heldEffects = rs.scheduler().timer(HELD_EFFECT_PERIOD, HELD_EFFECT_PERIOD, this::applyHeldEffects);
-        } catch (RuntimeException notScheduled) {
-            logger.warning("Held item effects could not start: " + notScheduled);
-        }
-    }
-
-    /** Every 40 ticks: each online player's held effects, applied on that player's own thread. */
-    private void applyHeldEffects() {
-        RsScheduler scheduler = rs.scheduler();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (scheduler.ownsHere(player)) {
-                applyHeldEffects(player);
-            } else {
-                try {
-                    scheduler.entity(player, () -> applyHeldEffects(player));
-                } catch (RuntimeException disabled) {
-                    return;
-                }
-            }
-        }
-    }
-
-    private void applyHeldEffects(Player player) {
-        if (closed || !player.isOnline()) {
-            return;
-        }
-        PlayerInventory inventory = player.getInventory();
-        held(player, inventory.getItemInMainHand(), Hold.MAINHAND);
-        held(player, inventory.getItemInOffHand(), Hold.OFFHAND);
-        for (ItemStack armour : inventory.getArmorContents()) {
-            held(player, armour, Hold.ARMOR);
-        }
-    }
-
-    private enum Hold { MAINHAND, OFFHAND, ARMOR }
-
-    private void held(Player player, ItemStack item, Hold where) {
-        String id = idOf(item);
-        ItemDef def = def(id);
-        if (def == null) {
-            return;
-        }
-        List<String> lines = switch (where) {
-            case MAINHAND -> def.heldEffectsMainhand();
-            case OFFHAND -> def.heldEffectsOffhand();
-            case ARMOR -> def.heldEffectsArmor();
-        };
-        for (String line : lines) {
-            List<String> parts = ItemParts.tokens(List.of(line));
-            if (parts.isEmpty()) {
-                continue;
-            }
-            PotionEffectType type = ItemCompat.effect(parts.get(0));
-            if (type == null) {
-                ItemWarnings.to(logger, "item " + id + " -> held-effects").accept("Unknown effect '" + parts.get(0) + "'; skipped.");
-                continue;
-            }
-            Integer amplifier = parts.size() > 1 ? ItemParts.intOrNull(parts.get(1)) : Integer.valueOf(0);
-            player.addPotionEffect(new PotionEffect(type, HELD_EFFECT_TICKS, amplifier == null ? 0 : Math.max(0, amplifier),
-                    true, false));
+            return defs.values().stream().anyMatch(def -> def.values().hasHeldEffects());
         }
     }
 
@@ -505,15 +414,7 @@ public final class ItemRegistry {
         if (def.obtainVia() == ObtainMode.COMMAND_ONLY) {
             pdc.set(keyObtainVia, PersistentDataType.STRING, def.obtainVia().name());
         }
-        if (def.durabilityMax() > 0) {
-            pdc.set(keyDurability, PersistentDataType.INTEGER, def.durabilityMax());
-            if (!def.durabilityLoreFormat().isEmpty()) {
-                List<Component> lore = meta.hasLore() && meta.lore() != null ? new ArrayList<>(meta.lore()) : new ArrayList<>();
-                pdc.set(keyDurabilityLine, PersistentDataType.INTEGER, lore.size());
-                lore.add(durabilityLine(def, def.durabilityMax()));
-                meta.lore(lore);
-            }
-        }
+        durability.stamp(meta, pdc, def);
         stack.setItemMeta(meta);
         return stack;
     }
@@ -527,12 +428,6 @@ public final class ItemRegistry {
         if (on) {
             pdc.set(key, PersistentDataType.STRING, TRUE);
         }
-    }
-
-    private static Component durabilityLine(ItemDef def, int left) {
-        String text = RsText.applyLocals(def.durabilityLoreFormat(), Ph.of("durability", left),
-                Ph.of("max_durability", def.durabilityMax()));
-        return RsItem.plain(RsText.colorUncached(text));
     }
 
     /** The registered id of {@code stack} under this plugin, or null. */
@@ -578,26 +473,7 @@ public final class ItemRegistry {
      * @return how many were taken
      */
     public int take(Player player, String id, int amount) {
-        if (player == null || id == null || amount <= 0) {
-            return 0;
-        }
-        PlayerInventory inventory = player.getInventory();
-        int taken = 0;
-        for (int slot = 0; slot < inventory.getSize() && taken < amount; slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (is(stack, id)) {
-                int use = Math.min(stack.getAmount(), amount - taken);
-                taken += use;
-                inventory.setItem(slot, reduced(stack, use));
-            }
-        }
-        ItemStack cursor = player.getItemOnCursor();
-        if (taken < amount && is(cursor, id)) {
-            int use = Math.min(cursor.getAmount(), amount - taken);
-            taken += use;
-            player.setItemOnCursor(reduced(cursor, use));
-        }
-        return taken;
+        return ItemTaking.take(this, player, id, amount);
     }
 
     /** Takes every {@code id} the player carries (storage, armour, off hand, cursor); returns how many. */
@@ -605,25 +481,11 @@ public final class ItemRegistry {
         return take(player, id, Integer.MAX_VALUE);
     }
 
-    private static ItemStack reduced(ItemStack stack, int by) {
-        if (stack.getAmount() <= by) {
-            return null;
-        }
-        ItemStack rest = stack.clone();
-        rest.setAmount(stack.getAmount() - by);
-        return rest;
-    }
-
     // ------------------------------------------------------------------ custom durability
 
     /** The custom durability left on {@code stack}, or -1 when it has none. */
     public int durability(ItemStack stack) {
-        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
-            return -1;
-        }
-        ItemMeta meta = stack.getItemMeta();
-        Integer left = meta == null ? null : meta.getPersistentDataContainer().get(keyDurability, PersistentDataType.INTEGER);
-        return left == null ? -1 : left;
+        return durability.left(stack);
     }
 
     /**
@@ -632,24 +494,7 @@ public final class ItemRegistry {
      * stack has no custom durability.
      */
     public int damage(ItemStack stack, int amount) {
-        int left = durability(stack);
-        if (left < 0) {
-            return -1;
-        }
-        left = Math.max(0, left - Math.max(0, amount));
-        ItemMeta meta = stack.getItemMeta();
-        meta.getPersistentDataContainer().set(keyDurability, PersistentDataType.INTEGER, left);
-        ItemDef def = def(idOf(stack));
-        Integer line = meta.getPersistentDataContainer().get(keyDurabilityLine, PersistentDataType.INTEGER);
-        if (def != null && line != null && !def.durabilityLoreFormat().isEmpty() && meta.hasLore()) {
-            List<Component> lore = new ArrayList<>(meta.lore());
-            if (line >= 0 && line < lore.size()) {
-                lore.set(line, durabilityLine(def, left));
-                meta.lore(lore);
-            }
-        }
-        stack.setItemMeta(meta);
-        return left;
+        return durability.damage(stack, amount);
     }
 
     /**
@@ -660,71 +505,12 @@ public final class ItemRegistry {
      * left, or -1 when the stack is not one of this plugin's or has no custom durability.
      */
     public int damage(Player player, ItemStack stack, int amount) {
-        if (player == null || stack == null || idOf(stack) == null) {
-            return -1;
-        }
-        PlayerInventory inventory = player.getInventory();
-        int found = slotOf(inventory, stack);
-        ItemStack working = found < 0 ? stack : inventory.getItem(found);
-        int before = durability(working);
-        int left = damage(working, amount);
-        if (left < 0) {
-            return -1;
-        }
-        boolean broke = breaks(before, left);
-        if (found >= 0) {
-            inventory.setItem(found, broke ? null : working);
-        }
-        if (broke) {
-            ItemDef def = def(idOf(working));
-            if (def != null) {
-                runActions(player, def.breakActions(), null, null);
-            }
-        }
-        return left;
+        return durability.damage(player, stack, amount);
     }
 
-    /** The inventory slot holding {@code stack}: the same object first, then an equal stack; -1 when none. */
-    static int slotOf(Inventory inventory, ItemStack stack) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            if (inventory.getItem(slot) == stack) {
-                return slot;
-            }
-        }
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            if (stack.equals(inventory.getItem(slot))) {
-                return slot;
-            }
-        }
-        return -1;
-    }
-
-    /** Whether a damage call took durability from above 0 to 0: only that call runs the break flow. */
-    static boolean breaks(int before, int after) {
-        return before > 0 && after == 0;
-    }
-
-    /**
-     * Applies one successful use to the item in {@code hand}: durability goes down and, when this
-     * use breaks it, the break actions run and the hand is emptied.
-     */
+    /** One successful use of the item in {@code hand} (see {@link ItemDurability#used}). */
     void used(Player player, EquipmentSlot hand, ItemDef def, ClickType click, Boolean onBlock) {
-        if (def.durabilityMax() <= 0) {
-            return;
-        }
-        PlayerInventory inventory = player.getInventory();
-        ItemStack stack = inventory.getItem(hand);
-        int before = durability(stack);
-        int left = damage(stack, def.durabilityDamagePerUse());
-        if (left < 0) {
-            return;
-        }
-        if (breaks(before, left)) {
-            inventory.setItem(hand, null);
-            runActions(player, def.breakActions(), click, onBlock);
-        } else {
-            inventory.setItem(hand, stack);
-        }
+        durability.used(player, hand, def, click, onBlock);
     }
 
     // ------------------------------------------------------------------ equipment
@@ -737,29 +523,7 @@ public final class ItemRegistry {
      * @return false when {@code id} is not registered or the player is not online
      */
     public boolean apply(Player player, String id, EquipmentSlot slot) {
-        if (player == null || !player.isOnline() || slot == null) {
-            return false;
-        }
-        ItemDef def = def(id);
-        ItemStack stack = create(id, player);
-        if (def == null || stack == null) {
-            return false;
-        }
-        PlayerInventory inventory = player.getInventory();
-        UUID uuid = player.getUniqueId();
-        if (backup.get(uuid, slot) == null) {
-            ItemStack real = inventory.getItem(slot);
-            backup.put(uuid, slot, id.trim(), empty(real) ? null : ItemSerializer.serializeBase64(real));
-        } else {
-            EquipmentBackup.Saved saved = backup.get(uuid, slot);
-            backup.put(uuid, slot, id.trim(), saved.item());
-        }
-        inventory.setItem(slot, stack);
-        BiConsumer<Player, ItemStack> hook = def.onApply();
-        if (hook != null) {
-            hook.accept(player, stack);
-        }
-        return true;
+        return equipment.apply(player, id, slot);
     }
 
     /**
@@ -768,76 +532,12 @@ public final class ItemRegistry {
      * @return true when something was taken off
      */
     public boolean unapply(Player player, String id) {
-        if (player == null || id == null) {
-            return false;
-        }
-        boolean any = false;
-        for (Map.Entry<EquipmentSlot, EquipmentBackup.Saved> entry : backup.all(player.getUniqueId()).entrySet()) {
-            if (entry.getValue().id().equals(id.trim())) {
-                restore(player, entry.getKey(), entry.getValue());
-                any = true;
-            }
-        }
-        return any;
+        return equipment.unapply(player, id);
     }
 
-    /** Gives back every backed-up slot of {@code player} (leaving, plugin stopping, join after a crash). */
-    void restoreAll(Player player) {
-        for (Map.Entry<EquipmentSlot, EquipmentBackup.Saved> entry : backup.all(player.getUniqueId()).entrySet()) {
-            restore(player, entry.getKey(), entry.getValue());
-        }
-    }
-
-    private void restore(Player player, EquipmentSlot slot, EquipmentBackup.Saved saved) {
-        PlayerInventory inventory = player.getInventory();
-        ItemStack current = inventory.getItem(slot);
-        ItemStack real = null;
-        if (saved.item() != null) {
-            try {
-                real = ItemSerializer.deserializeBase64(saved.item());
-            } catch (RuntimeException unreadable) {
-                logger.warning("The backed-up " + slot + " item of " + player.getName() + " could not be read: " + unreadable);
-                backup.remove(player.getUniqueId(), slot);
-                return;
-            }
-        }
-        boolean own = saved.id().equals(idOf(current)) || TRUE.equals(stamp(current, keyLocked));
-        if (EquipmentBackup.target(empty(current), own) == EquipmentBackup.Target.SLOT) {
-            inventory.setItem(slot, real);
-        } else if (real != null) {
-            InvUtil.giveItems(player, real);
-        }
-        backup.remove(player.getUniqueId(), slot);
-        ItemDef def = def(saved.id());
-        if (def != null && def.onRemove() != null && own) {
-            def.onRemove().accept(player, current);
-        }
-    }
-
-    void handleQuit(Player player) {
-        try {
-            restoreAll(player);
-        } catch (RuntimeException e) {
-            logger.log(Level.WARNING, "Could not give back the equipment of " + player.getName(), e);
-        }
-    }
-
+    /** A player joined: equipment left on after a crash is given back. */
     void handleJoin(Player player) {
-        if (!backup.all(player.getUniqueId()).isEmpty()) {
-            handleQuit(player);
-        }
-    }
-
-    private static boolean empty(ItemStack stack) {
-        return stack == null || stack.getType().isAir() || stack.getAmount() <= 0;
-    }
-
-    private String stamp(ItemStack stack, NamespacedKey key) {
-        if (empty(stack) || !stack.hasItemMeta()) {
-            return null;
-        }
-        ItemMeta meta = stack.getItemMeta();
-        return meta == null ? null : meta.getPersistentDataContainer().get(key, PersistentDataType.STRING);
+        equipment.handleJoin(player);
     }
 
     // ------------------------------------------------------------------ redeeming
@@ -867,137 +567,13 @@ public final class ItemRegistry {
      * from {@code hand}, or every {@code id} in the inventory then the cursor up to the limit.
      */
     List<ItemStack> consume(Player player, String id, EquipmentSlot hand, RedeemSpec spec) {
-        List<ItemStack> taken = new ArrayList<>();
-        PlayerInventory inventory = player.getInventory();
-        switch (spec.mode()) {
-            case SINGLE, HAND_STACK -> {
-                ItemStack stack = inventory.getItem(hand);
-                if (!is(stack, id)) {
-                    return taken;
-                }
-                int use = spec.mode() == RedeemSpec.Mode.SINGLE ? 1 : stack.getAmount();
-                ItemStack copy = stack.clone();
-                copy.setAmount(use);
-                taken.add(copy);
-                inventory.setItem(hand, reduced(stack, use));
-            }
-            case ALL_MATCHING -> {
-                int limit = spec.limit() <= 0 ? Integer.MAX_VALUE : spec.limit();
-                int count = 0;
-                for (int slot = 0; slot < inventory.getSize() && count < limit; slot++) {
-                    ItemStack stack = inventory.getItem(slot);
-                    if (is(stack, id)) {
-                        int use = Math.min(stack.getAmount(), limit - count);
-                        ItemStack copy = stack.clone();
-                        copy.setAmount(use);
-                        taken.add(copy);
-                        count += use;
-                        inventory.setItem(slot, reduced(stack, use));
-                    }
-                }
-                ItemStack cursor = player.getItemOnCursor();
-                if (count < limit && is(cursor, id)) {
-                    int use = Math.min(cursor.getAmount(), limit - count);
-                    ItemStack copy = cursor.clone();
-                    copy.setAmount(use);
-                    taken.add(copy);
-                    player.setItemOnCursor(reduced(cursor, use));
-                }
-            }
-        }
-        return taken;
+        return ItemTaking.consume(this, player, id, hand, spec);
     }
 
     // ------------------------------------------------------------------ recipes
 
     private void addRecipe(String id, ItemDef def) {
-        NamespacedKey key = new NamespacedKey(plugin, RECIPE_PREFIX + ItemCompat.keyPart(id.toLowerCase(Locale.ROOT)));
-        Consumer<String> warn = ItemWarnings.to(logger, "item " + id + " -> recipe");
-        try {
-            if (Bukkit.getRecipe(key) != null) {
-                Bukkit.removeRecipe(key);
-            }
-            ItemStack result = create(id, null);
-            org.bukkit.inventory.Recipe recipe = toBukkit(key, result, def.recipe(), warn);
-            if (recipe != null && Bukkit.addRecipe(recipe)) {
-                synchronized (recipes) {
-                    recipes.add(key);
-                }
-            }
-        } catch (RuntimeException refused) {
-            warn.accept("The recipe could not be added: " + refused.getMessage());
-        }
-    }
-
-    private void removeRecipes() {
-        List<NamespacedKey> keys;
-        synchronized (recipes) {
-            keys = new ArrayList<>(recipes);
-            recipes.clear();
-        }
-        for (NamespacedKey key : keys) {
-            try {
-                Bukkit.removeRecipe(key);
-            } catch (RuntimeException ignored) {
-                // The server is stopping or the recipe is already gone.
-            }
-        }
-    }
-
-    private static org.bukkit.inventory.Recipe toBukkit(NamespacedKey key, ItemStack result, ItemDef.Recipe recipe,
-                                                      Consumer<String> warn) {
-        switch (recipe.type()) {
-            case "SHAPED" -> {
-                ShapedRecipe shaped = new ShapedRecipe(key, result);
-                shaped.shape(recipe.shape().toArray(new String[0]));
-                for (Map.Entry<Character, String> entry : recipe.ingredients().entrySet()) {
-                    Material material = material(entry.getValue(), warn);
-                    if (material == null) {
-                        return null;
-                    }
-                    shaped.setIngredient(entry.getKey(), material);
-                }
-                return shaped;
-            }
-            case "SHAPELESS" -> {
-                ShapelessRecipe shapeless = new ShapelessRecipe(key, result);
-                for (String name : recipe.shapelessIngredients()) {
-                    Material material = material(name, warn);
-                    if (material == null) {
-                        return null;
-                    }
-                    shapeless.addIngredient(material);
-                }
-                return shapeless;
-            }
-            case "STONECUTTING" -> {
-                Material input = material(recipe.input(), warn);
-                return input == null ? null : new StonecuttingRecipe(key, result, input);
-            }
-            default -> {
-                Material input = material(recipe.input(), warn);
-                if (input == null) {
-                    return null;
-                }
-                RecipeChoice choice = new RecipeChoice.MaterialChoice(input);
-                float xp = (float) recipe.experience();
-                int ticks = recipe.cookingTime();
-                return switch (recipe.type()) {
-                    case "SMOKING" -> new SmokingRecipe(key, result, choice, xp, ticks);
-                    case "BLASTING" -> new BlastingRecipe(key, result, choice, xp, ticks);
-                    case "CAMPFIRE" -> new CampfireRecipe(key, result, choice, xp, ticks);
-                    default -> new FurnaceRecipe(key, result, choice, xp, ticks);
-                };
-            }
-        }
-    }
-
-    private static Material material(String name, Consumer<String> warn) {
-        Material material = name == null ? null : ItemParts.lookupMaterial(name);
-        if (material == null) {
-            warn.accept("Unknown recipe material '" + name + "'; the recipe is not added.");
-        }
-        return material;
+        recipes.add(id, def.recipe(), () -> create(id, null));
     }
 
     // ------------------------------------------------------------------ shared listener access
@@ -1035,6 +611,11 @@ public final class ItemRegistry {
 
     Logger logger() {
         return logger;
+    }
+
+    /** True once the plugin stopped. */
+    boolean closed() {
+        return closed;
     }
 
     void runActions(Player player, List<String> list, ClickType click, Boolean onBlock) {

@@ -1,7 +1,6 @@
 package com.rs.lib.gui;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -19,7 +18,6 @@ import com.rs.lib.action.ActionList;
 import com.rs.lib.action.PageTarget;
 import com.rs.lib.action.Requirement;
 import com.rs.lib.internal.PluginLanguage;
-import com.rs.lib.item.ItemAppearance;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.internal.SharedPlaceholders;
 
@@ -60,10 +58,6 @@ import net.kyori.adventure.text.Component;
 public final class GuiSession implements PageTarget {
 
     private static final Ph[] NO_PHS = new Ph[0];
-    private static final byte UNKNOWN = 0;
-    private static final byte SHOWN = 1;
-    private static final byte SHOWN_DISABLED = 2;
-    private static final byte HIDDEN = 3;
 
     private final Gui gui;
     private final GuiDef def;
@@ -72,26 +66,21 @@ public final class GuiSession implements PageTarget {
     private final UUID viewerId;
     private final RsGuiHolder holder;
     private final int size;
-    private final ManualBind[] manual;
-    private final RegionBind<?>[] regionBinds;
-    private final ItemStack[] shownProto;
-    private final GuiItemDef[] shownDef;
-    private final boolean[] regionInput;
-    private final byte[] verdict;
-    private final ItemStack[] passProto;
-    private final Cell cell = new Cell();
+    /** Read by the renderer: the binds, page, inventory and state of this session. */
+    final SessionBinds.Manual[] manual;
+    final SessionBinds.Region<?>[] regionBinds;
+    private final SessionRenderer render;
     private final List<TaskHandle> timers = new ArrayList<>(2);
 
-    private Inventory inventory;
-    private int page;
+    Inventory inventory;
+    int page;
     private int declaredTotal;
     private Ph[] titlePhs;
     private Component lastTitle;
-    private PagedBind<?> paged;
+    SessionBinds.Paged<?> paged;
     private Consumer<ItemOffer> offerHandler;
     private volatile Runnable endHook;
-    private boolean protoStatic;
-    private volatile boolean closed;
+    volatile boolean closed;
     private volatile boolean transitioning;
     private volatile boolean external;
 
@@ -103,13 +92,9 @@ public final class GuiSession implements PageTarget {
         this.viewerId = viewer.getUniqueId();
         this.holder = new RsGuiHolder(host.plugin(), this);
         this.size = def.size();
-        this.manual = new ManualBind[size];
-        this.regionBinds = new RegionBind<?>[def.regionCount()];
-        this.shownProto = new ItemStack[size];
-        this.shownDef = new GuiItemDef[size];
-        this.regionInput = new boolean[size];
-        this.verdict = new byte[def.items().size()];
-        this.passProto = new ItemStack[def.items().size()];
+        this.manual = new SessionBinds.Manual[size];
+        this.regionBinds = new SessionBinds.Region<?>[def.regionCount()];
+        this.render = new SessionRenderer(this, def, host, viewer);
         this.page = def.pagination() ? Math.max(1, page) : 1;
         this.titlePhs = copy(titlePhs);
     }
@@ -170,12 +155,10 @@ public final class GuiSession implements PageTarget {
      * or null when it shows nothing.
      */
     public GuiItemDef itemAt(int slot) {
-        if (slot < 0 || slot >= cellCount()) {
+        if (slot < 0 || slot >= render.cellCount()) {
             return null;
         }
-        beginPass();
-        resolve(slot);
-        return cell.def;
+        return render.itemAt(slot);
     }
 
     /**
@@ -187,8 +170,8 @@ public final class GuiSession implements PageTarget {
         if (slot < 0 || slot >= size) {
             return false;
         }
-        ManualBind bound = manual[slot];
-        return def.declaredInput(slot) || (bound != null && bound.template().item().input()) || regionInput[slot];
+        SessionBinds.Manual bound = manual[slot];
+        return def.declaredInput(slot) || (bound != null && bound.template().item().input()) || render.regionInput(slot);
     }
 
     // ------------------------------------------------------------------ binds
@@ -210,10 +193,10 @@ public final class GuiSession implements PageTarget {
         Ph[] values = copy(phs);
         for (int slot : template.item().slotsInternal()) {
             if (slot < size) {
-                manual[slot] = new ManualBind(template, null, values);
+                manual[slot] = new SessionBinds.Manual(template, null, values);
             }
         }
-        renderSlots(template.item().slotsInternal());
+        render.renderSlots(template.item().slotsInternal());
     }
 
     /** Binds {@code template} in cell {@code slot} with {@code phs}. */
@@ -239,8 +222,8 @@ public final class GuiSession implements PageTarget {
             gui.warn("bind(" + slot + ", " + template.id() + "): the menu has no cell " + slot);
             return;
         }
-        manual[slot] = new ManualBind(current(template), stack == null ? null : stack.clone(), copy(phs));
-        renderSlot(slot);
+        manual[slot] = new SessionBinds.Manual(current(template), stack == null ? null : stack.clone(), copy(phs));
+        render.renderSlot(slot);
     }
 
     /**
@@ -258,9 +241,9 @@ public final class GuiSession implements PageTarget {
             gui.warn("bindEach(\"" + regionId + "\"): the menu declares no region with that id");
             return;
         }
-        regionBinds[number] = filler == null ? null : new RegionBind<>(data == null ? List.of() : new ArrayList<>(data),
-                filler);
-        renderSlots(def.regionSlots(regionId));
+        regionBinds[number] = filler == null ? null
+                : new SessionBinds.Region<>(data == null ? List.of() : new ArrayList<>(data), filler);
+        render.renderSlots(def.regionSlots(regionId));
     }
 
     /**
@@ -281,44 +264,19 @@ public final class GuiSession implements PageTarget {
             gui.warn("bindPaged(\"" + templateId + "\"): the menu has no template with that id");
             return;
         }
-        int[] cells = cells(slots);
+        int[] cells = SessionBinds.cells(slots, size);
         if (cells.length == 0) {
             gui.warn("bindPaged(\"" + templateId + "\"): no cells to page into (paged-key or slots)");
             return;
         }
-        paged = new PagedBind<>(template, Pagination.of(data, cells.length), cells, positions(cells), mapper);
+        paged = new SessionBinds.Paged<>(template, Pagination.of(data, cells.length), cells,
+                SessionBinds.positions(cells, size), mapper);
         renderAll(false);
     }
 
     /** {@link #bindPaged(String, List, int[], BiConsumer)} into the cells of {@code paged-key}, in {@code paged-flow} order. */
     public <T> void bindPaged(String templateId, List<T> data, BiConsumer<T, PhCollector> mapper) {
         bindPaged(templateId, data, def.pagedSlots(), mapper);
-    }
-
-    /** The cells of {@code slots} inside the menu, each once. */
-    private int[] cells(int[] slots) {
-        if (slots == null) {
-            return new int[0];
-        }
-        boolean[] seen = new boolean[size];
-        int[] out = new int[slots.length];
-        int n = 0;
-        for (int slot : slots) {
-            if (slot >= 0 && slot < size && !seen[slot]) {
-                seen[slot] = true;
-                out[n++] = slot;
-            }
-        }
-        return Arrays.copyOf(out, n);
-    }
-
-    private int[] positions(int[] cells) {
-        int[] index = new int[size];
-        Arrays.fill(index, -1);
-        for (int i = 0; i < cells.length; i++) {
-            index[cells[i]] = i;
-        }
-        return index;
     }
 
     /** {@code template} as this session's menu has it now (a template kept by the plugin across a reload). */
@@ -360,24 +318,14 @@ public final class GuiSession implements PageTarget {
      * requirements pass, the deny actions when they do not.
      */
     public void handleClick(int slot, ClickType click) {
-        if (closed || slot < 0 || slot >= cellCount()) {
+        if (closed || slot < 0 || slot >= render.cellCount()) {
             return;
         }
-        beginPass();
-        resolve(slot);
+        SessionRenderer.Cell cell = render.clicked(slot);
         GuiItemDef item = cell.def;
         boolean disabled = cell.navDisabled;
         Ph[] phs = cell.phs;
-        if (item == null) {
-            if (shownProto[slot] != null) {
-                paint(slot, false);
-            }
-            return;
-        }
-        if (shownDef[slot] != item) {
-            paint(slot, false);
-        }
-        if (disabled) {
+        if (item == null || disabled) {
             return;
         }
         if (def.strictClicks() && !item.strictAllows(click)) {
@@ -485,7 +433,7 @@ public final class GuiSession implements PageTarget {
 
     /** Pages known: those of the paged bind, else those set with {@link #setTotalPages}; 0 is unknown. */
     int totalPages() {
-        PagedBind<?> bound = paged;
+        SessionBinds.Paged<?> bound = paged;
         return bound != null ? bound.data().totalPages() : declaredTotal;
     }
 
@@ -549,8 +497,7 @@ public final class GuiSession implements PageTarget {
         try {
             lastTitle = title;
             inventory = host.createInventory(holder, def, title);
-            Arrays.fill(shownProto, null);
-            Arrays.fill(shownDef, null);
+            render.forgetShown();
             renderAll(true);
             host.openWindow(viewer, inventory);
         } finally {
@@ -685,34 +632,12 @@ public final class GuiSession implements PageTarget {
         refreshMenu();
     }
 
-    /**
-     * Renders again the cells the declared {@code item} paints or may paint. A template's own
-     * {@code update-interval} is never scheduled: only the menu's timer refreshes the cells
-     * templates paint.
-     */
+    /** The declared {@code item}'s own {@code update-interval}: the cells it paints or may paint. */
     private void itemTick(GuiItemDef item) {
         if (closed) {
             return;
         }
-        int index = def.items().indexOf(item);
-        beginPass();
-        boolean force = takeExternal();
-        int count = cellCount();
-        for (int slot = 0; slot < count; slot++) {
-            if (shownDef[slot] == item || (index >= 0 && contains(def.candidates(slot), index))) {
-                resolve(slot);
-                paint(slot, force);
-            }
-        }
-    }
-
-    private static boolean contains(int[] values, int value) {
-        for (int v : values) {
-            if (v == value) {
-                return true;
-            }
-        }
-        return false;
+        render.renderItem(item);
     }
 
     /** Moves the call to the viewer's thread when made elsewhere; true when it was moved. */
@@ -741,275 +666,20 @@ public final class GuiSession implements PageTarget {
 
     // ------------------------------------------------------------------ rendering
 
-    private int cellCount() {
-        Inventory shown = inventory;
-        return shown == null ? size : Math.min(size, shown.getSize());
-    }
-
-    private boolean takeExternal() {
+    /** True once after a plugin took the inventory: the next render rewrites every cell. */
+    boolean takeExternal() {
         boolean was = external;
         external = false;
         return was;
     }
 
     void renderAll(boolean force) {
-        if (closed || inventory == null) {
-            return;
-        }
-        beginPass();
-        boolean all = force | takeExternal();
-        int count = cellCount();
-        for (int slot = 0; slot < count; slot++) {
-            resolve(slot);
-            paint(slot, all);
-        }
-    }
-
-    private void renderSlots(int[] slots) {
-        if (closed || inventory == null) {
-            return;
-        }
-        beginPass();
-        boolean all = takeExternal();
-        if (all) {
-            int count = cellCount();
-            for (int slot = 0; slot < count; slot++) {
-                resolve(slot);
-                paint(slot, true);
-            }
-            return;
-        }
-        int count = cellCount();
-        for (int slot : slots) {
-            if (slot >= 0 && slot < count) {
-                resolve(slot);
-                paint(slot, false);
-            }
-        }
-    }
-
-    private void renderSlot(int slot) {
-        renderSlots(new int[] {slot});
-    }
-
-    /** Starts a render or click pass: declared items are judged once per pass. */
-    private void beginPass() {
-        Arrays.fill(verdict, UNKNOWN);
-        Arrays.fill(passProto, null);
-        PagedBind<?> bound = paged;
-        if (bound != null) {
-            page = bound.data().clamp(page);
-        }
-    }
-
-    /** Works out what {@code slot} shows into {@link #cell}. */
-    private void resolve(int slot) {
-        cell.clear();
-        ManualBind bound = manual[slot];
-        if (bound != null) {
-            GuiItemDef item = bound.template().item();
-            if (visible(item, bound.phs())) {
-                cell.set(Cell.MANUAL, item, false, bound.phs(), bound.stack(), bound, -1);
-            }
-            return;
-        }
-        PagedBind<?> pages = paged;
-        if (pages != null && pages.positions()[slot] >= 0) {
-            resolvePaged(pages, slot);
-            return;
-        }
-        for (int r = regionBinds.length - 1; r >= 0; r--) {
-            RegionBind<?> region = regionBinds[r];
-            int position = region == null ? -1 : def.regionPosition(r, slot);
-            if (position >= 0 && position < region.data().size() && resolveRegion(region, r, position)) {
-                return;
-            }
-        }
-        int[] candidates = def.candidates(slot);
-        for (int index : candidates) {
-            byte v = verdict[index];
-            if (v == UNKNOWN) {
-                v = judge(def.items().get(index));
-                verdict[index] = v;
-            }
-            if (v == SHOWN || v == SHOWN_DISABLED) {
-                cell.set(Cell.DECLARED, def.items().get(index), v == SHOWN_DISABLED, NO_PHS, null, null, index);
-                return;
-            }
-        }
-    }
-
-    private <T> void resolvePaged(PagedBind<T> pages, int slot) {
-        int index = (page - 1) * pages.slots().length + pages.positions()[slot];
-        if (!pages.data().has(index)) {
-            return;
-        }
-        PhCollector collector = new PhCollector();
-        try {
-            pages.mapper().accept(pages.data().at(index), collector);
-        } catch (RuntimeException | LinkageError e) {
-            gui.warn("The bindPaged mapper of template " + pages.template().id() + " failed: " + e);
-            return;
-        }
-        GuiItemDef item = pages.template().item();
-        Ph[] phs = collector.toArray();
-        if (visible(item, phs)) {
-            cell.set(Cell.PAGED, item, false, phs, collector.stackOrNull(), pages, -1);
-        }
-    }
-
-    private <T> boolean resolveRegion(RegionBind<T> region, int number, int position) {
-        GuiEntry entry = new GuiEntry();
-        try {
-            region.filler().accept(region.data().get(position), entry);
-        } catch (RuntimeException | LinkageError e) {
-            gui.warn("The bindEach filler of region " + def.regionId(number) + " failed: " + e);
-            return false;
-        }
-        if (entry.templateId() == null) {
-            return false;
-        }
-        GuiTemplate template = def.template(entry.templateId());
-        if (template == null) {
-            gui.warn("bindEach(\"" + def.regionId(number) + "\"): the menu has no template '" + entry.templateId() + "'");
-            return false;
-        }
-        Ph[] phs = entry.phs();
-        if (!visible(template.item(), phs)) {
-            return false;
-        }
-        cell.set(Cell.REGION, template.item(), false, phs, entry.stackOrNull(), region, -1);
-        return true;
-    }
-
-    /** Whether a declared item shows this pass, and in its disabled look. */
-    private byte judge(GuiItemDef item) {
-        if (!visible(item, NO_PHS)) {
-            return HIDDEN;
-        }
-        return navDisabled(item) ? SHOWN_DISABLED : SHOWN;
-    }
-
-    /** A navigation arrow with no page to go to: previous on page 1, next on the last known page. */
-    boolean navDisabled(GuiItemDef item) {
-        if (item.navPrevious() && page <= 1) {
-            return true;
-        }
-        int total = totalPages();
-        return item.navNext() && total > 0 && page >= total;
-    }
-
-    private boolean visible(GuiItemDef item, Ph[] phs) {
-        Requirement view = item.viewRequirement();
-        if (view == Requirement.ALWAYS) {
-            return true;
-        }
-        return host.actions().test(view, new ActionContext(viewer, host.rs(), this, null, phs));
-    }
-
-    /** Writes what {@link #cell} says into {@code slot} when it differs from what is there. */
-    private void paint(int slot, boolean force) {
-        GuiItemDef item = cell.def;
-        ItemStack proto = proto(slot);
-        ItemStack old = shownProto[slot];
-        boolean same = !force && (proto == old
-                || (proto != null && old != null && shownDef[slot] == item && proto.equals(old)));
-        shownDef[slot] = item;
-        regionInput[slot] = cell.kind == Cell.REGION && item.input();
-        if (same) {
-            return;
-        }
-        shownProto[slot] = proto;
-        ItemStack stack = null;
-        if (proto != null) {
-            if (protoStatic) {
-                boolean disabled = cell.navDisabled;
-                stack = item.cachedStamped(disabled, slot);
-                if (stack == null) {
-                    stack = host.stamp(proto, def.id(), slot);
-                    item.cacheStamped(disabled, slot, stack);
-                }
-            } else {
-                stack = host.stamp(proto, def.id(), slot);
-            }
-        }
-        inventory.setItem(slot, stack);
-    }
-
-    /** The unstamped stack for {@link #cell}; sets {@link #protoStatic}. */
-    private ItemStack proto(int slot) {
-        protoStatic = false;
-        GuiItemDef item = cell.def;
-        if (item == null) {
-            return null;
-        }
-        boolean disabled = cell.navDisabled;
-        ItemStack overlay = cell.stack;
-        if (overlay == null && item.cacheable(disabled)) {
-            protoStatic = true;
-            ItemStack cached = item.cachedProto(disabled);
-            return cached != null ? cached : item.cacheProto(disabled, build(item.look(disabled), viewer, NO_PHS,
-                    null, null));
-        }
-        ItemAppearance look = item.look(disabled);
-        Consumer<String> skins = look.has("skull-owner") ? skinRefresh(item, slot, cell.bind) : null;
-        if (cell.kind == Cell.DECLARED) {
-            ItemStack built = passProto[cell.index];
-            if (built == null) {
-                built = build(look, viewer, NO_PHS, null, skins);
-                passProto[cell.index] = built;
-            }
-            return built;
-        }
-        return build(look, viewer, cell.phs, overlay, skins);
+        render.renderAll(force);
     }
 
     /** The title for the viewer, {@code {key:relative}} in the plugin's language. */
     private Component title() {
         return PluginLanguage.call(host.relativeTexts(), () -> host.title(def, viewer, titlePhs));
-    }
-
-    /** {@link GuiHost#build} with {@code {key:relative}} in the plugin's language. */
-    private ItemStack build(ItemAppearance look, Player who, Ph[] phs, ItemStack overlay, Consumer<String> skins) {
-        return PluginLanguage.call(host.relativeTexts(), () -> host.build(look, who, phs, overlay, skins));
-    }
-
-    /** Called when a skin a cell waited for arrives: that cell is rendered again if it still shows the same thing. */
-    private Consumer<String> skinRefresh(GuiItemDef item, int slot, Object bind) {
-        int pageThen = page;
-        return owner -> {
-            Runnable again = () -> {
-                if (closed || inventory == null) {
-                    return;
-                }
-                if (bind instanceof PagedBind<?> && (paged != bind || page != pageThen)) {
-                    return;
-                }
-                if (bind instanceof ManualBind && manual[slot] != bind) {
-                    return;
-                }
-                if (bind instanceof RegionBind<?> && !Arrays.asList(regionBinds).contains(bind)) {
-                    return;
-                }
-                beginPass();
-                int count = cellCount();
-                for (int s = 0; s < count; s++) {
-                    if (shownDef[s] == item) {
-                        resolve(s);
-                        paint(s, false);
-                    }
-                }
-            };
-            if (host.ownsHere(viewer)) {
-                again.run();
-            } else {
-                try {
-                    host.runFor(viewer, again);
-                } catch (RuntimeException disabled) {
-                    // The plugin is going away.
-                }
-            }
-        };
     }
 
     private static Ph[] copy(Ph[] phs) {
@@ -1019,57 +689,5 @@ public final class GuiSession implements PageTarget {
     @Override
     public String toString() {
         return "GuiSession[" + def.id() + " " + viewer.getName() + " page " + page + (closed ? " closed" : "") + "]";
-    }
-
-    // ------------------------------------------------------------------ binds and cells
-
-    /** A template bound to one cell. */
-    private record ManualBind(GuiTemplate template, ItemStack stack, Ph[] phs) {
-    }
-
-    /** The paged bind: its data, cells (in fill order) and mapper. */
-    private record PagedBind<T>(GuiTemplate template, Pagination<T> data, int[] slots, int[] positions,
-                                BiConsumer<T, PhCollector> mapper) {
-    }
-
-    /** A bound region: one entry per cell. */
-    private record RegionBind<T>(List<T> data, BiConsumer<T, GuiEntry> filler) {
-    }
-
-    /** What one cell shows, worked out by {@code resolve}; reused, never kept. */
-    private static final class Cell {
-        static final int EMPTY = 0;
-        static final int DECLARED = 1;
-        static final int MANUAL = 2;
-        static final int PAGED = 3;
-        static final int REGION = 4;
-
-        int kind;
-        GuiItemDef def;
-        boolean navDisabled;
-        Ph[] phs = NO_PHS;
-        ItemStack stack;
-        Object bind;
-        int index;
-
-        void clear() {
-            kind = EMPTY;
-            def = null;
-            navDisabled = false;
-            phs = NO_PHS;
-            stack = null;
-            bind = null;
-            index = -1;
-        }
-
-        void set(int kind, GuiItemDef def, boolean navDisabled, Ph[] phs, ItemStack stack, Object bind, int index) {
-            this.kind = kind;
-            this.def = def;
-            this.navDisabled = navDisabled;
-            this.phs = phs;
-            this.stack = stack;
-            this.bind = bind;
-            this.index = index;
-        }
     }
 }

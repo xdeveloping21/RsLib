@@ -31,7 +31,7 @@ class ItemDefTest {
         }
         ItemAppearance appearance = ItemAppearance.parse(config, "items.yml -> x",
                 ItemAppearance.TextResolver.of((com.rs.lib.papi.RsPapi) null), warn);
-        return ItemDef.fromSection(config, appearance, warn);
+        return ItemDefParser.parse(config, appearance, warn);
     }
 
     @Test
@@ -75,13 +75,13 @@ class ItemDefTest {
 
     @Test
     void lockModesDecideDropAndDeath() {
-        assertTrue(read("no-drop: true\n").refusesDrop());
-        assertTrue(read("droppable: false\n").refusesDrop());
+        assertTrue(read("no-drop: true\n").values().refusesDrop());
+        assertTrue(read("droppable: false\n").values().refusesDrop());
         ItemDef locked = read("locked: true\n");
-        assertTrue(locked.refusesDrop());
-        assertTrue(locked.keptOnDeath());
-        assertTrue(read("keep-on-death: true\n").keptOnDeath());
-        assertFalse(read("material: STONE\n").keptOnDeath());
+        assertTrue(locked.values().refusesDrop());
+        assertTrue(locked.values().keptOnDeath());
+        assertTrue(read("keep-on-death: true\n").values().keptOnDeath());
+        assertFalse(read("material: STONE\n").values().keptOnDeath());
     }
 
     @Test
@@ -110,12 +110,12 @@ class ItemDefTest {
         assertEquals(1, def.durabilityDamagePerUse(), "at least 1");
         assertEquals(2, def.breakActions().size());
         assertEquals(1, def.rightClickBlockActions().size());
-        assertTrue(def.active(ItemUse.RIGHT_CLICK_BLOCK));
-        assertFalse(def.active(ItemUse.RIGHT_CLICK));
+        assertTrue(def.values().active(ItemUse.RIGHT_CLICK_BLOCK));
+        assertFalse(def.values().active(ItemUse.RIGHT_CLICK));
         assertFalse(def.shiftOverridesGeneric());
         assertEquals(List.of("[message] no"), def.denyActions(), "one text is a one-line list");
         assertEquals(List.of("HASTE 1"), def.heldEffectsMainhand());
-        assertTrue(def.hasHeldEffects());
+        assertTrue(def.values().hasHeldEffects());
         assertEquals(EquipmentSlot.HAND, def.equipmentSlot());
         assertTrue(warnings.isEmpty(), warnings.toString());
     }

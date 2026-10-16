@@ -160,11 +160,11 @@ class ItemRulesTest {
     /** A custom-durability call only breaks the stack when it takes it from above 0 to 0. */
     @Test
     void breakFlowOnlyOnTheBreakingCall() {
-        assertTrue(ItemRegistry.breaks(5, 0));
-        assertTrue(ItemRegistry.breaks(1, 0));
-        assertFalse(ItemRegistry.breaks(0, 0), "already broken: no second break flow");
-        assertFalse(ItemRegistry.breaks(5, 2));
-        assertFalse(ItemRegistry.breaks(-1, -1));
+        assertTrue(ItemDurability.breaks(5, 0));
+        assertTrue(ItemDurability.breaks(1, 0));
+        assertFalse(ItemDurability.breaks(0, 0), "already broken: no second break flow");
+        assertFalse(ItemDurability.breaks(5, 2));
+        assertFalse(ItemDurability.breaks(-1, -1));
     }
 
     /** The stack is found by identity first, then by equality; -1 for a cursor or detached copy. */
@@ -174,10 +174,10 @@ class ItemRulesTest {
         Label equalToA = new Label("a");
         Label b = new Label("b");
         Inventory inventory = inventory(equalToA, null, b, a);
-        assertEquals(3, ItemRegistry.slotOf(inventory, a));
-        assertEquals(2, ItemRegistry.slotOf(inventory, b));
-        assertEquals(0, ItemRegistry.slotOf(inventory, new Label("a")));
-        assertEquals(-1, ItemRegistry.slotOf(inventory, new Label("cursor")));
+        assertEquals(3, ItemDurability.slotOf(inventory, a));
+        assertEquals(2, ItemDurability.slotOf(inventory, b));
+        assertEquals(0, ItemDurability.slotOf(inventory, new Label("a")));
+        assertEquals(-1, ItemDurability.slotOf(inventory, new Label("cursor")));
     }
 
     /** The redeem handler receives a snapshot it cannot change and that later changes do not reach. */

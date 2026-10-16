@@ -71,7 +71,7 @@ final class ItemListener implements Listener {
         }
 
         boolean refusesDrop() {
-            return locked() || registry.stamped(pdc, ItemRegistry.TAG_NO_DROP) || def != null && def.refusesDrop();
+            return locked() || registry.stamped(pdc, ItemRegistry.TAG_NO_DROP) || def != null && def.values().refusesDrop();
         }
 
         /** Manual equipping is refused: no-manual-equip, COMMAND_ONLY or locked. */
@@ -253,13 +253,13 @@ final class ItemListener implements Listener {
         }
         // (3) the uses.
         boolean ran = false;
-        for (ItemUse use : ItemUse.dispatch(right, block, player.isSneaking(), def.shiftOverridesGeneric(), def::active)) {
-            List<String> list = def.actions(use);
+        for (ItemUse use : ItemUse.dispatch(right, block, player.isSneaking(), def.shiftOverridesGeneric(), def.values()::active)) {
+            List<String> list = def.values().actions(use);
             if (!list.isEmpty()) {
                 registry.runActions(player, list, click, block);
                 ran = true;
             }
-            BiConsumer<Player, ItemStack> callback = def.callback(use);
+            BiConsumer<Player, ItemStack> callback = def.values().callback(use);
             if (callback != null) {
                 ran = true;
                 try {
