@@ -35,6 +35,7 @@ import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.snapshot.Snapshots;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.UpdateChecker;
+import com.rs.lib.util.RsFormats;
 import com.rs.lib.yml.YmlManager;
 
 /**
@@ -71,6 +72,7 @@ public final class Rs {
     private final ItemRegistry items;
     private final SelectionManager selections;
     private final GuiManager guis;
+    private final RsFormats formats;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -85,6 +87,7 @@ public final class Rs {
         this.debug = new RsDebug(plugin, yml == null ? null : yml.config());
         this.actions = new ActionEngine(this);
         this.lang = spec.lang() ? new RsLang(this, yml == null ? null : yml.config()) : null;
+        this.formats = new RsFormats(this);
         this.cooldowns = new Cooldowns(this);
         this.economy = new EconomyBridge(this);
         this.leaderboards = new LeaderboardCache(this);
@@ -247,6 +250,11 @@ public final class Rs {
             throw missing("guis()", "guis()");
         }
         return guis;
+    }
+
+    /** Money, dates and relative times as RsLib's formats.yml says, relative times in this plugin's language. */
+    public RsFormats formats() {
+        return formats;
     }
 
     /** Reloads config, messages, items, menus, commands and every registered {@code Reloadable}. */

@@ -40,6 +40,9 @@ class RsCronTest {
         final List<String> warnings = new ArrayList<>();
         final Map<String, Long> marks = new HashMap<>();
         boolean hasStore = true;
+        final List<String> debug = new ArrayList<>();
+        int online;
+        java.util.function.UnaryOperator<String> papi = text -> text;
         /** How many real milliseconds one tick takes; 50 on a healthy server. */
         long millisPerTick = 50;
         private final Logger logger = Logger.getAnonymousLogger();
@@ -98,7 +101,17 @@ class RsCronTest {
 
         @Override
         public void debug(Supplier<String> message) {
-            message.get();
+            debug.add(message.get());
+        }
+
+        @Override
+        public int onlinePlayers() {
+            return online;
+        }
+
+        @Override
+        public String papi(String text) {
+            return papi.apply(text);
         }
 
         @Override
@@ -257,5 +270,101 @@ class RsCronTest {
         cron.schedule("b", "hourly", record("b"));
         assertFalse(cron.isScheduled("b"));
         assertEquals(1, host.warnings.size());
+    }
+
+    // ---------------------------------------------------------------- conditions
+
+    private long skips() {
+        return host.debug.stream().filter(line -> line.contains("skipped")).count();
+    }
+
+    @Test
+    void playerLimitsAreCheckedEachTimeTheJobIsDue() {
+        host.online = 2;
+        cron.create("envoy", "hourly").minPlayers(3).maxPlayers(5).schedule(record("envoy"));
+        host.advance("2026-10-15T11:00:00");
+        assertEquals(List.of(), runs);
+        assertEquals(1, skips());
+        assertTrue(host.debug.stream().anyMatch(line -> line.equals(
+                "Cron job 'envoy' skipped: 2 players online, it needs at least 3.")), host.debug.toString());
+        host.online = 3;
+        host.advance("2026-10-15T12:00:00");
+        host.online = 6;
+        host.advance("2026-10-15T13:00:00");
+        host.online = 5;
+        host.advance("2026-10-15T14:00:00");
+        assertEquals(List.of("envoy@2026-10-15T12:00:00Z", "envoy@2026-10-15T14:00:00Z"), runs);
+        assertEquals(2, skips());
+        // A skipped run is not retried: the job waits for its next time.
+        assertEquals("2026-10-15T15:00Z", cron.nextRun("envoy").toString());
+    }
+
+    @Test
+    void requirementsUsePlaceholderApiForTheServer() {
+        String[] tps = {"17.5"};
+        host.papi = text -> text.replace("%server_tps%", tps[0]);
+        cron.create("koth", "hourly").requirements(List.of("%server_tps% >= 18", "%unknown|ok% = ok"))
+                .schedule(record("koth"));
+        host.advance("2026-10-15T11:00:00");
+        tps[0] = "19.9";
+        host.advance("2026-10-15T12:00:00");
+        assertEquals(List.of("koth@2026-10-15T12:00:00Z"), runs);
+        assertEquals(1, skips());
+    }
+
+    @Test
+    void aRequirementWrittenWrongIsReportedAndNeverHolds() {
+        cron.create("broken", "hourly").requirements(List.of("%server_tps% >=")).schedule(record("broken"));
+        assertEquals(1, host.warnings.size());
+        assertTrue(host.warnings.get(0).startsWith("Cron job 'broken': Requirement"), host.warnings.get(0));
+        host.advance("2026-10-15T13:00:00");
+        assertEquals(List.of(), runs);
+        assertEquals(3, skips());
+    }
+
+    @Test
+    void pluginConditionsAllHaveToHold() {
+        boolean[] running = {true};
+        cron.create("event", "hourly").condition(() -> !running[0]).condition(() -> true).schedule(record("event"));
+        host.advance("2026-10-15T11:00:00");
+        running[0] = false;
+        host.advance("2026-10-15T12:00:00");
+        assertEquals(List.of("event@2026-10-15T12:00:00Z"), runs);
+        assertEquals(1, skips());
+    }
+
+    @Test
+    void aConditionThatThrowsSkipsTheRunAndIsReported() {
+        cron.create("odd", "hourly").condition(() -> {
+            throw new IllegalStateException("broken");
+        }).schedule(record("odd"));
+        host.advance("2026-10-15T11:00:00");
+        assertEquals(List.of(), runs);
+        assertEquals(1, host.warnings.size());
+        assertEquals(1, skips());
+        assertTrue(cron.isScheduled("odd"));
+    }
+
+    @Test
+    void aSkippedRunCountsAsDoneForCatchUp() {
+        host.online = 0;
+        host.marks.put("daily", millis("2026-10-14T03:00:00"));
+        cron.create("daily", "0 4 * * *").catchUp(true).minPlayers(1).schedule(record("daily"));
+        host.advance("2026-10-15T10:00:01");
+        assertEquals(List.of(), runs);
+        assertEquals(1, skips());
+        assertTrue(host.marks.get("daily") >= millis("2026-10-15T10:00:00"), "the skipped run is marked as done");
+    }
+
+    @Test
+    void withoutConditionsNothingIsAsked() {
+        host.papi = text -> {
+            throw new AssertionError("not asked");
+        };
+        host.online = -1;
+        cron.schedule("plain", "hourly", record("plain"));
+        host.advance("2026-10-15T11:00:00");
+        assertEquals(List.of("plain@2026-10-15T11:00:00Z"), runs);
+        assertEquals(0, skips());
     }
 }

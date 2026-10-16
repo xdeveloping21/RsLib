@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.logging.Handler;
@@ -14,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
+import com.rs.lib.scheduler.TaskHandle;
 
 /** An action host without a server: records warnings, PlaceholderAPI calls and scheduled work. */
 final class FakeActionHost implements ActionHost {
@@ -23,6 +25,8 @@ final class FakeActionHost implements ActionHost {
     final List<String> papiCalls = new ArrayList<>();
     final List<String> console = new ArrayList<>();
     final Deque<Runnable> queue = new ArrayDeque<>();
+    final List<Later> delayed = new ArrayList<>();
+    final List<Consumer<Player>> quitCallbacks = new ArrayList<>();
     boolean owns = true;
     boolean shuttingDown;
     boolean refuseScheduling;
@@ -80,6 +84,63 @@ final class FakeActionHost implements ActionHost {
             throw new IllegalStateException("plugin disabled");
         }
         queue.add(task);
+    }
+
+    @Override
+    public TaskHandle later(Player player, long ticks, Runnable task) {
+        if (refuseScheduling) {
+            throw new IllegalStateException("plugin disabled");
+        }
+        Later later = new Later(player, ticks, task);
+        delayed.add(later);
+        return later;
+    }
+
+    @Override
+    public void onQuit(Consumer<Player> callback) {
+        quitCallbacks.add(callback);
+    }
+
+    /** The player leaves: the quit callbacks run, as RsLib's listener would. */
+    void quit(Player player) {
+        quitCallbacks.forEach(callback -> callback.accept(player));
+    }
+
+    /** Runs, in order, the delayed tasks that were not cancelled; returns how many ran. */
+    int runDelayed() {
+        int ran = 0;
+        while (!delayed.isEmpty()) {
+            Later later = delayed.remove(0);
+            if (!later.cancelled) {
+                later.task.run();
+                ran++;
+            }
+        }
+        return ran;
+    }
+
+    /** A task scheduled with {@link #later}. */
+    static final class Later implements TaskHandle {
+        final Player player;
+        final long ticks;
+        final Runnable task;
+        boolean cancelled;
+
+        Later(Player player, long ticks, Runnable task) {
+            this.player = player;
+            this.ticks = ticks;
+            this.task = task;
+        }
+
+        @Override
+        public void cancel() {
+            cancelled = true;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled;
+        }
     }
 
     @Override

@@ -15,9 +15,11 @@ import java.util.logging.Level;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Listener;
 
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
+import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
 
 /**
@@ -39,8 +41,15 @@ import com.rs.lib.text.RsText;
  * {@code [broadcastmessage]}, {@code [actionbar]}, {@code [title]}, {@code [sound]},
  * {@code [close]}, {@code [open]}, {@code [connect]}, {@code [next-page]},
  * {@code [previous-page]}, {@code [set-page]}, {@code [refresh-page]}, {@code [refresh-menu]},
- * {@code [particle]}, {@code [potion]} and {@code [remove-item]}. Plugins add their own tags
- * with {@link #register}, which can also replace a built-in one.</p>
+ * {@code [particle]}, {@code [potion]}, {@code [remove-item]}, {@code [firework]} (see
+ * {@code FireworkAction}) and {@code [delay]}. Plugins add their own tags with
+ * {@link #register}, which can also replace a built-in one.</p>
+ *
+ * <p>{@code [delay] <time>} (whole ticks, or a duration such as {@code 1s} or {@code 1m30s})
+ * makes the lines after it in the same list run that much later, on the thread that owns the
+ * player; when the player leaves or the plugin is disabled first, they never run. A time that
+ * cannot be read is reported once and the rest runs at once. A plugin that registers its own
+ * {@code [delay]} replaces this waiting.</p>
  *
  * <p>Lists are parsed once ({@link #compile}); {@link #run(Player, List, ActionContext)} keeps
  * the lists it was given parsed too. On every run only the argument is filled in: local
@@ -65,6 +74,8 @@ public final class ActionEngine {
     private static final int MAX_CACHED = 1024;
     private static final int MAX_WARNED = 4096;
     private static final Ph[] NO_PHS = new Ph[0];
+    /** The owner of the waits of lists run without a player. */
+    private static final Object NO_PLAYER = new Object();
 
     private final ActionHost host;
     private final Map<String, ActionHandler> handlers = new ConcurrentHashMap<>();
@@ -72,6 +83,8 @@ public final class ActionEngine {
     private final Map<List<String>, ActionList> parsed = new ConcurrentHashMap<>();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
     private final Builtins builtins;
+    /** Lists waiting after a {@code [delay]}, by player UUID ({@link #NO_PLAYER} without one). */
+    private final Map<Object, Set<Pending>> waiting = new ConcurrentHashMap<>();
     private volatile MenuOpener menus;
     private volatile boolean shutDown;
 
@@ -83,6 +96,7 @@ public final class ActionEngine {
         this.host = host;
         this.builtins = new Builtins(this, host);
         builtins.install(handlers);
+        host.onQuit(player -> dropWaits(player.getUniqueId()));
     }
 
     /**
@@ -212,43 +226,119 @@ public final class ActionEngine {
     }
 
     private void execute(ActionList list, Player player, ActionContext context) {
+        execute(list, player, context, 0);
+    }
+
+    /** Runs the lines of {@code list} from {@code from}; a {@code [delay]} schedules the rest. */
+    private void execute(ActionList list, Player player, ActionContext context, int from) {
         if (shutDown || (player != null && !player.isOnline())) {
             return;
         }
-        for (Step step : list.steps()) {
+        Step[] steps = list.steps();
+        for (int i = from; i < steps.length; i++) {
+            Step step = steps[i];
+            long wait;
             try {
-                runStep(step, player, context);
+                wait = runStep(step, player, context);
             } catch (RuntimeException | LinkageError failure) {
                 warnOnce("failed:" + step.raw(), Level.WARNING, () -> "Action '" + step.raw() + "'" + step.where()
                         + " failed: " + failure, failure);
+                continue;
+            }
+            if (wait > 0 && i + 1 < steps.length) {
+                later(list, player, context, i + 1, wait);
+                return;
             }
         }
     }
 
-    private void runStep(Step step, Player player, ActionContext context) {
+    /** Runs one line; returns the ticks a {@code [delay]} line asks to wait, otherwise 0. */
+    private long runStep(Step step, Player player, ActionContext context) {
         for (Guard guard : step.guards()) {
             if (!guard.allows(context, host::debug)) {
-                return;
+                return 0L;
             }
         }
         ActionHandler handler = handlers.get(step.tag());
         if (handler == null) {
             warnOnce("tag:" + step.tag(), () -> "Unknown action [" + step.tag() + "] in '" + step.raw() + "'"
                     + step.where() + "; the line is skipped.");
-            return;
+            return 0L;
         }
         boolean text = handler instanceof TextAction;
         String arg = step.constant() ? step.arg() : resolve(player, step.arg(), context.phs(), text);
+        if (handler instanceof DelayAction) {
+            return DelayAction.ticks(arg, message -> warnOnce("delay:" + step.raw(),
+                    () -> message + " (line '" + step.raw() + "'" + step.where() + ")"));
+        }
         if (text) {
             ((TextAction) handler).send(player, arg, step.constant(), context);
         } else {
             handler.run(player, arg, context);
         }
+        return 0L;
+    }
+
+    /**
+     * Runs the lines of {@code list} from {@code from} after {@code ticks}, on the player's
+     * thread. The wait is dropped when the player leaves or the plugin is disabled.
+     */
+    private void later(ActionList list, Player player, ActionContext context, int from, long ticks) {
+        Object owner = player == null ? NO_PLAYER : player.getUniqueId();
+        Pending pending = new Pending();
+        Set<Pending> mine = waiting.computeIfAbsent(owner, key -> ConcurrentHashMap.newKeySet());
+        mine.add(pending);
+        try {
+            pending.task = host.later(player, ticks, () -> {
+                if (forget(owner, pending)) {
+                    execute(list, player, context, from);
+                }
+            });
+        } catch (RuntimeException notScheduled) {
+            forget(owner, pending);
+            host.debug(() -> "Actions " + list.lines() + " after a [delay] were dropped: the plugin is being disabled.");
+            return;
+        }
+        if (pending.cancelled) {
+            // The player left or the engine shut down while the task was being scheduled.
+            pending.task.cancel();
+        }
+        host.debug(() -> "Actions " + list.lines() + " wait " + ticks + " ticks from line " + (from + 1) + ".");
+    }
+
+    /** Takes {@code pending} out of the waits of {@code owner}; false when it was already dropped. */
+    private boolean forget(Object owner, Pending pending) {
+        Set<Pending> mine = waiting.get(owner);
+        boolean was = mine != null && mine.remove(pending);
+        if (mine != null && mine.isEmpty()) {
+            waiting.remove(owner, mine);
+        }
+        return was && !pending.cancelled;
+    }
+
+    /** Drops every wait of {@code owner} (a player who left). */
+    private void dropWaits(Object owner) {
+        Set<Pending> mine = waiting.remove(owner);
+        if (mine != null) {
+            for (Pending pending : mine) {
+                pending.cancel();
+            }
+        }
+    }
+
+    /** How many lists wait after a {@code [delay]} (for tests). */
+    int waitingLists() {
+        int total = 0;
+        for (Set<Pending> each : waiting.values()) {
+            total += each.size();
+        }
+        return total;
     }
 
     /**
      * An argument for one run: local placeholders, then PlaceholderAPI; text actions keep
-     * literal values marked for the renderer, the rest get them as plain characters.
+     * literal values marked for the renderer (which also writes the fallbacks nothing
+     * resolved), the rest get the fallbacks written and literal values as plain characters.
      */
     String resolve(Player player, String raw, Ph[] phs, boolean text) {
         String s = phs == null || phs.length == 0 ? raw : RsText.applyLocals(raw, phs);
@@ -258,7 +348,7 @@ public final class ActionEngine {
                 s = RsText.normalizePapiOutput(s);
             }
         }
-        return text ? s : RsText.unwrapLiterals(s);
+        return text ? s : RsText.unwrapLiterals(RsText.applyFallbacks(s));
     }
 
     // ---------------------------------------------------------------- requirements
@@ -325,9 +415,23 @@ public final class ActionEngine {
 
     // ---------------------------------------------------------------- lifecycle
 
-    /** Stops running actions and releases the BungeeCord channel if {@code [connect]} opened it. */
+    /**
+     * The listener every engine shares: it keeps the rockets of {@code [firework]} from hurting
+     * anyone. RsLib registers it once.
+     */
+    public static Listener sharedListener() {
+        return new FireworkAction.Harmless();
+    }
+
+    /**
+     * Stops running actions, drops the lines waiting after a {@code [delay]} and releases the
+     * BungeeCord channel if {@code [connect]} opened it.
+     */
     public void shutdown() {
         shutDown = true;
+        for (Object owner : List.copyOf(waiting.keySet())) {
+            dropWaits(owner);
+        }
         menus = null;
         parsed.clear();
         builtins.shutdown();
@@ -383,6 +487,21 @@ public final class ActionEngine {
     private static boolean hasPapiToken(String s) {
         int first = s.indexOf('%');
         return first >= 0 && s.indexOf('%', first + 1) >= 0;
+    }
+
+    /** The rest of a list waiting after a {@code [delay]}. */
+    private static final class Pending {
+
+        volatile TaskHandle task;
+        volatile boolean cancelled;
+
+        void cancel() {
+            cancelled = true;
+            TaskHandle current = task;
+            if (current != null) {
+                current.cancel();
+            }
+        }
     }
 
     /**

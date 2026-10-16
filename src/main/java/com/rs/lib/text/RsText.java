@@ -26,6 +26,8 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  *
  * <p>The full render ({@link #color}) always runs in this order:</p>
  * <ol>
+ *   <li>Placeholders with a fallback that nothing resolved ({@code %name|text%},
+ *       <code>{name|text}</code>) are replaced by their fallback, see {@link #applyFallbacks}.</li>
  *   <li>Section signs: {@code §X} and {@code §x§R§R§G§G§B§B} become {@code &X} and
  *       {@code &#RRGGBB} (MiniMessage rejects a raw section code).</li>
  *   <li>Leading tags {@code [center] [rgb] [small] [noprefix]} (any order and case) are taken
@@ -74,7 +76,7 @@ public final class RsText {
         if (s == null || s.isEmpty()) {
             return Component.empty();
         }
-        return RenderCache.get(s, RsText::render);
+        return RenderCache.get(s, line -> render(Fallbacks.sweep(line)));
     }
 
     /**
@@ -85,7 +87,7 @@ public final class RsText {
         if (s == null || s.isEmpty()) {
             return Component.empty();
         }
-        return render(s);
+        return render(Fallbacks.sweep(s));
     }
 
     /** MiniMessage only: no RsLib tags and no legacy conversion. */
@@ -153,15 +155,16 @@ public final class RsText {
     }
 
     /**
-     * Only the legacy phase: RsLib tags applied, {@code &} codes to section signs and hex to
-     * the lower-case BungeeCord form. MiniMessage tags are left as written; literal markers
-     * are turned back into their characters.
+     * Only the legacy phase: fallbacks nothing resolved replaced, RsLib tags applied, {@code &}
+     * codes to section signs and hex to the lower-case BungeeCord form. MiniMessage tags are
+     * left as written; literal markers are turned back into their characters.
      */
     public static String colorLegacy(String s) {
         if (s == null || s.isEmpty()) {
             return "";
         }
-        return unwrapLiterals(LegacyConverter.toSectionCodes(prefixPhase(LegacyConverter.normalizeSections(s))));
+        return unwrapLiterals(LegacyConverter.toSectionCodes(prefixPhase(
+                LegacyConverter.normalizeSections(Fallbacks.sweep(s)))));
     }
 
     /** {@link #color} for each line; a null or empty list gives an empty mutable list. */
@@ -233,8 +236,11 @@ public final class RsText {
     /**
      * Replaces local placeholders {@code %key%} and {@code {key}} in one pass. The last pair
      * with a key wins; literal pairs are encoded with {@link #literal}. Unresolved tokens stay
-     * intact and values are not scanned again. {@code :raw}, {@code :short} and
-     * {@code :grouped} reformat a numeric value when the whole token does not resolve.
+     * intact and values are not scanned again. {@code :raw}, {@code :short}, {@code :grouped},
+     * {@code :money} and {@code :date} reformat a numeric value when the whole token does not
+     * resolve. {@code {key|text}} gives {@code text} when the value of {@code key} is empty
+     * (formats first: {@code {amount:short|-}}); a key without value leaves the token for the
+     * next stage, see {@link #applyFallbacks}.
      */
     public static String applyLocals(String s, Ph... phs) {
         if (s == null || phs == null || phs.length == 0) {
@@ -246,6 +252,29 @@ public final class RsText {
     /** Same as {@link #applyLocals(String, Ph...)} with a resolver; null means "leave the token". */
     public static String applyLocals(String s, Function<String, String> resolver) {
         return Locals.apply(s, resolver);
+    }
+
+    /**
+     * Replaces each placeholder with a fallback ({@code %name|text%}, <code>{name|text}</code>)
+     * that is still in {@code s} by its fallback {@code text}: nothing resolved it, so its value
+     * is missing. A fallback token's key (everything before the first {@code |}, formats such as
+     * {@code :short} included) is not empty and has no spaces; any other {@code |} is plain text.
+     * The full render does this itself; this is for text used as it is, such as a command.
+     * Null in, null out; text without fallback tokens comes back as the same instance.
+     */
+    public static String applyFallbacks(String s) {
+        return Fallbacks.sweep(s);
+    }
+
+    /**
+     * Resolves the {@code %key|text%} tokens of {@code s} with {@code value}, which gets the key
+     * and answers null or empty when it has no value (the fallback {@code text} is then used);
+     * the text between those tokens goes through {@code between} (null leaves it). Returns null
+     * when {@code s} holds no such token. For PlaceholderAPI-like stages that only know
+     * {@code %} tokens.
+     */
+    public static String resolveFallbacks(String s, UnaryOperator<String> between, Function<String, String> value) {
+        return s == null || value == null ? null : Fallbacks.resolve(s, false, between, value);
     }
 
     /** Small caps over the whole text, codes and tags untouched. */

@@ -37,3 +37,11 @@ rslib:
     footer: "[noprefix]&7Page &f{page}&7 of &f{total}&7. Next pages: &f{command} <page>"
     group-header: "&6&l{group} &8» &7{description}"
     group-footer: "[noprefix]&7Page &f{page}&7 of &f{total}&7. Next pages: &f{path} help <page>"
+  format:
+    relative-past: "{time} ago"
+    relative-future: "in {time}"
+    relative-now: "now"
+    days: "{amount}d"
+    hours: "{amount}h"
+    minutes: "{amount}m"
+    seconds: "{amount}s"

@@ -12,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
+import com.rs.lib.action.ActionEngine;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.db.PlayerDataCache;
 import com.rs.lib.event.internal.ArmourEquipListener;
@@ -50,6 +51,7 @@ public final class ListenerHub {
         pm.registerEvents(ArmourEquipListener.shared(), rslib);
         pm.registerEvents(ChunkMoveListener.shared(), rslib);
         pm.registerEvents(SelectionManager.wandListener(), rslib);
+        pm.registerEvents(ActionEngine.sharedListener(), rslib);
     }
 
     private static final class Shared implements Listener {

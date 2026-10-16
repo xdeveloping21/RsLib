@@ -45,6 +45,34 @@ class RsPapiTest {
     }
 
     @Test
+    void aFallbackIsUsedWhenPlaceholderApiHasNoValue() {
+        host.resolver = text -> text.replace("%server_name%", "Lobby").replace("%clan_name%", "Lions")
+                .replace("%clan_tag%", "");
+        assertEquals("Lobby Lions", papi.apply(null, "%server_name% %clan_name|Sin clan%"));
+        assertEquals("Lobby [-] none", papi.apply(null, "%server_name% [%clan_tag|-%] %unknown_x|none%"));
+        // Each fallback token is asked alone; text between tokens goes as one piece, when it holds a '%'.
+        assertEquals(List.of("%server_name% ", "%clan_name%", "%server_name% [", "%clan_tag%", "%unknown_x%"),
+                host.resolved);
+    }
+
+    @Test
+    void barsOutsideAFallbackTokenAreLeftToPlaceholderApi() {
+        host.resolver = text -> text.replace("%server_name%", "Lobby");
+        assertEquals("50% | Lobby", papi.apply(null, "50% | %server_name%"));
+        assertEquals(List.of("50% | %server_name%"), host.resolved);
+    }
+
+    @Test
+    void withoutPlaceholderApiAFallbackTokenIsLeftForTheRender() {
+        host.enabled = false;
+        String text = "%clan_name|Sin clan%";
+        assertSame(text, papi.apply(null, text));
+        host.enabled = true;
+        host.primary = false;
+        assertSame(text, papi.apply(null, text));
+    }
+
+    @Test
     void textWithoutPercentIsNotTouched() {
         String text = "plain";
         assertSame(text, papi.apply(null, text));

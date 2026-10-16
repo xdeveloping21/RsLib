@@ -1,5 +1,6 @@
 package com.rs.lib.action;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -9,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.compat.RsVersion;
+import com.rs.lib.scheduler.TaskHandle;
 
 /**
  * What {@link ActionEngine} needs from the server and the plugin's context. Lets the engine's
@@ -29,6 +31,15 @@ interface ActionHost {
 
     /** Runs {@code task} on the thread that owns {@code player}; throws when it cannot be scheduled. */
     void runFor(Player player, Runnable task);
+
+    /**
+     * Runs {@code task} on the thread that owns {@code player} (null: the main thread) after
+     * {@code ticks} (at least one); throws when it cannot be scheduled.
+     */
+    TaskHandle later(Player player, long ticks, Runnable task);
+
+    /** Runs {@code callback} when a player leaves the server. */
+    void onQuit(Consumer<Player> callback);
 
     /** Runs {@code command} as the console, on the thread the server wants it on. */
     void console(String command);
@@ -70,6 +81,16 @@ interface ActionHost {
             } else {
                 rs.scheduler().entity(player, task);
             }
+        }
+
+        @Override
+        public TaskHandle later(Player player, long ticks, Runnable task) {
+            return player == null ? rs.scheduler().syncLater(ticks, task) : rs.scheduler().entityLater(player, ticks, task);
+        }
+
+        @Override
+        public void onQuit(Consumer<Player> callback) {
+            rs.onQuit(callback);
         }
 
         @Override

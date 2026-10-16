@@ -14,6 +14,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -29,6 +30,7 @@ import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
+import com.rs.lib.util.Formats;
 import com.rs.lib.util.PlayerNames;
 import com.rs.lib.yml.RsYml;
 import com.rs.lib.yml.YamlUpdater;
@@ -40,6 +42,9 @@ import com.rs.lib.yml.YamlUpdater;
  * {@link #libDebug()}.
  */
 public final class RsLibPlugin extends JavaPlugin {
+
+    /** RsLib's file of money and date formats. */
+    public static final String FORMATS_FILE = "formats.yml";
 
     private static volatile RsLibPlugin instance;
 
@@ -93,6 +98,7 @@ public final class RsLibPlugin extends JavaPlugin {
         } catch (RuntimeException e) {
             getLogger().log(Level.WARNING, "RsLib's config.yml could not be loaded; debug output stays off", e);
         }
+        loadFormats();
         getLogger().info("Server " + RsVersion.describe() + (RsVersion.isFolia() ? " (Folia)" : ""));
         ListenerHub.registerAll(this);
         ItemRegistry.startShared(this);
@@ -116,6 +122,30 @@ public final class RsLibPlugin extends JavaPlugin {
             own.armUpdates();
         }
         getLogger().info("RsLib " + getPluginMeta().getVersion() + " enabled (API level " + RsApi.LEVEL + ").");
+    }
+
+    /**
+     * {@code formats.yml}: money and date formats of every plugin ({@link Formats}), applied
+     * again on each reload. Without it the defaults apply.
+     */
+    private void loadFormats() {
+        if (own == null) {
+            return;
+        }
+        try {
+            RsYml formats = own.yml().managed(FORMATS_FILE);
+            Runnable apply = () -> {
+                ConfigurationSection root = formats.getSection("");
+                Formats.apply(Formats.Settings.read(root == null ? null : path -> {
+                    Object value = root.get(path);
+                    return value instanceof ConfigurationSection section ? section.getValues(false) : value;
+                }, message -> getLogger().warning(FORMATS_FILE + " -> " + message)));
+            };
+            apply.run();
+            formats.onReload(apply);
+        } catch (RuntimeException e) {
+            getLogger().log(Level.WARNING, FORMATS_FILE + " could not be loaded; the default formats apply", e);
+        }
     }
 
     /** {@code update-configs} (true by default): whether every plugin's YAML files get the keys they lack. */
@@ -143,6 +173,7 @@ public final class RsLibPlugin extends JavaPlugin {
             own = null;
         }
         RsText.clearCache();
+        Formats.apply(Formats.Settings.DEFAULTS);
         YamlUpdater.setMergeEnabled(true, null);
         instance = null;
     }
@@ -261,7 +292,7 @@ public final class RsLibPlugin extends JavaPlugin {
                     return;
                 }
                 own.reloadAll();
-                sender.sendMessage("RsLib configuration reloaded (debug + update-configs + auto-update).");
+                sender.sendMessage("RsLib configuration reloaded (debug + update-configs + auto-update + formats).");
                 sender.sendMessage("A reload never reloads classes: updating the RsLib jar requires a server restart.");
                 return;
             }
