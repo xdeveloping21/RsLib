@@ -81,6 +81,20 @@ class YamlUpdaterSwitchTest {
     }
 
     @Test
+    void forcedLinesMergeEvenWhenOff() throws IOException {
+        Path file = dir.resolve("lang/messages_en.yml");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "a: mine\n");
+        YamlUpdater.setMergeEnabled(false, dir.resolve("RsLib/config.yml").toFile());
+        assertFalse(YamlUpdater.updateFromLines(log.logger, List.of("rslib:", "  b: shared"), file.toFile()));
+        assertEquals("a: mine\n", Files.readString(file));
+        assertTrue(YamlUpdater.updateFromLines(log.logger, List.of("rslib:", "  b: shared"), file.toFile(), true));
+        assertEquals("a: mine\nrslib:\n  b: shared\n", Files.readString(file));
+        assertFalse(YamlUpdater.updateFromLines(log.logger, List.of("rslib:", "  b: other"), file.toFile(), true));
+        assertTrue(Files.readString(file).contains("b: shared"));
+    }
+
+    @Test
     void missingKeysCountsNestedOnes() {
         assertEquals(0, YamlUpdater.missingKeys(List.of("a: 1"), List.of("a: 3")));
         assertEquals(3, YamlUpdater.missingKeys(List.of("a: 1", "b:", "  c: 1", "  d: 2"), List.of("a: 1")));

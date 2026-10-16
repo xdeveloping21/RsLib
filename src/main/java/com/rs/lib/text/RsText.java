@@ -109,9 +109,12 @@ public final class RsText {
         return finish(parse(COSMETIC, prepared), Markup.hasMarker(prepared));
     }
 
-    /** The visible text of the full render, without any style. */
+    /** The visible text of the full render, without any style. Null in, null out. */
     public static String plain(String s) {
-        if (s == null || s.isEmpty()) {
+        if (s == null) {
+            return null;
+        }
+        if (s.isEmpty()) {
             return "";
         }
         return PLAIN.serialize(color(s));
@@ -125,8 +128,11 @@ public final class RsText {
         return PLAIN.serialize(render(s));
     }
 
-    /** Number of code points of {@link #plain}. */
+    /** Number of code points of {@link #plain}; null and empty count as zero. */
     public static int visibleLength(String s) {
+        if (s == null || s.isEmpty()) {
+            return 0;
+        }
         String p = plain(s);
         return p.codePointCount(0, p.length());
     }
@@ -134,10 +140,13 @@ public final class RsText {
     /**
      * The full render as a legacy string with section signs and BungeeCord hex
      * ({@code §x§r§r§g§g§b§b}); a gradient becomes one hex per glyph. For APIs that need a
-     * String, such as PlaceholderAPI.
+     * String, such as PlaceholderAPI. Null in, null out.
      */
     public static String section(String s) {
-        if (s == null || s.isEmpty()) {
+        if (s == null) {
+            return null;
+        }
+        if (s.isEmpty()) {
             return "";
         }
         return SECTION.serialize(color(s));

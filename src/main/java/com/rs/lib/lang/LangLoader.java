@@ -7,8 +7,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -101,6 +103,7 @@ final class LangLoader {
             overlay(source.getKey(), source.getValue(), layers);
         }
         warnPrefixToken(layers.active);
+        warnLostTags(log, plugin::getResource, language, layers.active, layers.fallback);
         return new Catalog(language, prefix == null ? "" : prefix, Map.copyOf(layers.active),
                 Map.copyOf(layers.fallback));
     }
@@ -124,7 +127,7 @@ final class LangLoader {
         }
         List<String> shared = sharedLines("en", log);
         if (shared != null) {
-            mergeLines(log, shared, english);
+            mergeLines(log, shared, english, true);
         }
     }
 
@@ -144,7 +147,7 @@ final class LangLoader {
         }
         List<String> shared = sharedLines(code, log);
         if (shared != null) {
-            mergeLines(log, shared, translated);
+            mergeLines(log, shared, translated, true);
         }
         try {
             if (english.exists() && mergeLines(log, YamlText.lines(YamlText.read(english.toPath())), translated)) {
@@ -161,12 +164,17 @@ final class LangLoader {
         return yaml;
     }
 
+    private static boolean mergeLines(Logger log, List<String> reference, File file) {
+        return mergeLines(log, reference, file, false);
+    }
+
     /**
      * Adds missing keys from {@code reference} to {@code file}. A file that is not valid YAML is
      * left untouched (with a warning): it holds the owner's texts and there is no jar copy of
-     * it to rebuild from.
+     * it to rebuild from. {@code force} (the shared {@code rslib.*} lines) merges even with
+     * {@code update-configs: false}, since commands and other modules depend on those keys.
      */
-    private static boolean mergeLines(Logger log, List<String> reference, File file) {
+    private static boolean mergeLines(Logger log, List<String> reference, File file, boolean force) {
         if (file.isFile()) {
             try {
                 String text = YamlPreprocessor.preprocess(YamlPreprocessor.read(file.toPath())).cleanText();
@@ -180,7 +188,7 @@ final class LangLoader {
                 return false;
             }
         }
-        return YamlUpdater.updateFromLines(log, reference, file);
+        return YamlUpdater.updateFromLines(log, reference, file, force);
     }
 
     /** True (with a warning per file) when a message file this load would read is not valid YAML. */
@@ -374,6 +382,73 @@ final class LangLoader {
         if (count > 0) {
             log.warning(count + " message(s) contain '{prefix}'. The prefix is added on its own, so that text"
                     + " is shown as written; remove it from those messages.");
+        }
+    }
+
+    /**
+     * One warning naming every message whose jar default has a {@code <click>} or {@code <hover>}
+     * that the live value lost: the button still looks the same but does nothing. The reference
+     * is the jar copy of the active language, or the English one when the jar has none.
+     */
+    static void warnLostTags(Logger log, Function<String, InputStream> resources, String language,
+            Map<String, Entry> active, Map<String, Entry> fallback) {
+        YamlConfiguration reference = jarMessages(resources, "lang/messages_" + language + ".yml");
+        if (reference == null && !language.equals("en")) {
+            reference = jarMessages(resources, "lang/messages_en.yml");
+        }
+        if (reference == null) {
+            return;
+        }
+        List<String> lost = new ArrayList<>();
+        for (String key : reference.getKeys(true)) {
+            Object value = reference.get(key);
+            if (value instanceof ConfigurationSection || value == null) {
+                continue;
+            }
+            Entry live = active.get(key);
+            if (live == null) {
+                live = fallback.get(key);
+            }
+            if (live == null) {
+                continue;
+            }
+            String def = value instanceof List<?> list ? joined(list) : String.valueOf(value);
+            StringBuilder now = new StringBuilder();
+            for (Line line : live.lines()) {
+                now.append(line.raw).append('\n');
+            }
+            if (lostTag(def, now.toString(), "<click:") || lostTag(def, now.toString(), "<hover:")) {
+                lost.add(key);
+            }
+        }
+        if (!lost.isEmpty()) {
+            log.warning("Messages that lost a <click> or <hover> their default has: " + String.join(", ", lost));
+        }
+    }
+
+    private static boolean lostTag(String reference, String live, String tag) {
+        return reference.toLowerCase(Locale.ROOT).contains(tag) && !live.toLowerCase(Locale.ROOT).contains(tag);
+    }
+
+    private static String joined(List<?> list) {
+        StringBuilder out = new StringBuilder();
+        for (Object item : list) {
+            out.append(item).append('\n');
+        }
+        return out.toString();
+    }
+
+    /** The jar copy of a message file; null when the jar lacks it or it does not parse. */
+    private static YamlConfiguration jarMessages(Function<String, InputStream> resources, String path) {
+        try (InputStream in = resources.apply(path)) {
+            if (in == null) {
+                return null;
+            }
+            YamlConfiguration yaml = new YamlConfiguration();
+            yaml.loadFromString(YamlPreprocessor.preprocess(YamlText.read(in)).cleanText());
+            return yaml;
+        } catch (IOException | InvalidConfigurationException | RuntimeException e) {
+            return null;
         }
     }
 

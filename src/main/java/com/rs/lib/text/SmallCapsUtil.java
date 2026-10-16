@@ -4,11 +4,10 @@ package com.rs.lib.text;
  * Small caps: maps {@code a-z} and {@code A-Z} one to one to Unicode small capital glyphs.
  *
  * <p>{@code x} has no small glyph and stays {@code x}; {@code q} uses U+01EB. Accented vowels
- * (and {@code ü}) lose the accent and become the small vowel; {@code Ñ} becomes a plain
- * lower-case {@code ñ}, because the small glyph looks wrong in the game font. Legacy codes
- * ({@code &} and {@code §}, including the 14 character hex sequence), complete MiniMessage
- * tags (so text inside {@code hover:show_text:'...'} is left alone) and RsLib bracket tags
- * are copied unchanged. The output has the same length as the input.</p>
+ * (and {@code ü}) lose the accent and become the small vowel; {@code Ñ} and {@code ñ} keep
+ * their own glyph. Legacy codes ({@code &} and {@code §}, including the 14 character hex
+ * sequence), complete MiniMessage tags (so text inside {@code hover:show_text:'...'} is left
+ * alone) and RsLib bracket tags are copied unchanged. The output has the same length as the input.</p>
  */
 public final class SmallCapsUtil {
 
@@ -29,9 +28,6 @@ public final class SmallCapsUtil {
         }
         if (c >= 'A' && c <= 'Z') {
             return SMALL.charAt(c - 'A');
-        }
-        if (c == 'Ñ') {
-            return 'ñ';
         }
         int accented = ACCENTED.indexOf(c);
         if (accented >= 0) {

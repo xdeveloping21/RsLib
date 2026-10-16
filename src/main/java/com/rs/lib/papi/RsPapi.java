@@ -40,6 +40,8 @@ public final class RsPapi {
     /** Completes the futures of {@link #applyOnMain} whose task may never run. */
     private final Set<Runnable> waiting = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean retryQueued = new AtomicBoolean();
+    /** Expansions already told that they wait for PlaceholderAPI, so each says it once. */
+    private final Set<String> toldWaiting = ConcurrentHashMap.newKeySet();
     private volatile boolean broken;
 
     public RsPapi(JavaPlugin plugin) {
@@ -196,6 +198,10 @@ public final class RsPapi {
 
     private boolean tryRegister(Registered entry) {
         if (!available()) {
+            if (!host.papiEnabled() && toldWaiting.add(entry.holder.key())) {
+                host.logger().info("PlaceholderAPI not installed; '" + entry.holder.identifier()
+                        + "' will be registered when it is enabled.");
+            }
             return false;
         }
         try {

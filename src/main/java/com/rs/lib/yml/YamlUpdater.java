@@ -287,7 +287,16 @@ public final class YamlUpdater {
 
     /** Same as {@link #updateFromLines(JavaPlugin, List, File)} with an explicit logger. */
     public static boolean updateFromLines(Logger logger, List<String> referenceLines, File diskFile) {
-        return updateLines(logger, referenceLines, diskFile, false, false, false) == Outcome.WRITTEN;
+        return updateFromLines(logger, referenceLines, diskFile, false);
+    }
+
+    /**
+     * Same as {@link #updateFromLines(Logger, List, File)}; with {@code force} the file is merged
+     * even when {@code update-configs} is false. Meant for RsLib's shared lang keys, which other
+     * modules depend on.
+     */
+    public static boolean updateFromLines(Logger logger, List<String> referenceLines, File diskFile, boolean force) {
+        return updateLines(logger, referenceLines, diskFile, false, false, false, force) == Outcome.WRITTEN;
     }
 
     /** Reads a resource; null (with a warning) when the jar lacks it. */
@@ -340,6 +349,12 @@ public final class YamlUpdater {
 
     static Outcome updateLines(Logger logger, List<String> referenceLines, File diskFile,
                                boolean prune, boolean dropObsolete, boolean keepInvalid) {
+        return updateLines(logger, referenceLines, diskFile, prune, dropObsolete, keepInvalid, false);
+    }
+
+    /** {@code force} merges past the {@code update-configs} switch. */
+    private static Outcome updateLines(Logger logger, List<String> referenceLines, File diskFile,
+                                       boolean prune, boolean dropObsolete, boolean keepInvalid, boolean force) {
         Path path = diskFile.toPath();
         String name = diskFile.getName();
         try {
@@ -353,7 +368,7 @@ public final class YamlUpdater {
             if (error != null) {
                 return invalidFile(logger, referenceLines, path, error, keepInvalid);
             }
-            if (!mayMerge(path)) {
+            if (!force && !mayMerge(path)) {
                 int missing = missingKeys(referenceLines, YamlText.lines(repaired.cleanText()));
                 if (missing > 0) {
                     logger.warning(PREFIX + name + " lacks " + missing + " key" + (missing == 1 ? "" : "s")
