@@ -1,4 +1,4 @@
-package com.rs.lib.audit;
+package com.rs.lib.audit.internal;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -18,6 +18,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
+import com.rs.lib.audit.AuditEntry;
+import com.rs.lib.audit.AuditItems;
+import com.rs.lib.audit.AuditLog;
+import com.rs.lib.audit.AuditPage;
+import com.rs.lib.audit.AuditQuery;
 import com.rs.lib.internal.LibMessages;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.util.PlayerNames;

@@ -21,7 +21,7 @@ import com.rs.lib.action.Requirement;
 import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.item.ItemAppearance;
 import com.rs.lib.scheduler.TaskHandle;
-import com.rs.lib.text.SharedPlaceholders;
+import com.rs.lib.text.internal.SharedPlaceholders;
 
 import net.kyori.adventure.text.Component;
 

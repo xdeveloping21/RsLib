@@ -14,7 +14,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import com.rs.lib.update.Versions;
 
 /**
  * The two calls the update system makes to rsdevelopment.dev, over an {@link HttpTransport}.

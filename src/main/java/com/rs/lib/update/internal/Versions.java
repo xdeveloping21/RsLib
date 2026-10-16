@@ -1,4 +1,4 @@
-package com.rs.lib.update;
+package com.rs.lib.update.internal;
 
 import java.util.regex.Pattern;
 

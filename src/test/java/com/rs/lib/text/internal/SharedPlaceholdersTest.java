@@ -1,4 +1,4 @@
-package com.rs.lib.text;
+package com.rs.lib.text.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

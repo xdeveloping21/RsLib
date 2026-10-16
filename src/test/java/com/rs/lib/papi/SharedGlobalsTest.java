@@ -10,8 +10,8 @@ import org.bukkit.OfflinePlayer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import com.rs.lib.text.SharedPlaceholders;
-import com.rs.lib.text.SharedTicks;
+import com.rs.lib.text.internal.SharedPlaceholders;
+import com.rs.lib.text.internal.SharedTicks;
 
 /** While menus share values, a global placeholder answers every viewer from one computation per tick. */
 class SharedGlobalsTest {

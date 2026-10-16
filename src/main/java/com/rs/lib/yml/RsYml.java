@@ -34,7 +34,7 @@ import org.yaml.snakeyaml.nodes.Tag;
 import com.rs.lib.Ph;
 import com.rs.lib.text.RsText;
 import com.rs.lib.util.Formats;
-import com.rs.lib.text.SharedPlaceholders;
+import com.rs.lib.text.internal.SharedPlaceholders;
 import com.rs.lib.yml.internal.YamlText;
 
 /**

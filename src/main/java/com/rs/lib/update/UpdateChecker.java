@@ -20,6 +20,7 @@ import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.ReleaseCache;
 import com.rs.lib.update.internal.SiteClient;
 import com.rs.lib.update.internal.UpdateHub;
+import com.rs.lib.update.internal.Versions;
 
 /**
  * Tells the server owner when rsdevelopment.dev offers a newer version of the plugin, reached

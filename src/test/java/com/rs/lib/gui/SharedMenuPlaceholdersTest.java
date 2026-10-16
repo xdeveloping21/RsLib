@@ -16,7 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.rs.lib.gui.GuiKit.TestPlayer;
 import com.rs.lib.item.ItemAppearance;
-import com.rs.lib.text.SharedTicks;
+import com.rs.lib.text.internal.SharedTicks;
 import com.rs.lib.yml.RsYml;
 import com.rs.lib.yml.YmlTestSupport;
 

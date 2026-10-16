@@ -22,7 +22,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.account.Accounts;
-import com.rs.lib.audit.AuditCommand;
+import com.rs.lib.audit.internal.AuditCommand;
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;

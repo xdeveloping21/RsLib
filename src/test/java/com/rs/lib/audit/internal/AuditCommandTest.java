@@ -1,4 +1,4 @@
-package com.rs.lib.audit;
+package com.rs.lib.audit.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -10,6 +10,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.rs.lib.audit.AuditEntry;
+import com.rs.lib.audit.AuditPage;
 import com.rs.lib.internal.LibMessages;
 
 import net.kyori.adventure.text.Component;

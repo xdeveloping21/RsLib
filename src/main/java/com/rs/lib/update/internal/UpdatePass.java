@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import com.rs.lib.update.Versions;
 
 /**
  * One self-update pass of RsLib, without Bukkit: ask rsdevelopment.dev for the current RsLib

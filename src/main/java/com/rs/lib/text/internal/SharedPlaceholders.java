@@ -1,4 +1,4 @@
-package com.rs.lib.text;
+package com.rs.lib.text.internal;
 
 import java.util.HashMap;
 import java.util.Map;

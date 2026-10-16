@@ -7,7 +7,7 @@ import java.util.logging.Logger;
 
 import org.bukkit.OfflinePlayer;
 
-import com.rs.lib.text.SharedPlaceholders;
+import com.rs.lib.text.internal.SharedPlaceholders;
 
 /**
  * One expansion as {@link ExpansionBuilder#register()} left it: identifier, author, version and
