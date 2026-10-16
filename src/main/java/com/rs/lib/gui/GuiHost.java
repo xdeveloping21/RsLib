@@ -17,9 +17,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
 import com.rs.lib.action.ActionEngine;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.item.ItemAppearance;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
+import com.rs.lib.util.Formats;
 import com.rs.lib.util.SoundUtil;
 
 import net.kyori.adventure.text.Component;
@@ -83,12 +85,20 @@ interface GuiHost {
     /** A copy of {@code proto} carrying the menu stamp {@code "<guiId>:<slot>"}. */
     ItemStack stamp(ItemStack proto, String guiId, int slot);
 
+    /**
+     * The words of {@code {key:relative}} in the plugin's language; null (or a supplier giving
+     * null) for RsLib's own language.
+     */
+    default Supplier<Formats.RelativeTexts> relativeTexts() {
+        return null;
+    }
+
     static GuiHost of(Rs rs) {
-        return new Server(rs, new NamespacedKey(rs.plugin(), GuiManager.ITEM_TAG));
+        return new Server(rs, new NamespacedKey(rs.plugin(), GuiManager.ITEM_TAG), PluginLanguage.of(rs));
     }
 
     /** The real server. */
-    record Server(Rs rs, NamespacedKey stampKey) implements GuiHost {
+    record Server(Rs rs, NamespacedKey stampKey, Supplier<Formats.RelativeTexts> relativeTexts) implements GuiHost {
 
         @Override
         public Logger logger() {

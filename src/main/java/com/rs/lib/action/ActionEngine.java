@@ -19,6 +19,7 @@ import org.bukkit.event.Listener;
 
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
 
@@ -341,7 +342,9 @@ public final class ActionEngine {
      * resolved), the rest get the fallbacks written and literal values as plain characters.
      */
     String resolve(Player player, String raw, Ph[] phs, boolean text) {
-        String s = phs == null || phs.length == 0 ? raw : RsText.applyLocals(raw, phs);
+        // {key:relative} is written in the plugin's language.
+        String s = phs == null || phs.length == 0 ? raw
+                : PluginLanguage.call(host.relativeTexts(), () -> RsText.applyLocals(raw, phs));
         if (hasPapiToken(s)) {
             s = host.papi(player, s);
             if (text) {

@@ -16,6 +16,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.scheduler.TaskHandle;
+import com.rs.lib.util.Formats;
 
 /** An action host without a server: records warnings, PlaceholderAPI calls and scheduled work. */
 final class FakeActionHost implements ActionHost {
@@ -31,6 +32,8 @@ final class FakeActionHost implements ActionHost {
     boolean shuttingDown;
     boolean refuseScheduling;
     UnaryOperator<String> papi = UnaryOperator.identity();
+    /** The plugin's words for {@code {key:relative}}; null is "no plugin language". */
+    Supplier<Formats.RelativeTexts> relative;
     private final Logger logger = Logger.getAnonymousLogger();
 
     FakeActionHost() {
@@ -49,6 +52,11 @@ final class FakeActionHost implements ActionHost {
             public void close() {
             }
         });
+    }
+
+    @Override
+    public Supplier<Formats.RelativeTexts> relativeTexts() {
+        return relative;
     }
 
     /** Runs everything scheduled so far, as the next tick would. */

@@ -36,8 +36,10 @@ import com.rs.lib.Rs;
 import com.rs.lib.action.ActionEngine;
 import com.rs.lib.action.TestEngines;
 import com.rs.lib.item.ItemAppearance;
+import com.rs.lib.item.ItemTexts;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.scheduler.TaskHandle;
+import com.rs.lib.util.Formats;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -78,6 +80,11 @@ final class GuiKit {
     boolean shuttingDown;
     /** How the menus parsed from now on resolve placeholders; null is "locals only". */
     ItemAppearance.TextResolver resolver;
+    /** The plugin's words for {@code {key:relative}}; null is "no plugin language". */
+    Supplier<Formats.RelativeTexts> relative;
+    /** When true, every build also renders the look's lore lines (as plain text) into {@link #lore}. */
+    boolean renderLore;
+    final List<String> lore = new ArrayList<>();
     /** When set, the next window does not open (another plugin cancelled the open event). */
     boolean refuseNextOpen;
 
@@ -394,6 +401,11 @@ final class GuiKit {
     final class Host implements GuiHost {
 
         @Override
+        public Supplier<Formats.RelativeTexts> relativeTexts() {
+            return relative;
+        }
+
+        @Override
         public Logger logger() {
             return logger;
         }
@@ -505,6 +517,9 @@ final class GuiKit {
         public ItemStack build(ItemAppearance look, Player viewer, Ph[] phs, ItemStack overlay,
                                Consumer<String> skinRefresh) {
             builds++;
+            if (renderLore && look.declaresLore()) {
+                lore.addAll(ItemTexts.lore(look, viewer, ItemAppearance.locals(phs)));
+            }
             if (skinRefresh != null) {
                 skinRefreshes.add(skinRefresh);
             }

@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,10 +23,12 @@ import com.rs.lib.Rs;
 import com.rs.lib.action.ActionContext;
 import com.rs.lib.action.Requirement;
 import com.rs.lib.compat.RsVersion;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.item.ItemAppearance;
 import com.rs.lib.item.ItemSerializer;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.text.RsText;
+import com.rs.lib.util.Formats;
 
 /** What {@link Rewards} needs from the server and the plugin; lets its logic run in tests. */
 interface RewardsHost {
@@ -80,11 +83,11 @@ interface RewardsHost {
     void send(Player player, String key, Ph... phs);
 
     static RewardsHost of(Rs rs) {
-        return new Server(rs);
+        return new Server(rs, PluginLanguage.of(rs));
     }
 
     /** The real server. */
-    record Server(Rs rs) implements RewardsHost {
+    record Server(Rs rs, Supplier<Formats.RelativeTexts> relativeTexts) implements RewardsHost {
 
         @Override
         public Logger logger() {
@@ -123,7 +126,9 @@ interface RewardsHost {
 
         @Override
         public String resolve(Player player, String raw, Ph[] phs, boolean text) {
-            String s = phs == null || phs.length == 0 ? raw : RsText.applyLocals(raw, phs);
+            // {key:relative} is written in the plugin's language.
+            String s = phs == null || phs.length == 0 ? raw
+                    : PluginLanguage.call(relativeTexts, () -> RsText.applyLocals(raw, phs));
             if (s.indexOf('%') >= 0) {
                 s = rs.papi().apply(player, s);
                 if (text) {
@@ -135,7 +140,7 @@ interface RewardsHost {
 
         @Override
         public ItemStack render(ItemAppearance appearance, Player player, Ph[] phs) {
-            return appearance.render(player, phs);
+            return PluginLanguage.call(relativeTexts, () -> appearance.render(player, phs));
         }
 
         @Override

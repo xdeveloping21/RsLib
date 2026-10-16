@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -46,9 +47,11 @@ import org.bukkit.potion.PotionEffectType;
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
 import com.rs.lib.action.Requirement;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
+import com.rs.lib.util.Formats;
 import com.rs.lib.util.InvUtil;
 import com.rs.lib.yml.RsYml;
 
@@ -101,6 +104,8 @@ public final class ItemRegistry {
     }
 
     private final Rs rs;
+    /** The words of {@code {key:relative}} in this plugin's language. */
+    private final Supplier<Formats.RelativeTexts> relativeTexts;
     private final JavaPlugin plugin;
     private final String namespace;
     private final Logger logger;
@@ -125,6 +130,7 @@ public final class ItemRegistry {
     /** Created by the context. */
     public ItemRegistry(Rs ctx) {
         this.rs = Objects.requireNonNull(ctx, "ctx");
+        this.relativeTexts = PluginLanguage.of(ctx);
         this.plugin = ctx.plugin();
         this.namespace = plugin.getName().toLowerCase(Locale.ROOT);
         this.logger = plugin.getLogger();
@@ -482,7 +488,7 @@ public final class ItemRegistry {
         if (def == null) {
             return null;
         }
-        ItemStack stack = def.render(viewer, ItemAppearance.locals(phs));
+        ItemStack stack = render(relativeTexts, () -> def.render(viewer, ItemAppearance.locals(phs)));
         if (stack.getType().isAir()) {
             return stack;
         }
@@ -510,6 +516,11 @@ public final class ItemRegistry {
         }
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /** {@code work} (an item render) with {@code {key:relative}} in the language {@code texts} gives. */
+    static <T> T render(Supplier<Formats.RelativeTexts> texts, Supplier<T> work) {
+        return PluginLanguage.call(texts, work);
     }
 
     private static void flag(PersistentDataContainer pdc, NamespacedKey key, boolean on) {

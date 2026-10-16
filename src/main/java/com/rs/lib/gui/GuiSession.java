@@ -18,6 +18,7 @@ import com.rs.lib.action.ActionContext;
 import com.rs.lib.action.ActionList;
 import com.rs.lib.action.PageTarget;
 import com.rs.lib.action.Requirement;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.item.ItemAppearance;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.SharedPlaceholders;
@@ -447,7 +448,7 @@ public final class GuiSession implements PageTarget {
         if (closed || inventory == null) {
             return;
         }
-        Component title = host.title(def, viewer, titlePhs);
+        Component title = title();
         if (!title.equals(lastTitle)) {
             recreate(title);
         } else {
@@ -508,7 +509,7 @@ public final class GuiSession implements PageTarget {
 
     /** First open: inventory, content, window, sound, timers. */
     void start() {
-        lastTitle = host.title(def, viewer, titlePhs);
+        lastTitle = title();
         inventory = host.createInventory(holder, def, lastTitle);
         renderAll(true);
         host.openWindow(viewer, inventory);
@@ -528,7 +529,7 @@ public final class GuiSession implements PageTarget {
         }
         this.page = def.pagination() ? Math.max(1, page) : 1;
         boolean shown = host.viewing(viewer, inventory);
-        Component title = host.title(def, viewer, titlePhs);
+        Component title = title();
         if (!title.equals(lastTitle)) {
             recreate(title);
         } else {
@@ -947,7 +948,7 @@ public final class GuiSession implements PageTarget {
         if (overlay == null && item.cacheable(disabled)) {
             protoStatic = true;
             ItemStack cached = item.cachedProto(disabled);
-            return cached != null ? cached : item.cacheProto(disabled, host.build(item.look(disabled), viewer, NO_PHS,
+            return cached != null ? cached : item.cacheProto(disabled, build(item.look(disabled), viewer, NO_PHS,
                     null, null));
         }
         ItemAppearance look = item.look(disabled);
@@ -955,12 +956,22 @@ public final class GuiSession implements PageTarget {
         if (cell.kind == Cell.DECLARED) {
             ItemStack built = passProto[cell.index];
             if (built == null) {
-                built = host.build(look, viewer, NO_PHS, null, skins);
+                built = build(look, viewer, NO_PHS, null, skins);
                 passProto[cell.index] = built;
             }
             return built;
         }
-        return host.build(look, viewer, cell.phs, overlay, skins);
+        return build(look, viewer, cell.phs, overlay, skins);
+    }
+
+    /** The title for the viewer, {@code {key:relative}} in the plugin's language. */
+    private Component title() {
+        return PluginLanguage.call(host.relativeTexts(), () -> host.title(def, viewer, titlePhs));
+    }
+
+    /** {@link GuiHost#build} with {@code {key:relative}} in the plugin's language. */
+    private ItemStack build(ItemAppearance look, Player who, Ph[] phs, ItemStack overlay, Consumer<String> skins) {
+        return PluginLanguage.call(host.relativeTexts(), () -> host.build(look, who, phs, overlay, skins));
     }
 
     /** Called when a skin a cell waited for arrives: that cell is rendered again if it still shows the same thing. */

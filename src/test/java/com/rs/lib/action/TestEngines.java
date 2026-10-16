@@ -1,7 +1,10 @@
 package com.rs.lib.action;
 
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+
+import com.rs.lib.util.Formats;
 
 /** An action engine without a server, for the tests of other packages (menus). */
 public final class TestEngines {
@@ -36,6 +39,11 @@ public final class TestEngines {
         /** What PlaceholderAPI answers (identity by default). */
         public void papi(UnaryOperator<String> papi) {
             host.papi = papi;
+        }
+
+        /** The plugin's words for {@code {key:relative}} (null: none). */
+        public void relativeTexts(Supplier<Formats.RelativeTexts> texts) {
+            host.relative = texts;
         }
 
         /** Runs what was scheduled for the next tick. */

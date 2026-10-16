@@ -10,7 +10,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.compat.RsVersion;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.scheduler.TaskHandle;
+import com.rs.lib.util.Formats;
 
 /**
  * What {@link ActionEngine} needs from the server and the plugin's context. Lets the engine's
@@ -52,12 +54,20 @@ interface ActionHost {
     /** A note for the plugin's debug output. */
     void debug(Supplier<String> message);
 
+    /**
+     * The words of {@code {key:relative}} in the plugin's language; null (or a supplier giving
+     * null) for RsLib's own language.
+     */
+    default Supplier<Formats.RelativeTexts> relativeTexts() {
+        return null;
+    }
+
     static ActionHost of(Rs rs) {
-        return new Server(rs);
+        return new Server(rs, PluginLanguage.of(rs));
     }
 
     /** The real server. */
-    record Server(Rs rs) implements ActionHost {
+    record Server(Rs rs, Supplier<Formats.RelativeTexts> relativeTexts) implements ActionHost {
 
         @Override
         public Logger logger() {

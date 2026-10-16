@@ -8,9 +8,8 @@ import org.bukkit.entity.Player;
 
 import com.rs.lib.Rs;
 import com.rs.lib.debug.RsDebug;
-import com.rs.lib.lang.RsLang;
+import com.rs.lib.internal.PluginLanguage;
 import com.rs.lib.util.Formats;
-import com.rs.lib.util.RsFormats;
 
 /**
  * What a YAML file needs from its plugin's context. Lets the file logic run in tests without a
@@ -42,10 +41,7 @@ interface YmlHost {
     }
 
     static YmlHost of(Rs rs) {
-        Supplier<Formats.RelativeTexts> relative = () -> {
-            RsLang lang = rs.langOrNull();
-            return lang == null ? null : RsFormats.texts(lang::rawOrNull);
-        };
+        Supplier<Formats.RelativeTexts> relative = PluginLanguage.of(rs);
         return new YmlHost() {
             @Override
             public Supplier<Formats.RelativeTexts> relativeTexts() {
