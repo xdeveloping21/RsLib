@@ -13,7 +13,7 @@ public interface RedeemHandler {
      * Runs on the main thread after the items were taken.
      *
      * @param amount   how many units were consumed
-     * @param consumed copies of the stacks taken, with the amounts taken
+     * @param consumed an immutable snapshot: copies of the stacks taken, with the amounts taken
      */
     void redeem(Player player, int amount, List<ItemStack> consumed);
 }

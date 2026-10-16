@@ -28,6 +28,7 @@ import org.bukkit.inventory.BlastingRecipe;
 import org.bukkit.inventory.CampfireRecipe;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.FurnaceRecipe;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.RecipeChoice;
@@ -57,8 +58,8 @@ import net.kyori.adventure.text.Component;
  * The registered physical items of one plugin, reached with {@code rs().items()}.
  *
  * <p>An item is registered from YAML ({@link #register(String, RsYml)} reads the top-level
- * section with that id, {@link #loadAll} every top-level section; one broken item never stops
- * the others) or from code ({@link #register(String, ItemDef)}). {@link #create} builds the
+ * section with that id, {@link #loadAll} every top-level section; both also accept the items
+ * wrapped in a root {@code items:} section; one broken item never stops the others) or from code ({@link #register(String, ItemDef)}). {@link #create} builds the
  * stack for a player and stamps it; one shared RsLib listener then gives it its behaviour:
  * actions on use, cooldown, requirements, custom durability, drop/move/place/trade rules,
  * locking, keeping on death, held effects and redeeming.</p>
@@ -86,6 +87,8 @@ public final class ItemRegistry {
     static final String TAG_DURABILITY = "snlib_durability";
     static final String TAG_DURABILITY_LINE = "snlib_durability_line";
     static final String RECIPE_PREFIX = "snlib_recipe_";
+    /** The optional root section that wraps the items of a file. */
+    static final String ITEMS_SECTION = "items";
     static final String TRUE = "true";
     static final long HELD_EFFECT_PERIOD = 40L;
     static final int HELD_EFFECT_TICKS = 80;
@@ -171,11 +174,14 @@ public final class ItemRegistry {
 
     // ------------------------------------------------------------------ registration
 
-    /** Registers the item written in the top-level section {@code id} of {@code yml}; reloads read it again. */
+    /**
+     * Registers the item written in the section {@code id} of {@code yml} (top level, or under a
+     * root {@code items:} section, see {@link #loadAll}); reloads read it again.
+     */
     public void register(String id, RsYml yml) {
         Objects.requireNonNull(yml, "yml");
         String checked = checkId(id);
-        ItemDef def = readSection(yml, checked);
+        ItemDef def = readSection(yml, checked, itemsPath(yml.getSection(""), checked));
         if (def != null) {
             register(checked, def);
             synchronized (defs) {
@@ -203,21 +209,25 @@ public final class ItemRegistry {
 
     /**
      * Registers every top-level section of {@code itemsFile} as an item; a broken item is
-     * reported and the others still load. Reloads read the file's sections again (an item
-     * removed from the file is unregistered).
+     * reported and the others still load. The items may also be wrapped in one root
+     * {@code items:} section (see {@link #wrapped}). Reloads read the file's sections again (an
+     * item removed from the file is unregistered).
      */
     public void loadAll(RsYml itemsFile) {
         Objects.requireNonNull(itemsFile, "itemsFile");
-        ConfigurationSection root = itemsFile.getSection("");
+        ConfigurationSection file = itemsFile.getSection("");
+        boolean wrapped = wrapped(file);
+        ConfigurationSection root = wrapped ? file.getConfigurationSection(ITEMS_SECTION) : file;
+        String prefix = wrapped ? ITEMS_SECTION + "." : "";
         Set<String> loaded = new LinkedHashSet<>();
         if (root != null) {
             for (String id : root.getKeys(false)) {
                 if (!root.isConfigurationSection(id)) {
-                    ItemWarnings.of(itemsFile, id).accept("Not an item section; skipped.");
+                    ItemWarnings.of(itemsFile, prefix + id).accept("Not an item section; skipped.");
                     continue;
                 }
                 try {
-                    ItemDef def = readSection(itemsFile, id);
+                    ItemDef def = readSection(itemsFile, id, prefix + id);
                     if (def != null) {
                         register(id, def);
                         loaded.add(id);
@@ -232,14 +242,41 @@ public final class ItemRegistry {
         }
     }
 
-    private ItemDef readSection(RsYml yml, String id) {
-        ConfigurationSection section = yml.getSection(id);
-        Consumer<String> warn = ItemWarnings.of(yml, id);
+    /**
+     * Whether the items of a file sit under a root {@code items:} section instead of the top
+     * level: the root has an {@code items} section that is not itself an item (no
+     * {@code material}) and holds only sections.
+     */
+    static boolean wrapped(ConfigurationSection root) {
+        ConfigurationSection items = root == null ? null : root.getConfigurationSection(ITEMS_SECTION);
+        if (items == null || items.contains("material")) {
+            return false;
+        }
+        for (String key : items.getKeys(false)) {
+            if (!items.isConfigurationSection(key)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The path of item {@code id} in a file whose root is {@code root}: {@code items.<id>} when wrapped and there. */
+    static String itemsPath(ConfigurationSection root, String id) {
+        if (root != null && !root.isConfigurationSection(id) && wrapped(root)
+                && root.isConfigurationSection(ITEMS_SECTION + "." + id)) {
+            return ITEMS_SECTION + "." + id;
+        }
+        return id;
+    }
+
+    private ItemDef readSection(RsYml yml, String id, String path) {
+        ConfigurationSection section = yml.getSection(path);
+        Consumer<String> warn = ItemWarnings.of(yml, path);
         if (section == null) {
             warn.accept("There is no item section '" + id + "' in this file; not registered.");
             return null;
         }
-        ItemAppearance appearance = ItemAppearance.parse(section, ItemWarnings.source(yml, id),
+        ItemAppearance appearance = ItemAppearance.parse(section, ItemWarnings.source(yml, path),
                 ItemAppearance.TextResolver.of(yml), warn);
         return ItemDef.fromSection(section, appearance, warn);
     }
@@ -605,49 +642,60 @@ public final class ItemRegistry {
     }
 
     /**
-     * {@link #damage(ItemStack, int)} on the matching stack the player carries (the same object
-     * first, then an equal stack). When it breaks, its {@code break-actions} run and it is
-     * removed. Returns what is left, or -1 when the player does not carry it or it has none.
+     * {@link #damage(ItemStack, int)} for {@code player}: on the matching stack the player
+     * carries (the same object first, then an equal stack), otherwise on {@code stack} itself
+     * (the cursor, a copy). When this call breaks it (durability above 0 before, 0 after), its
+     * {@code break-actions} run and, when it is in the inventory, it is removed. Returns what is
+     * left, or -1 when the stack is not one of this plugin's or has no custom durability.
      */
     public int damage(Player player, ItemStack stack, int amount) {
-        if (player == null || stack == null) {
+        if (player == null || stack == null || idOf(stack) == null) {
             return -1;
         }
         PlayerInventory inventory = player.getInventory();
-        int found = -1;
-        for (int slot = 0; slot < inventory.getSize() && found < 0; slot++) {
-            if (inventory.getItem(slot) == stack) {
-                found = slot;
-            }
-        }
-        for (int slot = 0; slot < inventory.getSize() && found < 0; slot++) {
-            if (stack.equals(inventory.getItem(slot))) {
-                found = slot;
-            }
-        }
-        if (found < 0) {
-            return -1;
-        }
-        ItemStack working = inventory.getItem(found);
+        int found = slotOf(inventory, stack);
+        ItemStack working = found < 0 ? stack : inventory.getItem(found);
+        int before = durability(working);
         int left = damage(working, amount);
         if (left < 0) {
             return -1;
         }
-        if (left == 0) {
+        boolean broke = breaks(before, left);
+        if (found >= 0) {
+            inventory.setItem(found, broke ? null : working);
+        }
+        if (broke) {
             ItemDef def = def(idOf(working));
-            inventory.setItem(found, null);
             if (def != null) {
                 runActions(player, def.breakActions(), null, null);
             }
-        } else {
-            inventory.setItem(found, working);
         }
         return left;
     }
 
+    /** The inventory slot holding {@code stack}: the same object first, then an equal stack; -1 when none. */
+    static int slotOf(Inventory inventory, ItemStack stack) {
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (inventory.getItem(slot) == stack) {
+                return slot;
+            }
+        }
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (stack.equals(inventory.getItem(slot))) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    /** Whether a damage call took durability from above 0 to 0: only that call runs the break flow. */
+    static boolean breaks(int before, int after) {
+        return before > 0 && after == 0;
+    }
+
     /**
-     * Applies one successful use to the item in {@code hand}: durability goes down and, at 0,
-     * the break actions run and the hand is emptied.
+     * Applies one successful use to the item in {@code hand}: durability goes down and, when this
+     * use breaks it, the break actions run and the hand is emptied.
      */
     void used(Player player, EquipmentSlot hand, ItemDef def, ClickType click, Boolean onBlock) {
         if (def.durabilityMax() <= 0) {
@@ -655,11 +703,12 @@ public final class ItemRegistry {
         }
         PlayerInventory inventory = player.getInventory();
         ItemStack stack = inventory.getItem(hand);
+        int before = durability(stack);
         int left = damage(stack, def.durabilityDamagePerUse());
         if (left < 0) {
             return;
         }
-        if (left == 0) {
+        if (breaks(before, left)) {
             inventory.setItem(hand, null);
             runActions(player, def.breakActions(), click, onBlock);
         } else {
@@ -850,12 +899,21 @@ public final class ItemRegistry {
 
     // ------------------------------------------------------------------ recipes
 
+    /** Whether the recipe of {@code def} may be registered: not for a {@link ObtainMode#COMMAND_ONLY} item. */
+    static boolean craftable(ItemDef def) {
+        return def.obtainVia() != ObtainMode.COMMAND_ONLY;
+    }
+
     private void addRecipe(String id, ItemDef def) {
         NamespacedKey key = new NamespacedKey(plugin, RECIPE_PREFIX + ItemCompat.keyPart(id.toLowerCase(Locale.ROOT)));
         Consumer<String> warn = ItemWarnings.to(logger, "item " + id + " -> recipe");
         try {
             if (Bukkit.getRecipe(key) != null) {
                 Bukkit.removeRecipe(key);
+            }
+            if (!craftable(def)) {
+                warn.accept("Item '" + id + "' is command-only; its recipe was not registered.");
+                return;
             }
             ItemStack result = create(id, null);
             org.bukkit.inventory.Recipe recipe = toBukkit(key, result, def.recipe(), warn);

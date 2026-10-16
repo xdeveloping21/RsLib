@@ -138,7 +138,10 @@ class ItemPartsTest {
 
     @Test
     void linesSplitOnLineBreaks() {
-        assertEquals(List.of("a", "b", ""), ItemParts.lines("a\nb\n"));
+        assertEquals(List.of("a", "b"), ItemParts.lines("a\nb\n"));
+        assertEquals(List.of("a", "b"), ItemParts.lines("a\r\nb\r\n"));
+        assertEquals(List.of("a", ""), ItemParts.lines("a\n\n"));
+        assertEquals(List.of(""), ItemParts.lines("\n"));
         assertEquals(List.of("a", "b"), ItemParts.lines("a\r\nb"));
         assertEquals(List.of(""), ItemParts.lines(""));
         assertEquals(List.of(""), ItemParts.lines(null));

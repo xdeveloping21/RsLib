@@ -422,7 +422,8 @@ final class ItemParts {
 
     /**
      * Splits a text on line breaks ({@code \r\n} or {@code \n}): a value injected by one
-     * placeholder can then fill several lore lines. Never empty: {@code ""} gives one empty line.
+     * placeholder can then fill several lore lines. A trailing line break adds no empty line
+     * ({@code "a\nb\n"} gives two lines). Never empty: {@code ""} gives one empty line.
      */
     static List<String> lines(String text) {
         if (text == null) {
@@ -433,8 +434,12 @@ final class ItemParts {
         }
         List<String> out = new ArrayList<>();
         int start = 0;
-        for (int i = 0; i <= text.length(); i++) {
-            if (i == text.length() || text.charAt(i) == '\n') {
+        int length = text.length();
+        for (int i = 0; i <= length; i++) {
+            if (i == length && start == length && !out.isEmpty()) {
+                break; // the text ended with a line break: no empty last line
+            }
+            if (i == length || text.charAt(i) == '\n') {
                 int end = i > start && text.charAt(i - 1) == '\r' ? i - 1 : i;
                 out.add(text.substring(start, end));
                 start = i + 1;

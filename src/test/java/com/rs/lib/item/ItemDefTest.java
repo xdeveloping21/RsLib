@@ -50,12 +50,20 @@ class ItemDefTest {
         assertTrue(warnings.isEmpty(), warnings.toString());
     }
 
-    /** Trampa 7: COMMAND_ONLY means no manual equipping; it does not block crafting or anything else. */
+    /** COMMAND_ONLY blocks crafting (no recipe, no grid result); equipping follows the item's own flags. */
     @Test
-    void commandOnlyImpliesNoManualEquip() {
+    void commandOnlyBlocksCraftingNotEquipping() {
         ItemDef def = read("obtain-via: command-only\n");
         assertEquals(ObtainMode.COMMAND_ONLY, def.obtainVia());
-        assertTrue(def.noManualEquip());
+        assertFalse(def.noManualEquip());
+        assertFalse(ItemRegistry.craftable(def));
+        assertTrue(ItemListener.commandOnly(false, def));
+        assertTrue(ItemListener.commandOnly(true, null));
+        assertFalse(ItemListener.commandOnly(false, null));
+        assertTrue(read("obtain-via: command-only\nno-manual-equip: true\n").noManualEquip());
+        ItemDef open = read("material: STONE\n");
+        assertTrue(ItemRegistry.craftable(open));
+        assertFalse(ItemListener.commandOnly(false, open));
         assertTrue(def.droppable());
         assertTrue(def.tradeable());
         read("obtain-via: SOMETIMES\n");

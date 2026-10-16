@@ -22,7 +22,8 @@ import org.bukkit.event.inventory.ClickType;
  *   {@code [number-key]}, {@code [swap-offhand]}.</li>
  *   <li>{@code [click=TYPE,TYPE]}: Bukkit click type names, any case, {@code -} for
  *   {@code _}. A name that does not exist FAILS CLOSED: reported once, the line never runs.</li>
- *   <li>{@code [click-block]}, {@code [click-air]}: physical items only; never in menus.</li>
+ *   <li>{@code [click-block]}, {@code [click-air]}: physical items only; never in menus. They
+ *   need a click type too, like the click guards.</li>
  *   <li>{@code [chance=N]}: N percent (decimals allowed). A malformed N FAILS OPEN: reported
  *   once, the line always runs.</li>
  * </ul>
@@ -134,11 +135,20 @@ interface Guard {
         }
     }
 
-    /** Used on a block or in the air; never in menus. */
+    /** Used on a block or in the air; never in menus. Like every click guard, it needs a click. */
     record Surface(ClickSurface surface) implements Guard {
         @Override
         public boolean allows(ActionContext context, Consumer<Supplier<String>> debug) {
+            if (context.clickType() == null) {
+                debug.accept(() -> "[" + name() + "] skipped its line: there is no click here.");
+                return false;
+            }
             return context.clickSurface() == surface;
+        }
+
+        /** The guard as written: {@code click-block} or {@code click-air}. */
+        String name() {
+            return surface == ClickSurface.BLOCK ? "click-block" : "click-air";
         }
     }
 

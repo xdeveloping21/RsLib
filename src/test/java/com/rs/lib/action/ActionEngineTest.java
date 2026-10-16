@@ -117,6 +117,17 @@ class ActionEngineTest {
         assertEquals(2, host.debug.size(), host.debug.toString());
     }
 
+    /** A surface without a click type (a run made by code) is no click: positional guards skip too. */
+    @Test
+    void surfaceGuardsSkipWithoutAClick() {
+        run(new ActionContext(steve.player, null, null, null, ClickSurface.BLOCK, null),
+                "[click-block] [mark] b", "[click-air] [mark] a", "[mark] z");
+        assertEquals(List.of("z"), marks);
+        assertEquals(2, host.debug.size(), host.debug.toString());
+        assertTrue(host.debug.get(0).contains("[click-block] skipped its line: there is no click here."),
+                host.debug.toString());
+    }
+
     @Test
     void guardsChain() {
         run(click(ClickType.RIGHT), "[right-click] [chance=100] [mark] x");
