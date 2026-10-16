@@ -28,7 +28,9 @@ import com.rs.lib.item.ItemActions;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.leaderboard.LeaderboardCache;
+import com.rs.lib.modifier.Modifiers;
 import com.rs.lib.papi.RsPapi;
+import com.rs.lib.price.Prices;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
@@ -56,6 +58,8 @@ public final class Rs {
     private final RsLang lang;
     private final Cooldowns cooldowns;
     private final EconomyBridge economy;
+    private final Prices prices;
+    private final Modifiers modifiers;
     private final LeaderboardCache leaderboards;
     private final RsCron cron;
     private final Teleports teleports;
@@ -87,6 +91,8 @@ public final class Rs {
         this.lang = spec.lang() ? new RsLang(this, yml == null ? null : yml.config()) : null;
         this.cooldowns = new Cooldowns(this);
         this.economy = new EconomyBridge(this);
+        this.prices = new Prices(this);
+        this.modifiers = new Modifiers(this);
         this.leaderboards = new LeaderboardCache(this);
         this.cron = new RsCron(this);
         this.bossbars = new BossBarUtil(this);
@@ -175,6 +181,16 @@ public final class Rs {
     /** Money: Vault, console commands or a backend of the plugin. */
     public EconomyBridge economy() {
         return economy;
+    }
+
+    /** Sell prices of items: the plugin's own list, then EssentialsX's worth.yml. */
+    public Prices prices() {
+        return prices;
+    }
+
+    /** Multipliers on what players earn (money, experience, drops), by permission and by provider. */
+    public Modifiers modifiers() {
+        return modifiers;
     }
 
     /** Leaderboards refreshed by async queries. */
@@ -341,6 +357,7 @@ public final class Rs {
             step("player data", db::flushPlayerCaches);
         }
         step("cooldowns", cooldowns::shutdown);
+        step("modifiers", modifiers::shutdown);
         if (db != null) {
             step("database", db::shutdown);
         }

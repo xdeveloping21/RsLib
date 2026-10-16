@@ -68,17 +68,23 @@ final class VaultBackend implements EconomyBridge.Backend {
         return current != null && current.ready();
     }
 
+    /** Vault's API takes offline players; the economy plugin decides how it serves them. */
+    @Override
+    public boolean servesOffline() {
+        return true;
+    }
+
     @Override
     public double getBalance(OfflinePlayer player) {
         Ledger current = ledger.get();
         if (current == null) {
-            return 0;
+            return Double.NaN;
         }
         try {
             return current.balance(player);
         } catch (RuntimeException | LinkageError e) {
             logger.log(Level.WARNING, "Vault could not read the balance of " + player.getName(), e);
-            return 0;
+            return Double.NaN;
         }
     }
 

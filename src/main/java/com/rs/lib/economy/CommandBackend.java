@@ -16,7 +16,9 @@ import com.rs.lib.util.NumberFormatter;
  * {@code %player%} and {@code %amount%}; the balance is read from a PlaceholderAPI placeholder
  * with colour codes and currency symbols removed ({@code §a$1.5K} reads 1500). A take reads the
  * balance first, refuses when it is short, runs the command and succeeds only when the
- * balance went down by the amount. Players must be online (placeholders need them).
+ * balance went down by the amount. Players must be online (placeholders need them): this
+ * backend does not {@linkplain EconomyBridge.Backend#servesOffline() serve offline players}, so
+ * the bridge refuses them before any command runs and their balance is unknown.
  */
 final class CommandBackend implements EconomyBridge.Backend {
 
@@ -41,8 +43,7 @@ final class CommandBackend implements EconomyBridge.Backend {
 
     @Override
     public double getBalance(OfflinePlayer player) {
-        double balance = read(player);
-        return Double.isNaN(balance) ? 0 : balance;
+        return read(player);
     }
 
     @Override
