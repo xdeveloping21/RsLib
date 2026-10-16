@@ -12,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.account.Accounts;
 import com.rs.lib.action.ActionEngine;
 import com.rs.lib.block.RsBlocks;
+import com.rs.lib.audit.AuditLog;
 import com.rs.lib.bossbar.BossBarUtil;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
@@ -31,6 +32,7 @@ import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.lang.RsLang;
 import com.rs.lib.leaderboard.LeaderboardCache;
 import com.rs.lib.modifier.Modifiers;
+import com.rs.lib.notice.Notices;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.price.Prices;
 import com.rs.lib.region.RegionRegistry;
@@ -80,6 +82,8 @@ public final class Rs {
     private final RegionRegistry regions;
     private final RsBlocks blocks;
     private final GuiManager guis;
+    private final Notices notices;
+    private final AuditLog audit;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -128,6 +132,8 @@ public final class Rs {
         if (guis != null) {
             guis.load();
         }
+        this.notices = db == null ? null : new Notices(this);
+        this.audit = db == null ? null : new AuditLog(this);
     }
 
     public JavaPlugin plugin() {
@@ -292,6 +298,22 @@ public final class Rs {
         return guis;
     }
 
+    /** Messages left for players, shown now or when they join. Needs {@code db()} and {@code lang()}. */
+    public Notices notices() {
+        if (notices == null) {
+            throw missing("notices()", "db()");
+        }
+        return notices;
+    }
+
+    /** The staff audit log ({@code /rslib logs}). Needs {@code RsSpec.builder().db()}. */
+    public AuditLog audit() {
+        if (audit == null) {
+            throw missing("audit()", "db()");
+        }
+        return audit;
+    }
+
     /** Reloads config, messages, items, menus, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
@@ -326,6 +348,10 @@ public final class Rs {
 
     public GuiManager guisOrNull() {
         return guis;
+    }
+
+    public AuditLog auditOrNull() {
+        return audit;
     }
 
     /** Arms the update watch the spec declares; called once the plugin has enabled. */
@@ -380,6 +406,9 @@ public final class Rs {
         step("leaderboards", leaderboards::shutdown);
         step("cron jobs", cron::shutdown);
         step("snapshots", snapshots::shutdown);
+        if (notices != null) {
+            step("notices", notices::shutdown);
+        }
         step("tasks", scheduler::cancelAll);
         step("pending main-thread results", () -> MainHops.release(plugin));
         if (db != null) {
@@ -387,6 +416,9 @@ public final class Rs {
         }
         step("cooldowns", cooldowns::shutdown);
         step("modifiers", modifiers::shutdown);
+        if (audit != null) {
+            step("audit log", audit::shutdown);
+        }
         if (db != null) {
             step("database", db::shutdown);
         }

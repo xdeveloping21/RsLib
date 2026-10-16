@@ -21,6 +21,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.account.Accounts;
+import com.rs.lib.audit.AuditCommand;
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
@@ -73,6 +74,17 @@ public final class RsLibPlugin extends JavaPlugin {
         RsLibPlugin current = instance;
         Rs context = current == null ? null : current.own;
         return context == null ? null : context.debug();
+    }
+
+    /**
+     * RsLib's own {@code plugins/RsLib/config.yml}, or null while RsLib is not enabled or the
+     * file could not be loaded. For RsLib's internals (the {@code notices} and {@code audit}
+     * settings), read on every use so a reload applies.
+     */
+    public static RsYml libConfig() {
+        RsLibPlugin current = instance;
+        Rs context = current == null ? null : current.own;
+        return context == null ? null : context.ymlOrNull() == null ? null : context.ymlOrNull().config();
     }
 
     /** The API level of this jar. */
@@ -175,6 +187,7 @@ public final class RsLibPlugin extends JavaPlugin {
         ITEMINFO("rslib.admin.iteminfo", "the PDC tags of the held item"),
         UPDATE(SelfUpdater.PERMISSION, "the self-updater state, and a check now"),
         RELOAD("rslib.admin.reload", "reload RsLib's config.yml, or one plugin's files"),
+        LOGS(AuditCommand.PERMISSION, "the audit log of the plugins, newest first"),
         DEBUG("rslib.admin.debug", "turn RsLib's debug output on or off"),
         DB("rslib.admin.db", "export a plugin's database to a file, or import one"),
         ALTS("rslib.admin.alts", "the accounts that joined from the same address as a player"),
@@ -198,6 +211,7 @@ public final class RsLibPlugin extends JavaPlugin {
                 case RELOAD -> " [plugin]";
                 case DB -> " <export|import> <plugin> [file] [--force]";
                 case ALTS -> " <player>";
+                case LOGS -> " " + AuditCommand.USAGE;
                 default -> "";
             };
         }
@@ -216,7 +230,7 @@ public final class RsLibPlugin extends JavaPlugin {
         }
     }
 
-    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|debug|db|alts|help>";
+    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|logs|debug|db|alts|help>";
 
     private final class AdminCommand implements TabExecutor {
 
@@ -267,6 +281,7 @@ public final class RsLibPlugin extends JavaPlugin {
                     selfUpdater.runNow(sender);
                 }
                 case RELOAD -> reload(sender, args.length < 2 ? null : args[1]);
+                case LOGS -> AuditCommand.run(RsLibPlugin.this, sender, label, Arrays.copyOfRange(args, 1, args.length));
                 case DEBUG -> {
                     RsDebug debug = libDebug();
                     if (debug == null) {
@@ -339,6 +354,9 @@ public final class RsLibPlugin extends JavaPlugin {
                 names.add(getName());
                 RsLib.contexts().forEach(rs -> names.add(rs.plugin().getName()));
                 return filter(names, args[1]);
+            }
+            if (args.length >= 2 && args[0].equalsIgnoreCase("logs") && Sub.LOGS.allowed(sender)) {
+                return AuditCommand.complete(Arrays.copyOfRange(args, 1, args.length));
             }
             return List.of();
         }

@@ -41,6 +41,8 @@ rslib:
     too-big: "&cSelection too big: &f{volume} &7(max {max})"
     no-permission: "&cYou cannot use this wand."
     timeout: "&7Selection expired."
+  notices:
+    more: "&7...and &f{count}&7 more."
   help:
     header: "&6&l{plugin} &8» &7Commands"
     entry: "&e{usage} &7{description}"

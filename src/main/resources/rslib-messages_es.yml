@@ -41,6 +41,8 @@ rslib:
     too-big: "&cSelección demasiado grande: &f{volume} &7(máx. {max})"
     no-permission: "&cNo puedes usar esta varita."
     timeout: "&7La selección caducó."
+  notices:
+    more: "&7...y &f{count}&7 más."
   help:
     header: "&6&l{plugin} &8» &7Comandos"
     entry: "&e{usage} &7{description}"
