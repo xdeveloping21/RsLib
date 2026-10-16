@@ -20,6 +20,7 @@ public final class RsSpec {
     private final String items;
     private final boolean guis;
     private final boolean teleports;
+    private final boolean rewards;
 
     private RsSpec(Builder b) {
         this.config = b.config;
@@ -32,6 +33,7 @@ public final class RsSpec {
         this.items = b.items;
         this.guis = b.guis;
         this.teleports = b.teleports;
+        this.rewards = b.rewards;
     }
 
     public static Builder builder() {
@@ -93,6 +95,11 @@ public final class RsSpec {
         return teleports;
     }
 
+    /** True when the plugin keeps rewards for later in its database ({@code rs().rewards()}). */
+    public boolean rewards() {
+        return rewards;
+    }
+
     public static final class Builder {
 
         private String config;
@@ -105,6 +112,7 @@ public final class RsSpec {
         private String items;
         private boolean guis;
         private boolean teleports;
+        private boolean rewards;
 
         private Builder() {
         }
@@ -201,6 +209,17 @@ public final class RsSpec {
         /** Teleports with a wait, cancelled by moving or damage ({@code rs().teleports()}). */
         public Builder teleports() {
             this.teleports = true;
+            return this;
+        }
+
+        /**
+         * Rewards kept for later ({@code rs().rewards()}): what does not fit with
+         * {@code OverflowPolicy.QUEUE} and rewards owed to players who are not online wait in
+         * the table {@code rslib_pending_rewards} and are handed over on join. Needs
+         * {@link #db()}. Giving rewards to online players works without it.
+         */
+        public Builder rewards() {
+            this.rewards = true;
             return this;
         }
 

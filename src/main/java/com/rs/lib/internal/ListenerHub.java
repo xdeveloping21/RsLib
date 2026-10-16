@@ -22,6 +22,7 @@ import com.rs.lib.hook.HookListener;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.region.SelectionManager;
+import com.rs.lib.reward.Rewards;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.internal.UpdateHub;
@@ -50,6 +51,7 @@ public final class ListenerHub {
         pm.registerEvents(ArmourEquipListener.shared(), rslib);
         pm.registerEvents(ChunkMoveListener.shared(), rslib);
         pm.registerEvents(SelectionManager.wandListener(), rslib);
+        pm.registerEvents(Rewards.sharedListener(), rslib);
     }
 
     private static final class Shared implements Listener {
