@@ -10,7 +10,7 @@ softdepend: [PlaceholderAPI, Vault]
 commands:
   rslib:
     description: RsLib administration.
-    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|debug|help>
+    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|debug|settings|help>
 permissions:
   # Grants the first six subcommands. rslib.admin.debug is not a child: grant it apart.
   rslib.admin:
@@ -44,3 +44,9 @@ permissions:
   rslib.admin.debug:
     description: Allows /rslib debug.
     default: op
+  rslib.settings:
+    description: Allows /rslib settings, the menu with your preferences in every plugin.
+    default: true
+  rslib.chat.bypass:
+    description: Reads every chat message and is read by everyone, whatever the plugins' chat rules say.
+    default: false

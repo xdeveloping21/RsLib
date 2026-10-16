@@ -26,6 +26,7 @@ import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.internal.AdminInfo;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
+import com.rs.lib.settings.SettingsManager;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
@@ -133,6 +134,7 @@ public final class RsLibPlugin extends JavaPlugin {
             selfUpdater.shutdown();
             selfUpdater = null;
         }
+        SettingsManager.closeMenus();
         RsLib.shutdownAll();
         ItemRegistry.shutdownShared();
         PlayerNames.shutdown();
@@ -156,6 +158,7 @@ public final class RsLibPlugin extends JavaPlugin {
         UPDATE(SelfUpdater.PERMISSION, "the self-updater state, and a check now"),
         RELOAD("rslib.admin.reload", "reload RsLib's config.yml, or one plugin's files"),
         DEBUG("rslib.admin.debug", "turn RsLib's debug output on or off"),
+        SETTINGS(SettingsManager.PERMISSION, "your preferences in every plugin"),
         HELP(null, "the subcommands you can use");
 
         final String permission;
@@ -184,7 +187,7 @@ public final class RsLibPlugin extends JavaPlugin {
         }
     }
 
-    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|debug|help>";
+    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|debug|settings|help>";
 
     private final class AdminCommand implements TabExecutor {
 
@@ -239,6 +242,13 @@ public final class RsLibPlugin extends JavaPlugin {
                         return true;
                     }
                     sender.sendMessage("Debug: " + (debug.toggle() ? "ON" : "OFF"));
+                }
+                case SETTINGS -> {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage("Only a player can use this.");
+                        return true;
+                    }
+                    SettingsManager.openCommon(player);
                 }
                 case HELP -> {
                     sender.sendMessage("RsLib commands:");

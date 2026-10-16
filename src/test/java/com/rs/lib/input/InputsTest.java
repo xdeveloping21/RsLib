@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -16,13 +16,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.plugin.EventExecutor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
 
 /** Chat questions and the notes' traps, without a server. */
 class InputsTest {
@@ -55,30 +59,67 @@ class InputsTest {
         return future.join();
     }
 
-    /** Trap 1: the legacy chat event is heard first (LOWEST) and cancelled; the modern one is the fallback. */
-    @Test
-    @SuppressWarnings("deprecation")
-    void chatIsTakenAtLowestAndCancelled() throws Exception {
-        Listener listener = Inputs.chatListener();
-        Method legacy = listener.getClass().getMethod("onLegacyChat", AsyncPlayerChatEvent.class);
-        Method modern = listener.getClass().getMethod("onChat", io.papermc.paper.event.player.AsyncChatEvent.class);
-        assertEquals(EventPriority.LOWEST, legacy.getAnnotation(EventHandler.class).priority());
-        assertFalse(legacy.getAnnotation(EventHandler.class).ignoreCancelled());
-        assertEquals(EventPriority.LOWEST, modern.getAnnotation(EventHandler.class).priority());
-        assertTrue(modern.getAnnotation(EventHandler.class).ignoreCancelled(),
-                "the modern event arrives cancelled after the legacy one took the answer");
-        legacy.setAccessible(true);
+    /** An executor RsLib registered for the chat, with what it was registered for. */
+    private record Registered(Class<? extends Event> type, EventPriority priority, boolean ignoreCancelled,
+                              EventExecutor executor) {
+    }
 
-        AsyncPlayerChatEvent chatter = new AsyncPlayerChatEvent(true, alex, "hello all", new HashSet<>());
-        legacy.invoke(listener, chatter);
+    private static List<Registered> chatRegistrations() {
+        List<Registered> list = new ArrayList<>();
+        Inputs.listenChat((type, priority, ignoreCancelled, executor) ->
+                list.add(new Registered(type, priority, ignoreCancelled, executor)));
+        return list;
+    }
+
+    private AsyncChatEvent chat(String text) {
+        return new AsyncChatEvent(true, alex, new HashSet<>(), null, Component.text(text), Component.text(text), null);
+    }
+
+    /**
+     * Trap 1: answers are taken at LOWEST on the server's one chat event (Paper's, which every
+     * supported server has), never on the legacy one too, and cancelled.
+     */
+    @Test
+    void chatIsTakenAtLowestAndCancelled() throws Exception {
+        List<Registered> registered = chatRegistrations();
+        assertEquals(1, registered.size(), "one chat event, never both");
+        Registered chat = registered.get(0);
+        assertEquals(AsyncChatEvent.class, chat.type());
+        assertEquals(EventPriority.LOWEST, chat.priority());
+        assertFalse(chat.ignoreCancelled(), "an answer is taken even when a mute cancelled the message");
+        Listener listener = Inputs.chatListener();
+
+        AsyncChatEvent chatter = chat("hello all");
+        chat.executor().execute(listener, chatter);
         assertFalse(chatter.isCancelled(), "chat without a question must pass");
 
         CompletableFuture<InputResult<String>> future = inputs.text(alex).open();
-        AsyncPlayerChatEvent answer = new AsyncPlayerChatEvent(true, alex, "  my answer ", new HashSet<>());
-        legacy.invoke(listener, answer);
+        AsyncChatEvent answer = chat("  my answer ");
+        chat.executor().execute(listener, answer);
         assertTrue(answer.isCancelled(), "the answer must never reach the public chat");
         host.tick();
         assertEquals("my answer", done(future).value());
+    }
+
+    /** Trap 1b: an answer is read once, even if the server also fired the legacy event. */
+    @Test
+    @SuppressWarnings("deprecation")
+    void anAnswerIsReadOnce() throws Exception {
+        Registered chat = chatRegistrations().get(0);
+        Listener listener = Inputs.chatListener();
+        List<String> parsed = new ArrayList<>();
+        CompletableFuture<InputResult<String>> future = inputs.<String>custom(alex, typed -> {
+            parsed.add(typed);
+            throw new InputRejected("rslib.invalid-value", com.rs.lib.Ph.literal("value", typed));
+        }).maxAttempts(5).open();
+
+        AsyncPlayerChatEvent legacy = new AsyncPlayerChatEvent(true, alex, "42", new HashSet<>());
+        chat.executor().execute(listener, legacy);
+        assertFalse(legacy.isCancelled(), "the legacy event is not heard on a Paper server");
+        chat.executor().execute(listener, chat("42"));
+        host.tick();
+        assertEquals(List.of("42"), parsed, "one message, one attempt");
+        assertFalse(future.isDone());
     }
 
     /** Trap 2: chat arrives on another thread; the answer is checked on the player's thread. */

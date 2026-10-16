@@ -12,17 +12,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.plugin.Plugin;
 
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
+import com.rs.lib.chat.ChatEvents;
+import com.rs.lib.chat.ChatLine;
 import com.rs.lib.util.Amounts;
-
-import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * Questions asked in chat ({@code rs().inputs()}): the player types one answer, which never
@@ -57,7 +55,8 @@ public final class Inputs {
 
     /** The open question of each player, across every plugin. */
     static final Map<UUID, InputSession<?>> ACTIVE = new ConcurrentHashMap<>();
-    private static final Listener CHAT = new ChatCapture();
+    private static final Listener CHAT = new Listener() {
+    };
 
     private final InputHost host;
     private final Set<InputSession<?>> mine = ConcurrentHashMap.newKeySet();
@@ -72,9 +71,30 @@ public final class Inputs {
         this.host = host;
     }
 
-    /** The chat listener every plugin shares; RsLib registers it. */
+    /** The listener that owns the chat handler every plugin shares ({@link #registerChat}). */
     public static Listener chatListener() {
         return CHAT;
+    }
+
+    /**
+     * Takes answers out of the chat; RsLib calls it once. The handler runs at LOWEST on the one
+     * chat event of the server ({@link ChatEvents}), so an answer is read once and is gone before
+     * the other listeners of that event (chat formatters) see it. A plugin that still listens to
+     * the legacy event gets it first on Paper, so it may read the answer before it is cancelled.
+     * It also takes answers another plugin already cancelled (a mute).
+     */
+    public static void registerChat(Plugin rslib) {
+        listenChat(ChatEvents.registrar(rslib, CHAT));
+    }
+
+    static void listenChat(ChatEvents.Registrar registrar) {
+        ChatEvents.listen(registrar, EventPriority.LOWEST, false, Inputs::onChat);
+    }
+
+    static void onChat(ChatLine line) {
+        if (capture(line.speaker(), line.text())) {
+            line.cancel();
+        }
     }
 
     // ---------------------------------------------------------------- questions
@@ -248,30 +268,5 @@ public final class Inputs {
 
     private static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
-    }
-
-    /**
-     * Takes answers out of the chat. The legacy event is heard at LOWEST so the answer is gone
-     * before chat formatters, Discord bridges or loggers see it; Paper then fires the modern
-     * event already cancelled. The modern event is the fallback for when nothing cancelled it.
-     */
-    @SuppressWarnings({"deprecation", "removal"})
-    private static final class ChatCapture implements Listener {
-
-        private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
-
-        @EventHandler(priority = EventPriority.LOWEST)
-        public void onLegacyChat(AsyncPlayerChatEvent event) {
-            if (capture(event.getPlayer(), event.getMessage())) {
-                event.setCancelled(true);
-            }
-        }
-
-        @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-        public void onChat(AsyncChatEvent event) {
-            if (capture(event.getPlayer(), PLAIN.serialize(event.message()))) {
-                event.setCancelled(true);
-            }
-        }
     }
 }

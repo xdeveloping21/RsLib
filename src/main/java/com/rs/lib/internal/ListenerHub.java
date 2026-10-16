@@ -12,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
+import com.rs.lib.chat.ChatManager;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.db.PlayerDataCache;
 import com.rs.lib.event.internal.ArmourEquipListener;
@@ -23,6 +24,7 @@ import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.settings.SettingsManager;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.internal.UpdateHub;
 
@@ -41,7 +43,10 @@ public final class ListenerHub {
         pm.registerEvents(new Shared(rslib), rslib);
         pm.registerEvents(RsCommands.priorityListener(), rslib);
         pm.registerEvents(PlayerDataCache.joinListener(), rslib);
-        pm.registerEvents(Inputs.chatListener(), rslib);
+        // Chat questions first: at the same priority, handlers run in registration order.
+        Inputs.registerChat(rslib);
+        ChatManager.registerShared(rslib);
+        pm.registerEvents(SettingsManager.sharedListener(), rslib);
         pm.registerEvents(ItemRegistry.sharedListener(), rslib);
         pm.registerEvents(GuiManager.sharedListener(), rslib);
         pm.registerEvents(GuiManager.protectionListener(), rslib);

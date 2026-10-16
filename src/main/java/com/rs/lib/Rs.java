@@ -11,6 +11,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.action.ActionEngine;
 import com.rs.lib.bossbar.BossBarUtil;
+import com.rs.lib.chat.ChatManager;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
 import com.rs.lib.cron.RsCron;
@@ -32,6 +33,7 @@ import com.rs.lib.papi.RsPapi;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.settings.SettingsManager;
 import com.rs.lib.snapshot.Snapshots;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.UpdateChecker;
@@ -71,6 +73,8 @@ public final class Rs {
     private final ItemRegistry items;
     private final SelectionManager selections;
     private final GuiManager guis;
+    private final SettingsManager settings;
+    private final ChatManager chat;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -110,6 +114,8 @@ public final class Rs {
         this.teleports = spec.teleports() ? new Teleports(this) : null;
         this.snapshots = new Snapshots(this);
         this.inputs = new Inputs(this);
+        this.settings = new SettingsManager(this);
+        this.chat = new ChatManager(this);
         this.guis = spec.guis() ? new GuiManager(this) : null;
         if (guis != null) {
             guis.load();
@@ -249,6 +255,19 @@ public final class Rs {
         return guis;
     }
 
+    /**
+     * Player preferences and announcement channels players can mute, listed with every plugin's in one
+     * menu. Registering an option needs {@code RsSpec.builder().db()}.
+     */
+    public SettingsManager settings() {
+        return settings;
+    }
+
+    /** Chat interceptors and rules on who reads whom. */
+    public ChatManager chat() {
+        return chat;
+    }
+
     /** Reloads config, messages, items, menus, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
@@ -319,6 +338,7 @@ public final class Rs {
         shuttingDown = true;
         // Chat questions end before menus close, so a SHUT_DOWN callback finds no menu to reopen.
         step("chat questions", inputs::shutdown);
+        step("chat handlers", chat::shutdown);
         if (guis != null) {
             step("menus", guis::shutdown);
         }
@@ -340,6 +360,7 @@ public final class Rs {
         if (db != null) {
             step("player data", db::flushPlayerCaches);
         }
+        step("player settings", settings::shutdown);
         step("cooldowns", cooldowns::shutdown);
         if (db != null) {
             step("database", db::shutdown);
