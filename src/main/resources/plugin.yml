@@ -6,7 +6,7 @@ load: STARTUP
 author: Raul Sanhueza (RsDevelopment)
 website: https://rsdevelopment.dev
 description: Librería base de los plugins Rs.
-softdepend: [PlaceholderAPI, Vault]
+softdepend: [PlaceholderAPI, Vault, WorldGuard]
 commands:
   rslib:
     description: RsLib administration.

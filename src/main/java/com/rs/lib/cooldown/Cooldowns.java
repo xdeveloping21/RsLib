@@ -33,6 +33,7 @@ import com.rs.lib.scheduler.TaskHandle;
  *   and survives restarts (needs {@code RsSpec.builder().db()}).</li>
  *   <li>Ticks are converted at a fixed 50 ms each, whatever the server's TPS.</li>
  *   <li>Category names are plain keys shared by everything in the plugin that uses them.</li>
+ *   <li>{@link #hotbar()} draws the client's cooldown sweep over an item from the time left.</li>
  * </ul>
  *
  * <p>Thread-safe. Expired entries are dropped lazily and by an async task every five minutes.</p>
@@ -63,12 +64,14 @@ public final class Cooldowns {
     /** Guarded by {@link #lock}. */
     private boolean purgeWarned;
     private volatile CooldownStore store;
+    private volatile HotbarCooldowns hotbar;
 
     /** Created by the context. */
     public Cooldowns(Rs rs) {
         this(rs.plugin().getLogger(), System::currentTimeMillis,
                 (period, task) -> rs.scheduler().timerAsync(period, period, task), rs::db, rs.plugin().getName());
         rs.onQuit(player -> clearSession(player.getUniqueId()));
+        this.hotbar = new HotbarCooldowns(this, HotbarCooldowns.server(rs), clock);
     }
 
     Cooldowns(Logger logger, LongSupplier clock, Timers timers, Supplier<RsDb> db, String owner) {
@@ -112,6 +115,21 @@ public final class Cooldowns {
         }
         players.remove(player, slot);
         return 0L;
+    }
+
+    /** The cooldown sweep over hotbar items, drawn from these cooldowns. */
+    public HotbarCooldowns hotbar() {
+        HotbarCooldowns current = hotbar;
+        if (current == null) {
+            throw new IllegalStateException("These cooldowns have no server to draw on");
+        }
+        return current;
+    }
+
+    /** Uses {@code display} for {@link #hotbar()}; for tests. */
+    HotbarCooldowns hotbar(HotbarCooldowns.Display display) {
+        hotbar = new HotbarCooldowns(this, display, clock);
+        return hotbar;
     }
 
     /** Cooldowns of {@code category} are cleared when the player leaves the server. */
@@ -189,6 +207,10 @@ public final class Cooldowns {
         if (persisted != null) {
             persisted.close();
         }
+        HotbarCooldowns sweeps = hotbar;
+        if (sweeps != null) {
+            sweeps.shutdown();
+        }
         categories.clear();
     }
 
@@ -229,6 +251,10 @@ public final class Cooldowns {
         long now = clock.getAsLong();
         for (Map<UUID, long[]> players : categories.values()) {
             players.values().removeIf(slot -> slot[0] <= now);
+        }
+        HotbarCooldowns sweeps = hotbar;
+        if (sweeps != null) {
+            sweeps.purgeExpired();
         }
     }
 

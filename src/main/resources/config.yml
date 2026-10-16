@@ -25,3 +25,9 @@ auto-update:
   # Only install versions within the installed major version. A version that crosses a
   # major (2.x when 1.x is installed) is only reported in the console, never installed on its own.
   same-major-only: true
+
+# Regions registered by plugins (enter and leave events).
+regions:
+  # Ticks between the checks that catch a player moved without an event (a plugin moving them
+  # by packet, a vehicle). 20 ticks are one second. Clamped to 1-200.
+  check-interval-ticks: 5

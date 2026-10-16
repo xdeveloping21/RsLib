@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.action.ActionEngine;
+import com.rs.lib.block.RsBlocks;
 import com.rs.lib.bossbar.BossBarUtil;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
@@ -31,6 +32,7 @@ import com.rs.lib.leaderboard.LeaderboardCache;
 import com.rs.lib.modifier.Modifiers;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.price.Prices;
+import com.rs.lib.region.RegionRegistry;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.scheduler.RsScheduler;
@@ -74,6 +76,8 @@ public final class Rs {
     private final Snapshots snapshots;
     private final ItemRegistry items;
     private final SelectionManager selections;
+    private final RegionRegistry regions;
+    private final RsBlocks blocks;
     private final GuiManager guis;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
@@ -114,6 +118,8 @@ public final class Rs {
             }
         }
         this.selections = new SelectionManager(this);
+        this.regions = new RegionRegistry(this);
+        this.blocks = new RsBlocks(this);
         this.teleports = spec.teleports() ? new Teleports(this) : null;
         this.snapshots = new Snapshots(this);
         this.inputs = new Inputs(this);
@@ -258,6 +264,16 @@ public final class Rs {
         return selections;
     }
 
+    /** Named regions with enter and leave events ({@link com.rs.lib.event.RsRegionChangeEvent}). */
+    public RegionRegistry regions() {
+        return regions;
+    }
+
+    /** Blocks that answer clicks and cannot be broken; never saved. */
+    public RsBlocks blocks() {
+        return blocks;
+    }
+
     /** Menus from {@code guis/}. Needs {@code RsSpec.builder().guis()}. */
     public GuiManager guis() {
         if (guis == null) {
@@ -343,6 +359,8 @@ public final class Rs {
         step("commands", commands::unregisterAll);
         step("items", items::shutdown);
         step("selections", selections::shutdown);
+        step("regions", regions::shutdown);
+        step("clickable blocks", blocks::shutdown);
         if (yml != null) {
             step("pending file writes", yml::flushAll);
         }
