@@ -95,17 +95,34 @@ public final class RsCron {
         this.zone = zone;
     }
 
-    /** Schedules {@code task} at the times of {@code expr}, without catch-up. */
+    /**
+     * Schedules {@code task} at the times of {@code expr}, without catch-up. An invalid
+     * expression logs a warning and schedules nothing.
+     */
     public void schedule(String id, String expr, Runnable task) {
         create(id, expr).schedule(task);
     }
 
-    /** Starts a job to configure; nothing runs until {@link Builder#schedule(Runnable)}. */
+    /**
+     * Starts a job to configure; nothing runs until {@link Builder#schedule(Runnable)}. An invalid
+     * expression logs a warning and the builder's {@code schedule} then does nothing, leaving a
+     * job already scheduled under this id as it was.
+     *
+     * @throws IllegalArgumentException when {@code id} is null or blank
+     */
     public Builder create(String id, String expr) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("A cron job needs an id");
         }
-        return new Builder(id.trim(), CronExpr.parse(expr));
+        String trimmed = id.trim();
+        CronExpr parsed;
+        try {
+            parsed = CronExpr.parse(expr);
+        } catch (IllegalArgumentException invalid) {
+            host.logger().warning("Cron job '" + trimmed + "': " + invalid.getMessage() + "; not scheduled.");
+            parsed = null;
+        }
+        return new Builder(trimmed, parsed);
     }
 
     /** Stops the job {@code id}; true when there was one. Its last-run mark stays on disk. */
@@ -142,6 +159,7 @@ public final class RsCron {
     public final class Builder {
 
         private final String id;
+        /** Null when the expression was invalid: nothing is scheduled. */
         private final CronExpr expr;
         private boolean catchUp;
 
@@ -156,9 +174,12 @@ public final class RsCron {
             return this;
         }
 
-        /** Schedules the job, replacing one with the same id. */
+        /** Schedules the job, replacing one with the same id; does nothing for an invalid expression. */
         public void schedule(Runnable task) {
             Objects.requireNonNull(task, "task");
+            if (expr == null) {
+                return;
+            }
             start(new Job(id, expr, task, catchUp));
         }
     }

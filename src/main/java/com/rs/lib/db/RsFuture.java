@@ -71,7 +71,7 @@ public final class RsFuture<T> {
         future.whenComplete((value, error) -> {
             if (error != null) {
                 Throwable cause = unwrap(error);
-                host.logger().log(Level.WARNING, "An async task failed: " + describe(cause), cause);
+                host.logger().log(Level.WARNING, "Async task finished with an error: " + describe(cause), cause);
                 return;
             }
             if (!host.isEnabled()) {
@@ -80,7 +80,7 @@ public final class RsFuture<T> {
             try {
                 host.sync(() -> accept(consumer, value));
             } catch (RuntimeException disabledMeanwhile) {
-                host.logger().warning("A result arrived while " + host.name() + " was being disabled; it was dropped.");
+                host.logger().warning("Hop to main discarded: plugin disabled during scheduling");
             }
         });
         return this;
@@ -199,14 +199,14 @@ public final class RsFuture<T> {
      */
     public T join() {
         guardMainThread();
-        if (!future.isDone() && host.isPrimaryThread() && !host.shuttingDown() && !host.bootstrapping()) {
-            warnBlocking();
-        }
+        warnIfBlocking("join()");
         return future.join();
     }
 
     /**
      * Waits at most {@code timeout}, for shutdown saves against a database that may not answer.
+     * The main-thread rules are those of {@link #join()}: silent during startup work and
+     * shutdown, a warning with the caller anywhere else.
      *
      * @return true when the future completed normally; false when the time ran out or the
      *         thread was interrupted (the work goes on and is not cancelled)
@@ -216,6 +216,7 @@ public final class RsFuture<T> {
     public boolean joinWithin(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout");
         guardMainThread();
+        warnIfBlocking("joinWithin()");
         try {
             future.get(TimeUnit.NANOSECONDS.convert(timeout), TimeUnit.NANOSECONDS);
             return true;
@@ -250,8 +251,14 @@ public final class RsFuture<T> {
         }
     }
 
-    private void warnBlocking() {
-        StringBuilder where = new StringBuilder("join() is blocking the main thread of ").append(host.name())
+    private void warnIfBlocking(String call) {
+        if (!future.isDone() && host.isPrimaryThread() && !host.shuttingDown() && !host.bootstrapping()) {
+            warnBlocking(call);
+        }
+    }
+
+    private void warnBlocking(String call) {
+        StringBuilder where = new StringBuilder(call).append(" is blocking the main thread of ").append(host.name())
                 .append(" until a database result arrives; use thenSync instead.");
         int shown = 0;
         for (StackTraceElement frame : Thread.currentThread().getStackTrace()) {

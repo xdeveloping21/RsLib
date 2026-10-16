@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -221,6 +222,29 @@ class RsDbTest {
         host.shuttingDown = true;
         host.asMain(() -> db.transaction(connection -> pause(100)).join());
         assertTrue(host.log.warnings().isEmpty(), "waiting during shutdown is expected");
+    }
+
+    /** joinWithin follows the same main-thread rules as join. */
+    @Test
+    void mainThreadJoinWithinWarnsOutsideStartupWork() {
+        RsDb db = open();
+        host.asMain(() -> assertTrue(db.bootstrap(connection -> pause(150)).joinWithin(Duration.ofSeconds(5))));
+        assertTrue(host.log.warnings().isEmpty(), host.log.warnings().toString());
+
+        host.asMain(() -> assertTrue(db.transaction(connection -> pause(150)).joinWithin(Duration.ofSeconds(5))));
+        assertEquals(1, host.log.warnings().size());
+        String warning = host.log.warnings().get(0);
+        assertTrue(warning.startsWith("joinWithin() is blocking the main thread of Test"), warning);
+        assertTrue(warning.contains("RsDbTest"), warning);
+
+        host.log.clear();
+        host.shuttingDown = true;
+        host.asMain(() -> assertTrue(db.transaction(connection -> pause(100)).joinWithin(Duration.ofSeconds(5))));
+        assertTrue(host.log.warnings().isEmpty(), "waiting during shutdown is expected");
+
+        host.shuttingDown = false;
+        db.transaction(connection -> pause(100)).joinWithin(Duration.ofSeconds(5));
+        assertTrue(host.log.warnings().isEmpty(), "waiting off the main thread is fine");
     }
 
     @Test

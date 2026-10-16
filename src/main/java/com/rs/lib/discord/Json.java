@@ -64,6 +64,11 @@ final class Json {
         return value.substring(0, end);
     }
 
+    /** Null for null or blank text, so the part is left out of the payload. */
+    static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
     /** A zero-width space for null or blank text: Discord refuses empty field parts. */
     static String nonEmpty(String value) {
         return value == null || value.isBlank() ? ZERO_WIDTH_SPACE : value;

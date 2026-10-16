@@ -149,8 +149,19 @@ public final class Cooldowns {
         }
     }
 
-    /** Clears every cooldown of every player, persistent ones included. */
+    /**
+     * Clears every cooldown of every player, persistent ones included, and stops the cleanup
+     * task; the next cooldown that is armed starts it again.
+     */
     public void clearAll() {
+        TaskHandle purge;
+        synchronized (lock) {
+            purge = purgeTask;
+            purgeTask = null;
+        }
+        if (purge != null) {
+            purge.cancel();
+        }
         CooldownStore persisted = store;
         for (Map.Entry<String, Map<UUID, long[]>> entry : categories.entrySet()) {
             entry.getValue().clear();

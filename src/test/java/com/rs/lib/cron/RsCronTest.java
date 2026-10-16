@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -195,10 +196,27 @@ class RsCronTest {
     }
 
     @Test
-    void invalidInputThrowsWhenScheduling() {
-        assertThrows(IllegalArgumentException.class, () -> cron.schedule("x", "61 * * * *", record("x")));
-        assertThrows(IllegalArgumentException.class, () -> cron.schedule(" ", "hourly", record("x")));
+    void invalidExpressionWarnsAndSchedulesNothing() {
+        cron.schedule("x", "61 * * * *", record("x"));
         assertFalse(cron.isScheduled("x"));
+        assertEquals(1, host.warnings.size());
+        String warning = host.warnings.get(0);
+        assertTrue(warning.startsWith("Cron job 'x': Invalid cron expression \"61 * * * *\""), warning);
+        assertTrue(warning.endsWith("; not scheduled."), warning);
+        assertThrows(IllegalArgumentException.class, () -> cron.schedule(" ", "hourly", record("x")));
+        assertThrows(IllegalArgumentException.class, () -> CronExpr.parse("61 * * * *"));
+    }
+
+    @Test
+    void invalidExpressionLeavesAnEarlierJobUntouched() {
+        cron.schedule("job", "hourly", record("job"));
+        ZonedDateTime next = cron.nextRun("job");
+        cron.create("job", "").catchUp(true).schedule(record("other"));
+        assertEquals(List.of("Cron job 'job': Cron expression is empty; not scheduled."), host.warnings);
+        assertTrue(cron.isScheduled("job"));
+        assertEquals(next, cron.nextRun("job"));
+        host.advance("2026-10-15T11:00:00");
+        assertEquals(List.of("job@2026-10-15T11:00:00Z"), runs);
     }
 
     @Test

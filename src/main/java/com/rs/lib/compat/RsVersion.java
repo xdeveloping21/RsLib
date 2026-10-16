@@ -11,8 +11,9 @@ import org.bukkit.Bukkit;
  *
  * <p>The version comes from {@link Bukkit#getBukkitVersion()}, which looks the same on every
  * fork ({@code 1.21.8-R0.1-SNAPSHOT}). The year-based numbering Mojang uses from 26.1 on
- * ({@code 26.1}, {@code 26.2.build...}) is newer than any 1.x and passes every check. When
- * nothing can be read, RsLib assumes 1.21.8 and never refuses to run.</p>
+ * ({@code 26.1}, {@code 26.2.build...}) is newer than any 1.x and passes every check. A version
+ * string without a {@code MAJOR.MINOR} pair logs one warning and counts as the newest version,
+ * so every check passes; RsLib never refuses to run.</p>
  */
 public final class RsVersion {
 
@@ -20,19 +21,13 @@ public final class RsVersion {
     public static final int MINOR;
     public static final int PATCH;
 
+    /** Stands for an unreadable version: newer than anything, so every check passes. */
+    static final int[] NEWEST = {Integer.MAX_VALUE, 0, 0};
+
     private static final boolean FOLIA;
 
     static {
-        String version = safeBukkitVersion();
-        int[] parsed = parse(version);
-        if (parsed == null) {
-            // Without a server (unit tests) there is nothing to read and nothing to warn about.
-            if (version != null) {
-                Logger.getLogger("RsLib").warning("Could not read the server version '" + version
-                        + "'; assuming 1.21.8.");
-            }
-            parsed = new int[] {1, 21, 8};
-        }
+        int[] parsed = resolve(safeBukkitVersion(), Logger.getLogger("RsLib"));
         MAJOR = parsed[0];
         MINOR = parsed[1];
         PATCH = parsed[2];
@@ -56,9 +51,29 @@ public final class RsVersion {
         return FOLIA;
     }
 
-    /** "1.21.8" or "26.1.0". */
+    /** "1.21.8" or "26.1.0"; "unknown" when the server version could not be read. */
     public static String describe() {
-        return MAJOR + "." + MINOR + "." + PATCH;
+        return describe(MAJOR, MINOR, PATCH);
+    }
+
+    static String describe(int major, int minor, int patch) {
+        return major == NEWEST[0] ? "unknown" : major + "." + minor + "." + patch;
+    }
+
+    /**
+     * The version to run with: the parsed one, {@link #NEWEST} (with one warning) when the string
+     * has no {@code MAJOR.MINOR} pair, or 1.21.8 without a server at all (unit tests).
+     */
+    static int[] resolve(String version, Logger log) {
+        if (version == null) {
+            return new int[] {1, 21, 8};
+        }
+        int[] parsed = parse(version);
+        if (parsed != null) {
+            return parsed;
+        }
+        log.warning("Could not read the server version '" + version + "'; assuming the newest version.");
+        return NEWEST.clone();
     }
 
     static boolean isAtLeast(int major, int minor, int patch, int wantedMinor, int wantedPatch) {

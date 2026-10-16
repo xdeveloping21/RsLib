@@ -149,13 +149,16 @@ public final class RsDebug {
         return active(Level.TRACE);
     }
 
-    /** Flips the master switch, saves it and answers the new {@link #enabled()}. */
+    /**
+     * Flips the master switch, saves it and answers its new state. That is the switch alone:
+     * with the level at INFO or OFF it can be on while {@link #enabled()} stays false.
+     */
     public boolean toggle() {
         synchronized (lock) {
             master = !master;
             persist();
+            return master;
         }
-        return enabled();
     }
 
     /**

@@ -166,7 +166,7 @@ public final class UpdateChecker {
         try {
             info = cache.get(site, id);
         } catch (IOException e) {
-            warnOnce(id, "Could not check " + id + " for updates: " + e.getMessage());
+            warnOnce(id, e.getMessage() == null ? e.toString() : e.getMessage());
             return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -257,9 +257,10 @@ public final class UpdateChecker {
         return stopped || (rs != null && rs.isShuttingDown());
     }
 
-    private void warnOnce(String id, String message) {
+    /** The first failure of {@code id} since this checker started; later ones stay silent. */
+    private void warnOnce(String id, String reason) {
         if (warned.add(id)) {
-            logger.warning(message + " Further failures for " + id + " are not logged until the next start.");
+            logger.warning("update check of '" + id + "' failed: " + reason);
         }
     }
 

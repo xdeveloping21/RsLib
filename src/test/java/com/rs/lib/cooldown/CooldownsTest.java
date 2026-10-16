@@ -38,6 +38,7 @@ class CooldownsTest {
     private final AtomicLong now = new AtomicLong(1_000_000L);
     private final List<Long> periods = new ArrayList<>();
     private final List<Runnable> timerTasks = new ArrayList<>();
+    private final List<Handle> handles = new ArrayList<>();
     private final List<RsDb> opened = new ArrayList<>();
     private boolean refuseTimers;
     private final UUID player = UUID.randomUUID();
@@ -68,7 +69,9 @@ class CooldownsTest {
             }
             periods.add(period);
             timerTasks.add(task);
-            return new Handle();
+            Handle handle = new Handle();
+            handles.add(handle);
+            return handle;
         }, db, "Test");
     }
 
@@ -164,6 +167,22 @@ class CooldownsTest {
         cooldowns.clearAll();
         assertTrue(cooldowns.tryUse(player, "a", Duration.ofMinutes(1)));
         assertEquals(0L, cooldowns.remainingMillis(player, "b"));
+    }
+
+    /** clearAll also stops the cleanup task; the next armed cooldown starts a fresh one. */
+    @Test
+    void clearAllStopsTheCleanupUntilTheNextUse() {
+        Cooldowns cooldowns = memory();
+        cooldowns.tryUse(player, "a", Duration.ofMinutes(1));
+        assertEquals(1, handles.size());
+        cooldowns.clearAll();
+        assertTrue(handles.get(0).isCancelled());
+        cooldowns.clearAll();
+        assertEquals(1, handles.size(), "clearing again schedules nothing");
+        assertTrue(cooldowns.tryUse(player, "a", Duration.ofMinutes(1)));
+        assertEquals(2, handles.size());
+        assertFalse(handles.get(1).isCancelled());
+        assertEquals(List.of(6000L, 6000L), periods);
     }
 
     @Test

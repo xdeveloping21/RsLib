@@ -86,6 +86,24 @@ class DiscordWebhookTest {
                 discord.message(HOOK).embed(discord.embed().footer("f")).toJson());
     }
 
+    /** Blank strings (an empty config value) are left out exactly like null. */
+    @Test
+    void blankValuesAreLeftOutLikeNull() {
+        DiscordWebhook.Embed embed = discord.embed().title("T").url(" ").footer("F", "").thumbnail("")
+                .image("  ").author("A", "", " ");
+        String json = discord.message(HOOK).content("hi").username(" ").avatarUrl("").embed(embed).toJson();
+        assertEquals("{\"content\":\"hi\",\"embeds\":[{\"title\":\"T\",\"footer\":{\"text\":\"F\"},"
+                + "\"author\":{\"name\":\"A\"}}]}", json);
+
+        String noAuthor = discord.message(HOOK).embed(discord.embed().title("T")
+                .author(" ", "https://x.y/a", "https://x.y/a.png").footer("", "https://x.y/f.png")).toJson();
+        assertEquals("{\"embeds\":[{\"title\":\"T\"}]}", noAuthor, "a blank name drops the whole author bar");
+
+        String nullAuthor = discord.message(HOOK).embed(discord.embed().title("T")
+                .author(null, "https://x.y/a", "https://x.y/a.png")).toJson();
+        assertEquals("{\"embeds\":[{\"title\":\"T\"}]}", nullAuthor);
+    }
+
     @Test
     void textIsEscaped() {
         String json = discord.message(HOOK).content("a \"q\" \\ b\nc\td\u0001\u2028").toJson();
