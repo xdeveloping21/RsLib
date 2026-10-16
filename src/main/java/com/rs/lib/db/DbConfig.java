@@ -24,7 +24,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  *   pool-size: 4          # MySQL only; at least 1
  *   ssl: false
  *   connect-timeout-seconds: 10   # 1..3600
- *   socket-timeout-seconds: 30    # 0 = no limit, no upper cap (MySQL only)
+ *   socket-timeout-seconds: 30    # 0-3600, 0 = no limit (MySQL only)
  * </pre>
  *
  * <p>Without the section the plugin gets SQLite in {@code plugins/<Plugin>/database.db}. Every
@@ -99,7 +99,7 @@ public final class DbConfig {
                 Math.max(1, section.getInt("pool-size", DEFAULT_POOL_SIZE)),
                 section.getBoolean("ssl", false),
                 clamp(section.getInt("connect-timeout-seconds", DEFAULT_CONNECT_TIMEOUT), 1),
-                Math.max(0, section.getInt("socket-timeout-seconds", DEFAULT_SOCKET_TIMEOUT)));
+                clamp(section.getInt("socket-timeout-seconds", DEFAULT_SOCKET_TIMEOUT), 0));
     }
 
     private static Type type(String raw, Logger logger) {
@@ -184,13 +184,12 @@ public final class DbConfig {
             return "jdbc:sqlite:" + sqliteFile.getAbsolutePath();
         }
         // allowPublicKeyRetrieval and characterEncoding keep MySQL 8 (caching_sha2_password, no SSL) working.
-        // The driver reads socketTimeout as an int of milliseconds, so a huge value stops at about 24 days.
         return "jdbc:mysql://" + host + ":" + port + "/" + database
                 + "?useSSL=" + ssl
                 + "&allowPublicKeyRetrieval=true"
                 + "&characterEncoding=utf8"
                 + "&connectTimeout=" + connectTimeoutSeconds * 1000L
-                + "&socketTimeout=" + Math.min(Integer.MAX_VALUE, socketTimeoutSeconds * 1000L);
+                + "&socketTimeout=" + socketTimeoutSeconds * 1000;
     }
 
     /** Database threads and pooled connections: one for SQLite, {@link #poolSize()} for MySQL. */
