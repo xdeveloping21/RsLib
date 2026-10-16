@@ -145,6 +145,17 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
   jar (`RsLib-Version`, `RsLib-Api-Level`). Permisos nuevos `rslib.admin.plugins`,
   `rslib.admin.integrations` y `rslib.admin.iteminfo`; `rslib.admin` ya no incluye
   `rslib.admin.debug`, que se da aparte, como en SnLib. Nivel de API 2.
+  Además, cada módulo revisado contra la documentación de SnLib y ajustado a ella: texto
+  (null entra, null sale; la eñe en versalitas), mensajes (las claves `rslib.*` se agregan
+  aunque `update-configs` sea false, una action bar simple no corta una fija, aviso de
+  `<click>`/`<hover>` perdidos), PlaceholderAPI (avisa que espera a que se instale), menús
+  (carpetas extra sembradas desde el jar y recargadas por espacio de nombres, `strict-clicks`
+  solo con listas de acciones, un espacio nunca es una tecla), ítems (salto final en el lore,
+  `COMMAND_ONLY` impide craftear pero no equipar, desgaste y raíz `items:`), comandos (ayuda
+  del subcomando por defecto, `1,500` = 1500, duraciones con espacios, textos de la consola),
+  base de datos, depuración, cooldowns, versión del servidor desconocida, Discord (valores
+  vacíos se omiten), cron (una expresión inválida avisa en vez de fallar), teletransportes
+  (`request(jugador, lugar)` es instantáneo) y avisos de actualización.
 - **1.1.0:** regiones con varita de selección (`rs().selections()`, textos y valores como
   SnLib), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib
