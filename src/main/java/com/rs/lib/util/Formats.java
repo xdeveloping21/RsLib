@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -387,14 +388,22 @@ public final class Formats {
 
     // ------------------------------------------------------------------ relative times
 
+    /** The clock relative times are measured against; tests replace it to avoid sleeping. */
+    private static volatile LongSupplier clock = System::currentTimeMillis;
+
+    /** Tests only: measure relative times against {@code now} ({@code null} restores the real clock). */
+    static void clock(LongSupplier now) {
+        clock = now == null ? System::currentTimeMillis : now;
+    }
+
     /** {@code epochMillis} from now, in English: {@code 3d ago}, {@code in 2h}, {@code now}. */
     public static String relative(long epochMillis) {
-        return relative(epochMillis, System.currentTimeMillis(), RelativeTexts.ENGLISH);
+        return relative(epochMillis, clock.getAsLong(), RelativeTexts.ENGLISH);
     }
 
     /** {@code epochMillis} from now with {@code texts}. */
     public static String relative(long epochMillis, RelativeTexts texts) {
-        return relative(epochMillis, System.currentTimeMillis(), texts);
+        return relative(epochMillis, clock.getAsLong(), texts);
     }
 
     /**

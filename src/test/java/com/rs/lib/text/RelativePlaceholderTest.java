@@ -18,6 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.rs.lib.Ph;
 import com.rs.lib.internal.LibMessages;
 import com.rs.lib.util.Formats;
+import com.rs.lib.util.FormatsClock;
 import com.rs.lib.util.Formats.RelativeTexts;
 import com.rs.lib.yml.RsYml;
 import com.rs.lib.yml.YmlTestSupport;
@@ -100,7 +101,7 @@ class RelativePlaceholderTest {
 
     /** The same compiled line with the same value: each render is in the language and at the time it runs. */
     @Test
-    void aCompiledLineIsNeverStale() throws InterruptedException {
+    void aCompiledLineIsNeverStale() {
         RsText.Template line = RsText.compile("&7Last seen &f{t:relative}");
         Ph t = ago("t", 3 * DAY);
         assertEquals("Last seen 3d ago", plain(line.render(t)));
@@ -112,10 +113,18 @@ class RelativePlaceholderTest {
         }
         assertEquals("Last seen 3d ago", plain(line.render(t)));
 
-        Ph almostAMinute = Ph.of("t", System.currentTimeMillis() - 59_300);
-        String first = plain(line.render(almostAMinute));
-        Thread.sleep(900);
-        String later = plain(line.render(almostAMinute));
+        long now = System.currentTimeMillis();
+        Ph almostAMinute = Ph.of("t", now - 59_300);
+        String first;
+        String later;
+        try {
+            FormatsClock.set(() -> now);
+            first = plain(line.render(almostAMinute));
+            FormatsClock.set(() -> now + 900);
+            later = plain(line.render(almostAMinute));
+        } finally {
+            FormatsClock.set(null);
+        }
         assertEquals("Last seen 59s ago", first);
         assertEquals("Last seen 1m ago", later);
         assertNotEquals(first, later);
