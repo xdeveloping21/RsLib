@@ -114,6 +114,29 @@ public final class RsCommands {
     }
 
     /**
+     * The node {@code fallbackSub} names among the {@code declared} first-level subcommands, or
+     * null when there is none. The injected {@code reload}, {@code help} and {@code debug} are not
+     * in {@code declared}, so naming one of them fails like an unknown name.
+     *
+     * @throws IllegalStateException when the name is unknown or names a group
+     */
+    static Node fallbackOf(String rootName, String fallbackSub, List<Node> declared) {
+        if (fallbackSub == null) {
+            return null;
+        }
+        for (Node node : declared) {
+            if (node.answersTo(fallbackSub)) {
+                if (node.group()) {
+                    break;
+                }
+                return node;
+            }
+        }
+        throw new IllegalStateException("fallbackSub('" + fallbackSub + "') of /" + rootName
+                + " must name a declared first-level subcommand without children");
+    }
+
+    /**
      * The root behind a command from the server's command map: the command itself, or the
      * root a plugin.yml command hands over to. Null when it is not an RsLib root.
      */
@@ -308,9 +331,11 @@ public final class RsCommands {
         public RootCommand register() {
             Set<String> taken = new HashSet<>();
             List<Node> top = buildTop(taken);
+            // Looked up before the defaults go in: reload, help and debug are never a fallback.
+            Node fallback = fallbackOf(name, fallbackSub, top);
             addDefaults(top, taken);
             RootCommand root = new RootCommand(RsCommands.this, name, permission, description, aliases, aliasSupplier,
-                    dynamic, commandPriority, onEmpty, top, findFallback(top));
+                    dynamic, commandPriority, onEmpty, top, fallback);
             RsCommands.this.register(root);
             return root;
         }
@@ -343,23 +368,6 @@ public final class RsCommands {
                     send(ctx.sender(), on ? "rslib.debug-on" : "rslib.debug-off", Ph.of("plugin", rs.plugin().getName()));
                 });
             }
-        }
-
-        /** The node named by {@link #fallbackSub(String)}, or null when there is none. */
-        private Node findFallback(List<Node> top) {
-            if (fallbackSub == null) {
-                return null;
-            }
-            for (Node node : top) {
-                if (node.answersTo(fallbackSub)) {
-                    if (node.group()) {
-                        break;
-                    }
-                    return node;
-                }
-            }
-            throw new IllegalStateException("fallbackSub('" + fallbackSub + "') of /" + name
-                    + " must name a first-level subcommand without children");
         }
 
         private void addDefault(List<Node> top, Set<String> taken, String word, String perm, String text,

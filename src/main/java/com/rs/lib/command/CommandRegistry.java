@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
@@ -287,13 +288,32 @@ final class CommandRegistry {
         Command occupant = known().get(key);
         String holder = occupant == null ? "another command" : ownerName(occupant);
         if (prefixedHeld) {
-            root.commands.logOnce("lost:" + key, root.dynamic ? Level.INFO : Level.WARNING, "/" + key
-                    + " belongs to " + holder + "; " + root.owner().getName() + " answers it as /" + prefix(root) + key
-                    + ".");
+            root.commands.logOnce("lost:" + key, root.dynamic ? Level.INFO : Level.WARNING,
+                    keptLine(root.owner().getName(), root.getName(), key, holder));
         } else {
             root.commands.logOnce("lost:" + key, Level.WARNING, "Could not register /" + key + " or /" + prefix(root)
                     + key + ": both are taken.");
         }
+    }
+
+    /** {@code Command '/money' of MyPlugin}, or {@code Alias '/bal' of '/money' in MyPlugin} for an alias. */
+    private static String describe(String plugin, String rootName, String key) {
+        return key.equals(rootName) ? "Command '/" + key + "' of " + plugin
+                : "Alias '/" + key + "' of '/" + rootName + "' in " + plugin;
+    }
+
+    /** The line logged when {@code holder} kept {@code key} and the root answers only as {@code plugin:key}. */
+    static String keptLine(String plugin, String rootName, String key, String holder) {
+        return describe(plugin, rootName, key) + " is taken by " + holder + "; kept it. This "
+                + (key.equals(rootName) ? "command" : "alias") + " answers as /" + plugin.toLowerCase(Locale.ROOT)
+                + ":" + key;
+    }
+
+    /** The line logged when a root with priority took {@code key} from {@code holder}. */
+    static String tookLine(String plugin, String rootName, String key, String holder, boolean holderKeepsNamespace) {
+        return describe(plugin, rootName, key) + " took the name from " + holder + " (command priority)"
+                + (holderKeepsNamespace ? "; " + holder + " still answers as /" + holder.toLowerCase(Locale.ROOT) + ":"
+                        + key : "");
     }
 
     // ---------------------------------------------------------------- keys
@@ -328,8 +348,9 @@ final class CommandRegistry {
                 other.prefixedOnly.add(key);
             }
         }
-        root.commands.logOnce("took:" + key, Level.INFO, "Took /" + key + " from " + holder + "; " + holder
-                + " still answers as /" + holder.toLowerCase(Locale.ROOT) + ":" + key + ".");
+        boolean keepsNamespace = known().get(holder.toLowerCase(Locale.ROOT) + ":" + key) == occupant;
+        root.commands.logOnce("took:" + key, Level.INFO,
+                tookLine(root.owner().getName(), root.getName(), key, holder, keepsNamespace));
         return true;
     }
 
@@ -344,11 +365,9 @@ final class CommandRegistry {
             return;
         }
         String prefixed = before.pluginName().toLowerCase(Locale.ROOT) + ":" + key;
-        Command back = before.command().get();
+        Command back = giveBackTo(before.command().get(), known().get(prefixed),
+                candidate -> returnable(candidate, before.pluginName(), key, prefixed));
         if (back == null) {
-            back = known().get(prefixed);
-        }
-        if (back == null || !returnable(back, before.pluginName(), key, prefixed)) {
             return;
         }
         known().put(key, back);
@@ -360,6 +379,17 @@ final class CommandRegistry {
                 other.prefixedOnly.remove(key);
             }
         }
+    }
+
+    /**
+     * Who gets a freed key back: the command it was taken from when that one can still have it,
+     * else the command answering at {@code plugin:key} now (that plugin re-registered it), else nobody.
+     */
+    static Command giveBackTo(Command original, Command answeringNow, Predicate<Command> returnable) {
+        if (original != null && returnable.test(original)) {
+            return original;
+        }
+        return answeringNow != null && answeringNow != original && returnable.test(answeringNow) ? answeringNow : null;
     }
 
     private static boolean returnable(Command back, String pluginName, String key, String prefixed) {
@@ -396,7 +426,7 @@ final class CommandRegistry {
 
     private static String ownerName(Command command) {
         Plugin plugin = pluginOf(command);
-        return plugin == null ? "the server" : plugin.getName();
+        return plugin == null ? "another command" : plugin.getName();
     }
 
     // ---------------------------------------------------------------- priority recovery

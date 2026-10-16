@@ -46,6 +46,32 @@ class ArgsTest {
         assertEquals(30_000L, Args.duration().parse(SENDER, "30s"));
         assertThrows(ArgParseException.class, () -> Args.duration().parse(SENDER, "soon"));
         assertThrows(ArgParseException.class, () -> Args.duration().parse(SENDER, "0s"));
+        assertEquals(95_400_000L, Args.duration().parse(SENDER, "1d 2h 30m"));
+        assertEquals(93_600_000L, Args.duration().parse(SENDER, "1d2h"));
+        assertEquals(5_400_000L, Args.duration().parse(SENDER, "1.5h"));
+        assertTrue(Args.duration().greedy());
+        assertEquals(List.of("30s", "5m", "1h", "1d"), Args.duration().suggest(SENDER, "", "time"));
+    }
+
+    @Test
+    void bracketedHintIsNotWrappedAgain() {
+        assertEquals(List.of("<ban reason>"), Args.greedy("<ban reason>").suggest(SENDER, "", "reason"));
+        assertEquals(List.of("<amount>"), Args.string("amount").suggest(SENDER, "", "x"));
+        assertEquals(List.of("<amount>"), Args.string("<amount>").suggest(SENDER, "", "x"));
+        assertEquals(List.of("<reason>"), Args.greedy().suggest(SENDER, "", "reason"));
+    }
+
+    @Test
+    void oneCommaGroupsThousands() throws ArgParseException {
+        assertEquals(1500, Args.intMin(0).parse(SENDER, "1,500"));
+        assertEquals(-1500, Args.intRange(-2000, 0).parse(SENDER, "-1,500"));
+        assertEquals(1_500_000.0, Args.doubleMin(0).parse(SENDER, "1,500k"));
+        assertEquals(1500.0, Args.doubleMin(0).parse(SENDER, "1,500"));
+        assertEquals(1.5, Args.doubleMin(0).parse(SENDER, "1,5"));
+        assertEquals(1500.25, Args.doubleMin(0).parse(SENDER, "1,500.25"));
+        assertEquals(1_500_000, Args.intMin(0).parse(SENDER, "1,500,000"));
+        assertThrows(ArgParseException.class, () -> Args.intMin(0).parse(SENDER, "1.500"));
+        assertThrows(ArgParseException.class, () -> Args.intMin(0).parse(SENDER, "1234,500"));
     }
 
     @Test
@@ -104,7 +130,7 @@ class ArgsTest {
 
     @Test
     void durationRejectsWhatItWouldMisread() {
-        for (String bad : List.of("1,5h", "-5m", "1e3s", "+5m", "2w", "999999999d")) {
+        for (String bad : List.of("1,5h", "-5m", "1e3s", "+5m", "2w", "999999999d", "1d please", "h1", "1d, 2h")) {
             assertThrows(ArgParseException.class, () -> Args.duration().parse(SENDER, bad), bad);
         }
     }

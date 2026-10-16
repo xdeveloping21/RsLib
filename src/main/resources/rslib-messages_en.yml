@@ -33,7 +33,7 @@ rslib:
     timeout: "&7Selection expired."
   help:
     header: "&6&l{plugin} &8» &7Commands"
-    entry: "[noprefix]&e{usage} &8- &7{description}"
+    entry: "&e{usage} &7{description}"
     footer: "[noprefix]&7Page &f{page}&7 of &f{total}&7. Next pages: &f{command} <page>"
     group-header: "&6&l{group} &8» &7{description}"
     group-footer: "[noprefix]&7Page &f{page}&7 of &f{total}&7. Next pages: &f{path} help <page>"
