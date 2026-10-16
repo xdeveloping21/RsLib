@@ -82,6 +82,7 @@ public final class GuiSession implements PageTarget {
     private Component lastTitle;
     private PagedBind<?> paged;
     private Consumer<ItemOffer> offerHandler;
+    private volatile Runnable endHook;
     private boolean protoStatic;
     private volatile boolean closed;
     private volatile boolean transitioning;
@@ -626,6 +627,28 @@ public final class GuiSession implements PageTarget {
         timers.clear();
         offerHandler = null;
         gui.forget(this);
+        Runnable hook = endHook;
+        endHook = null;
+        if (hook != null) {
+            try {
+                hook.run();
+            } catch (RuntimeException | LinkageError e) {
+                host.logger().log(Level.WARNING, "The end hook of menu " + def.id() + " failed", e);
+            }
+        }
+    }
+
+    /**
+     * Runs {@code hook} once when this session ends, however it ends (a close by the player, by
+     * the plugin, a reload, the player leaving); at once when it already ended. Null removes it.
+     * Used by {@link ListEditor}.
+     */
+    void onEnd(Runnable hook) {
+        endHook = hook;
+        if (closed && hook != null) {
+            endHook = null;
+            hook.run();
+        }
     }
 
     private void startTimers() {

@@ -20,6 +20,16 @@ rslib:
     timed-out: "&cTardaste demasiado en responder."
     too-short: "&cEscribe al menos &f{min}&c caracteres."
     too-long: "&cEscribe como máximo &f{max}&c caracteres."
+  wizard:
+    step: "&8» &7Pregunta &f{step}&7 de &f{steps}"
+    options: "&7Opciones: &f{options}"
+    back-hint: "&7Escribe &f{words}&7 para volver a la pregunta anterior."
+    summary: "&6Revisa tus respuestas:"
+    summary-line: "&8- &7{name}: &f{value}"
+    confirm: "&7Escribe &a{confirm}&7 para aplicar, &e{back}&7 para cambiar la última respuesta o &c{cancel}&7 para cancelar."
+  editor:
+    empty-hand: "&cSostén en la mano el ítem que quieres agregar."
+    item-refused: "&cEse ítem no se puede agregar aquí."
   teleport:
     warmup: "&7Teletransportando en &e{time}&7. No te muevas."
     cancelled-move: "&cTeletransporte cancelado: te moviste."

@@ -19,6 +19,8 @@ import com.rs.lib.scheduler.TaskHandle;
 final class FakeInputHost implements InputHost {
 
     final List<String> sent = new ArrayList<>();
+    /** The placeholders of each message in {@link #sent}, by position (none for {@code sendText}). */
+    final List<Ph[]> sentPhs = new ArrayList<>();
     final List<String> severe = new ArrayList<>();
     final Deque<Runnable> queue = new ArrayDeque<>();
     final List<Timer> timers = new ArrayList<>();
@@ -102,11 +104,13 @@ final class FakeInputHost implements InputHost {
             line.append(' ').append(ph.key()).append('=').append(ph.value());
         }
         sent.add(line.toString());
+        sentPhs.add(phs.clone());
     }
 
     @Override
     public void sendText(Player player, String text) {
         sent.add("text:" + text);
+        sentPhs.add(new Ph[0]);
     }
 
     /** A timer the test fires by hand. */

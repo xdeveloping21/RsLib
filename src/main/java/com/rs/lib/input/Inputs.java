@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.entity.Player;
@@ -38,6 +37,9 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  * {@link InputStatus#LEFT} when the player leaves and as {@link InputStatus#SHUT_DOWN} when
  * the plugin shuts down, before its menus close.</p>
  *
+ * <p>Several questions in a row, with going back and a summary to confirm, are a
+ * {@link #wizard(Player)}.</p>
+ *
  * <p>Messages (in the plugin's language files, or RsLib's English texts without them):
  * {@code rslib.input.cancel-hint}, {@code rslib.input.cancelled}, {@code rslib.input.timed-out},
  * {@code rslib.input.too-short}, {@code rslib.input.too-long}, {@code rslib.invalid-number},
@@ -61,6 +63,7 @@ public final class Inputs {
 
     private final InputHost host;
     private final Set<InputSession<?>> mine = ConcurrentHashMap.newKeySet();
+    private final Set<Wizard> wizards = ConcurrentHashMap.newKeySet();
     private volatile boolean shutDown;
 
     public Inputs(Rs rs) {
@@ -124,6 +127,14 @@ public final class Inputs {
         return new InputRequest<>(this, Objects.requireNonNull(player, "player"), Objects.requireNonNull(parser, "parser"));
     }
 
+    /**
+     * Several questions in a row for {@code player}, applied only when they confirm the summary
+     * at the end; see {@link Wizard}. Build it, then {@link Wizard#start()} it.
+     */
+    public Wizard wizard(Player player) {
+        return new Wizard(this, host, Objects.requireNonNull(player, "player"));
+    }
+
     /** Whether {@code player} has an open question from this plugin. */
     public boolean isWaiting(UUID player) {
         InputSession<?> session = player == null ? null : ACTIVE.get(player);
@@ -138,9 +149,15 @@ public final class Inputs {
         }
     }
 
-    /** Ends every open question of this plugin as {@link InputStatus#SHUT_DOWN}; no new one opens after. */
+    /**
+     * Ends every wizard ({@link WizardEnd#SHUT_DOWN}) and open question ({@link InputStatus#SHUT_DOWN})
+     * of this plugin; no new one opens after.
+     */
     public void shutdown() {
         shutDown = true;
+        for (Wizard wizard : new ArrayList<>(wizards)) {
+            wizard.end(WizardEnd.SHUT_DOWN);
+        }
         for (InputSession<?> session : new ArrayList<>(mine)) {
             session.end(InputStatus.SHUT_DOWN, null);
         }
@@ -154,15 +171,15 @@ public final class Inputs {
         }
     }
 
-    <T> CompletableFuture<InputResult<T>> open(InputRequest<T> request) {
+    <T> InputSession<T> open(InputRequest<T> request) {
         InputSession<T> session = new InputSession<>(this, host, request);
         if (shutDown || host.shuttingDown()) {
             session.end(InputStatus.SHUT_DOWN, null);
-            return session.future;
+            return session;
         }
         if (!request.player().isOnline()) {
             session.end(InputStatus.LEFT, null);
-            return session.future;
+            return session;
         }
         mine.add(session);
         InputSession<?> previous = ACTIVE.put(session.id, session);
@@ -175,16 +192,21 @@ public final class Inputs {
         } catch (RuntimeException notScheduled) {
             // Without a timer the question could wait forever and swallow the player's chat.
             session.end(InputStatus.SHUT_DOWN, null);
-            return session.future;
+            return session;
         }
         if (!session.isEnded()) {
             session.ask();
         }
-        return session.future;
+        return session;
     }
 
     /** The player left: their question from this plugin ends as {@link InputStatus#LEFT}. */
     void left(UUID player) {
+        for (Wizard wizard : new ArrayList<>(wizards)) {
+            if (wizard.playerId().equals(player)) {
+                wizard.end(WizardEnd.LEFT);
+            }
+        }
         InputSession<?> session = ACTIVE.get(player);
         if (session != null && session.owner == this) {
             session.end(InputStatus.LEFT, null);
@@ -193,6 +215,14 @@ public final class Inputs {
 
     void forget(InputSession<?> session) {
         mine.remove(session);
+    }
+
+    void track(Wizard wizard) {
+        wizards.add(wizard);
+    }
+
+    void forget(Wizard wizard) {
+        wizards.remove(wizard);
     }
 
     /** Hands chat text to the player's open question; true when there is one (the chat is then cancelled). */
