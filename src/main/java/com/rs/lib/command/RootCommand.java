@@ -300,13 +300,19 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
         int last = leaf.args.size() - 1;
         for (int i = 0; i <= last; i++) {
             Node.ArgSpec spec = leaf.args.get(i);
-            String shown = leaf.argLabel(spec.name()) + (i == last && leaf.greedyTail() ? "..." : "");
+            boolean rest = i == last && leaf.greedyTail() && restMarked(spec.arg());
+            String shown = leaf.argLabel(spec.name()) + (rest ? "..." : "");
             line.append(' ').append(spec.optional() ? "[" : "<").append(shown).append(spec.optional() ? "]" : ">");
         }
         return line.toString();
     }
 
-    static String normalizeLabel(String typed) {
+    /** A greedy argument read as one value (a duration) shows no {@code ...} in the usage line. */
+    private static boolean restMarked(Arg<?> arg) {
+        return !(arg instanceof Args.RsArg<?> own) || own.restMarked();
+    }
+
+        static String normalizeLabel(String typed) {
         String label = typed == null ? "" : typed;
         int colon = label.indexOf(':');
         if (colon >= 0) {
@@ -437,14 +443,20 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
             return;
         }
         String shown = shownLabel(label);
-        List<HelpEntry> entries = new ArrayList<>();
-        collect(top, sender, shown, rootPermission, entries);
+        List<HelpEntry> entries = helpEntries(sender, shown);
         sendPaged(sender, entries, page, "rslib.help.header",
                 new Ph[] {Ph.of("plugin", owner().getName()), Ph.of("command", "/" + shown)},
                 "rslib.help.footer", Ph.of("command", "/" + shown + " help"));
     }
 
-    void sendGroupHelp(CommandSender sender, String label, Node group, int page) {
+    /** Every entry of the root help {@code sender} may see, under the label {@code shown}. */
+    List<HelpEntry> helpEntries(CommandSender sender, String shown) {
+        List<HelpEntry> entries = new ArrayList<>();
+        collect(top, sender, shown, rootPermission, entries);
+        return entries;
+    }
+
+        void sendGroupHelp(CommandSender sender, String label, Node group, int page) {
         String shown = shownLabel(label);
         List<HelpEntry> entries = new ArrayList<>();
         collect(group.children, sender, shown, inheritedPermission(group), entries);
@@ -474,7 +486,10 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
                 Ph.of("permission", entry.permission()));
     }
 
-    /** One entry per leaf the sender can use; a group with its own help counts as one entry. */
+    /**
+     * One entry per leaf the sender can use; a group with its own help counts as one entry. The
+     * fallback subcommand is listed in its short form, as players reach it.
+     */
     private void collect(List<Node> nodes, CommandSender sender, String label, String inherited, List<HelpEntry> out) {
         for (Node node : nodes) {
             if (!inHelp(node, sender)) {
@@ -482,7 +497,7 @@ public final class RootCommand extends Command implements PluginIdentifiableComm
             }
             String permission = node.permission != null ? node.permission : inherited;
             if (!node.group()) {
-                out.add(new HelpEntry(usageOf(node, label, false), node.description(), permission == null ? "" : permission));
+                out.add(new HelpEntry(usageOf(node, label, node == fallback), node.description(), permission == null ? "" : permission));
             } else if (node.groupHelp) {
                 if (hasHelpEntry(node, sender)) {
                     out.add(new HelpEntry("/" + label + " " + node.path + " help", node.description(),

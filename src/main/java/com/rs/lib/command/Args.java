@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
@@ -31,8 +32,8 @@ import com.rs.lib.util.TimeUtil;
 
 /**
  * Ready-made argument types. Numbers accept the suffixes {@code K, M, B, T, Qa, Qi} and
- * grouping ({@code 2k}, {@code 1.5m}, {@code 1,500.25}) and fail closed: an ambiguous
- * {@code 1.500} or an exponent is rejected instead of guessed (see {@link Amounts}).
+ * grouping ({@code 2k}, {@code 1.5m}, {@code 1,500}, {@code 1,500.25}) and fail closed: an
+ * ambiguous {@code 1.500} or an exponent is rejected instead of guessed (see {@link Amounts}).
  * Whatever the player typed is shown back as {@code {value}} without formatting.
  */
 public final class Args {
@@ -213,19 +214,26 @@ public final class Args {
     public static final long MAX_DURATION_MILLIS = 100L * 365 * 24 * 60 * 60 * 1000;
 
     /**
-     * A duration in milliseconds, greater than zero ({@code 30s}, {@code 5m}, {@code 1d2h}).
-     * It is one word, so {@code 1d 2h} must be typed together as {@code 1d2h}. A sign, a comma
-     * or an exponent is rejected instead of being read wrong ({@code 1,5h} is not {@code 5h}).
+     * A duration in milliseconds, greater than zero ({@code 30s}, {@code 5m}, {@code 1d 2h 30m}).
+     * As the last argument it takes the rest of the line, so {@code 1d 2h} and {@code 1d2h} are
+     * the same; anywhere else it is one word. A sign, a comma, an exponent or a word that is not
+     * a number with its unit is rejected instead of being read wrong ({@code 1,5h} is not {@code 5h}).
      */
     public static RsArg<Long> duration() {
-        return new RsArg<>(List.of("30s", "5m", "30m", "1h", "1d"), false, null) {
+        return new RsArg<>(List.of("30s", "5m", "1h", "1d"), true, null) {
             @Override
             protected Long read(CommandSender sender, String raw) throws ArgParseException {
-                long millis = SUSPICIOUS_DURATION.matcher(raw).find() ? 0 : TimeUtil.parseMillis(raw);
+                boolean readable = !SUSPICIOUS_DURATION.matcher(raw).find() && DURATION_WORDS.matcher(raw).matches();
+                long millis = readable ? TimeUtil.parseMillis(raw) : 0;
                 if (millis <= 0 || millis > MAX_DURATION_MILLIS) {
                     throw new ArgParseException("rslib.invalid-value", Ph.literal("value", raw));
                 }
                 return millis;
+            }
+
+            @Override
+            boolean restMarked() {
+                return false;
             }
         };
     }
@@ -277,8 +285,26 @@ public final class Args {
     private static final Pattern SUSPICIOUS_DURATION =
             Pattern.compile("[-+,]|\\d[eE][-+]?\\d");
 
+    /** Numbers, each with an optional unit, separated by spaces or not at all: {@code 1d 2h30m}. */
+    private static final Pattern DURATION_WORDS =
+            Pattern.compile("\\s*+(?:(?:\\d++(?:\\.\\d*+)?|\\.\\d++)\\s*+[A-Za-z]*+\\s*+)++");
+
+    /** One comma then exactly three digits, with an optional suffix: {@code 1,500} or {@code 2,500k}. */
+    private static final Pattern ONE_GROUP =
+            Pattern.compile("\\s*+([-+]?\\d{1,3}),(\\d{3}(?:[kKmMbBtT]|[qQ][aAiI])?)\\s*+");
+
+    /**
+     * {@code 1,500} as {@code 1500}: in a command a single comma before exactly three digits
+     * groups thousands. {@link Amounts} leaves that layout out as ambiguous, so it is resolved
+     * here, for commands only; everything else reaches {@link Amounts} untouched.
+     */
+    static String grouped(String raw) {
+        Matcher group = ONE_GROUP.matcher(raw);
+        return group.matches() ? group.group(1) + group.group(2) : raw;
+    }
+
     private static BigDecimal whole(String raw) throws ArgParseException {
-        Optional<BigDecimal> value = Amounts.parseSigned(raw);
+        Optional<BigDecimal> value = Amounts.parseSigned(grouped(raw));
         if (value.isEmpty()) {
             throw invalidNumber(raw);
         }
@@ -290,7 +316,7 @@ public final class Args {
     }
 
     private static double decimal(String raw) throws ArgParseException {
-        OptionalDouble value = Amounts.parseSignedDouble(raw);
+        OptionalDouble value = Amounts.parseSignedDouble(grouped(raw));
         if (value.isEmpty()) {
             throw invalidNumber(raw);
         }
@@ -349,6 +375,11 @@ public final class Args {
             return greedy;
         }
 
+        /** True when the usage line marks it with {@code ...}: a greedy one that reads loose words. */
+        boolean restMarked() {
+            return greedy;
+        }
+
         /** Reads one value; {@code sender} is never null. */
         protected abstract T read(CommandSender sender, String raw) throws ArgParseException;
 
@@ -387,7 +418,7 @@ public final class Args {
                 }
             }
             if (hint != null && (typed.isEmpty() || typed.startsWith("<"))) {
-                add(out, seen, "<" + (hint.isEmpty() ? argName : hint) + ">", prefix);
+                add(out, seen, bracketed(hint.isEmpty() ? argName : hint), prefix);
             }
             for (String example : examples) {
                 add(out, seen, example, prefix);
@@ -449,6 +480,13 @@ public final class Args {
                 values.add(ranked.value());
             }
             return values;
+        }
+
+        /** {@code <text>}; a hint the plugin already wrapped in angle brackets is not wrapped twice. */
+        static String bracketed(String text) {
+            String inner = text.startsWith("<") ? text.substring(1) : text;
+            inner = inner.endsWith(">") ? inner.substring(0, inner.length() - 1) : inner;
+            return "<" + inner + ">";
         }
 
         private static void add(List<String> out, Set<String> seen, String value, String prefix) {

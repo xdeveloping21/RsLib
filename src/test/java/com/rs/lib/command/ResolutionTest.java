@@ -117,6 +117,8 @@ class ResolutionTest {
         assertEquals(2000, run.context().getInt("amount"));
         Resolution.Run grouped = assertInstanceOf(Resolution.Run.class, run(ADMIN, "give Steve 1,500,000"));
         assertEquals(1_500_000, grouped.context().getInt("amount"));
+        Resolution.Run thousands = assertInstanceOf(Resolution.Run.class, run(ADMIN, "give Steve 1,500"));
+        assertEquals(1500, thousands.context().getInt("amount"));
     }
 
     @Test
@@ -186,6 +188,45 @@ class ResolutionTest {
                 Trees.sub("request").arg("player", Args.string()).arg("item", Args.string()).executes(ctx -> { }));
         Resolution result = trade.resolve(NOBODY, "trade", new String[] {"Steve"});
         assertEquals("/trade <player> <item>", phs(result).get("usage"));
+    }
+
+    @Test
+    void helpListsTheFallbackOnceInItsShortForm() {
+        RootCommand trade = Trees.root(null, "request", null,
+                Trees.sub("request").description("Sends a trade request").arg("player", Args.string())
+                        .executes(ctx -> { }),
+                Trees.sub("accept").arg("player", Args.string()).executes(ctx -> { }));
+        List<String> usages = trade.helpEntries(NOBODY, "trade").stream().map(RootCommand.HelpEntry::usage).toList();
+        assertEquals(List.of("/trade <player>", "/trade accept <player>"), usages);
+    }
+
+    @Test
+    void fallbackMustBeADeclaredLeaf() {
+        List<Node> declared = List.of(Trees.sub("request").arg("player", Args.string()).executes(ctx -> { }).build(""),
+                Trees.sub("admin").sub("reset", s -> s.executes(ctx -> { })).build(""));
+        assertEquals("request", RsCommands.fallbackOf("trade", "request", declared).name);
+        assertNull(RsCommands.fallbackOf("trade", null, declared));
+        for (String bad : List.of("help", "reload", "debug", "admin", "nope")) {
+            assertThrows(IllegalStateException.class, () -> RsCommands.fallbackOf("trade", bad, declared), bad);
+        }
+    }
+
+    @Test
+    void lastDurationTakesSpacedWords() {
+        RootCommand root = Trees.root(null, null, null,
+                Trees.sub("ban").arg("player", Args.string()).arg("time", Args.duration()).executes(ctx -> { }),
+                Trees.sub("delay").arg("time", Args.duration()).arg("player", Args.string()).executes(ctx -> { }));
+        Resolution.Run run = assertInstanceOf(Resolution.Run.class,
+                root.resolve(NOBODY, "rk", "ban Steve 1d 2h 30m".split(" ")));
+        assertEquals(95_400_000L, run.context().<Long>get("time"));
+        assertEquals("/rk ban <player> <time>", phs(root.resolve(NOBODY, "rk", new String[] {"ban"})).get("usage"));
+        assertEquals("rslib.invalid-value", key(root.resolve(NOBODY, "rk", "ban Steve 1d please".split(" "))));
+        // Not last: one word, as before.
+        Resolution.Run delay = assertInstanceOf(Resolution.Run.class,
+                root.resolve(NOBODY, "rk", "delay 5m Steve".split(" ")));
+        assertEquals(300_000L, delay.context().<Long>get("time"));
+        assertEquals("Steve", delay.context().get("player"));
+        assertEquals(List.of("30s", "5m", "1h", "1d"), root.suggestions(NOBODY, "ban Steve 1d ".split(" ", -1)));
     }
 
     @Test
