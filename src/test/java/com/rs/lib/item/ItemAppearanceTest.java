@@ -60,7 +60,8 @@ class ItemAppearanceTest {
     @Test
     void skullOwnerWinsOverTexture() {
         ItemAppearance both = parse("material: 'basehead-eyJ0ZXh0dXJlcyI6e319'\nskull-owner: Notch\n");
-        assertTrue(warnings.stream().anyMatch(w -> w.contains("skull-owner wins")), warnings.toString());
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("skull-owner and base64 texture defined at the same time"
+                + " for PLAYER_HEAD; skull-owner wins and the base64 texture is ignored")), warnings.toString());
         RsItem item = both.toBuilder(null, null);
         assertEquals(Material.PLAYER_HEAD, item.material());
         assertEquals("Notch", item.skullOwnerValue());

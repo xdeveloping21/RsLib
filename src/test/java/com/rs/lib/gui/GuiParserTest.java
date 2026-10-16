@@ -120,7 +120,8 @@ class GuiParserTest {
     void slotsWinOverKey() {
         GuiDef def = parse("layout: ['a']\nitems:\n  both: {material: STONE, key: a, slots: [5]}\n");
         assertArrayEquals(new int[] {5}, def.items().get(0).slots());
-        assertTrue(warned("'slots' wins"));
+        assertTrue(kit.warnings.contains("Item 'both': declares both 'slots' and 'key'; slots wins and key is ignored"),
+                kit.warnings.toString());
     }
 
     /** Trampa 12: navigation arrows are found by the text of any of their lists, in items only. */

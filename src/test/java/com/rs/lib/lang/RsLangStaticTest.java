@@ -113,8 +113,30 @@ class RsLangStaticTest {
                 "shop.both", "<click:run_command:/a>[A]</click>", "shop.kept", "<CLICK:run_command:/k>[K]</click>");
         active.put("body", new Entry(true, List.of(Line.of("line", null), Line.of("[Site]", null))));
         LangLoader.warnLostTags(log.logger, jar(Map.of("lang/messages_en.yml", en)), "en", active, Map.of());
-        assertEquals(List.of("Messages that lost a <click> or <hover> their default has: "
-                + "shop.buy, shop.info, shop.both, body"), log.warnings());
+        assertEquals(List.of("4 message key(s) in lang/messages_en.yml lost the <click>/<hover> tag their jar"
+                + " default carries (shop.buy, shop.info, shop.both, body); the button still renders but clicking it"
+                + " does nothing - restore the tags in those values"), log.warnings());
+    }
+
+    private static String lostLine(int count, String file, String keys) {
+        return count + " message key(s) in " + file + " lost the <click>/<hover> tag their jar default carries ("
+                + keys + "); the button still renders but clicking it does nothing - restore the tags in those values";
+    }
+
+    @Test
+    void prefixTokenIsWarnedOncePerFileWithItsCount() {
+        Captured log = new Captured();
+        Map<String, Entry> active = live("a", "{prefix} hi", "b", "&7{prefix}x", "c", "plain", "extra.d", "{prefix}");
+        LangLoader.warnPrefixToken(log.logger, "lang/messages_en.yml", active,
+                Map.of("extra.d", "addons/extra/messages_en.yml"));
+        String tail = " embed the literal {prefix} token; RsLib prepends the configured prefix automatically, so the"
+                + " token renders literally - remove it from those values";
+        assertEquals(List.of("2 message key(s) in lang/messages_en.yml" + tail,
+                "1 message key(s) in addons/extra/messages_en.yml" + tail), log.warnings());
+
+        log.clear();
+        LangLoader.warnPrefixToken(log.logger, "lang/messages_en.yml", live("a", "hi"), Map.of());
+        assertTrue(log.warnings().isEmpty(), log.warnings().toString());
     }
 
     @Test
@@ -123,11 +145,19 @@ class RsLangStaticTest {
         Map<String, String> files = Map.of("lang/messages_en.yml", "a: \"<click:run_command:/a>A</click>\"\n",
                 "lang/messages_es.yml", "b: \"<hover:show_text:'b'>B</hover>\"\n");
         LangLoader.warnLostTags(log.logger, jar(files), "es", live("a", "A", "b", "B"), Map.of());
-        assertEquals(List.of("Messages that lost a <click> or <hover> their default has: b"), log.warnings());
+        assertEquals(List.of(lostLine(1, "lang/messages_es.yml", "b")), log.warnings());
 
         log.clear();
         LangLoader.warnLostTags(log.logger, jar(files), "fr", Map.of(), live("a", "A"));
-        assertEquals(List.of("Messages that lost a <click> or <hover> their default has: a"), log.warnings());
+        assertEquals(List.of(lostLine(1, "lang/messages_en.yml", "a")), log.warnings());
+
+        // One line per file: the translation's own value and an English fallback value.
+        log.clear();
+        Map<String, String> both = Map.of("lang/messages_es.yml", "a: \"<click:run_command:/a>A</click>\"\n"
+                + "b: \"<hover:show_text:'b'>B</hover>\"\n");
+        LangLoader.warnLostTags(log.logger, jar(both), "es", live("b", "B"), live("a", "A"));
+        assertEquals(List.of(lostLine(1, "lang/messages_en.yml", "a"), lostLine(1, "lang/messages_es.yml", "b")),
+                log.warnings());
 
         log.clear();
         LangLoader.warnLostTags(log.logger, jar(files), "en", live("a", "<click:run_command:/a>A</click>"), Map.of());

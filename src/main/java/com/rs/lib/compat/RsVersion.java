@@ -72,7 +72,7 @@ public final class RsVersion {
         if (parsed != null) {
             return parsed;
         }
-        log.warning("Could not read the server version '" + version + "'; assuming the newest version.");
+        log.warning("[RsLib] '" + version + "': unrecognized version, assuming compat target");
         return NEWEST.clone();
     }
 

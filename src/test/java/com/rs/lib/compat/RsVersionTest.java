@@ -53,8 +53,8 @@ class RsVersionTest {
         });
 
         int[] newest = RsVersion.resolve("git-Paper-experimental", log);
-        assertEquals(List.of("Could not read the server version 'git-Paper-experimental'; assuming the newest "
-                + "version."), warnings);
+        assertEquals(List.of("[RsLib] 'git-Paper-experimental': unrecognized version, assuming compat target"),
+                warnings);
         assertTrue(RsVersion.isAtLeast(newest[0], newest[1], newest[2], 21, 11));
         assertTrue(RsVersion.isAtLeast(newest[0], newest[1], newest[2], Integer.MAX_VALUE, Integer.MAX_VALUE));
         assertEquals("unknown", RsVersion.describe(newest[0], newest[1], newest[2]));

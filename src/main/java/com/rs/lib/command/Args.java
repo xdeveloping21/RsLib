@@ -214,17 +214,18 @@ public final class Args {
     public static final long MAX_DURATION_MILLIS = 100L * 365 * 24 * 60 * 60 * 1000;
 
     /**
-     * A duration in milliseconds, greater than zero ({@code 30s}, {@code 5m}, {@code 1d 2h 30m}).
-     * As the last argument it takes the rest of the line, so {@code 1d 2h} and {@code 1d2h} are
-     * the same; anywhere else it is one word. A sign, a comma, an exponent or a word that is not
-     * a number with its unit is rejected instead of being read wrong ({@code 1,5h} is not {@code 5h}).
+     * A duration in milliseconds, greater than zero ({@code 30s}, {@code 5m}, {@code 1d 2h 30m}),
+     * read like a duration in a config ({@link TimeUtil#parseMillis}): decimals and spelled-out
+     * units work, a bare number is seconds, unknown units are skipped, and a result of zero is
+     * rejected. As the last argument it takes the rest of the line, so {@code 1d 2h} and
+     * {@code 1d2h} are the same; anywhere else it is one word. A sign, a comma between digits or
+     * an exponent is rejected instead of being read wrong ({@code 1,5h} is not {@code 1s 5h}).
      */
     public static RsArg<Long> duration() {
         return new RsArg<>(List.of("30s", "5m", "1h", "1d"), true, null) {
             @Override
             protected Long read(CommandSender sender, String raw) throws ArgParseException {
-                boolean readable = !SUSPICIOUS_DURATION.matcher(raw).find() && DURATION_WORDS.matcher(raw).matches();
-                long millis = readable ? TimeUtil.parseMillis(raw) : 0;
+                long millis = SUSPICIOUS_DURATION.matcher(raw).find() ? 0 : TimeUtil.parseMillis(raw);
                 if (millis <= 0 || millis > MAX_DURATION_MILLIS) {
                     throw new ArgParseException("rslib.invalid-value", Ph.literal("value", raw));
                 }
@@ -283,11 +284,7 @@ public final class Args {
 
     /** Signed on purpose: {@code -5} for {@code intMin(1)} reads as "too small", not "not a number". */
     private static final Pattern SUSPICIOUS_DURATION =
-            Pattern.compile("[-+,]|\\d[eE][-+]?\\d");
-
-    /** Numbers, each with an optional unit, separated by spaces or not at all: {@code 1d 2h30m}. */
-    private static final Pattern DURATION_WORDS =
-            Pattern.compile("\\s*+(?:(?:\\d++(?:\\.\\d*+)?|\\.\\d++)\\s*+[A-Za-z]*+\\s*+)++");
+            Pattern.compile("[-+]|\\d\\s*+,\\s*+\\d|\\d[eE][-+]?\\d");
 
     /** One comma then exactly three digits, with an optional suffix: {@code 1,500} or {@code 2,500k}. */
     private static final Pattern ONE_GROUP =

@@ -161,8 +161,7 @@ public final class SoftDependency<T> {
         if (wanted != null) {
             String actual = target.getPluginMeta().getVersion();
             if (SemverComparator.compareVersions(actual, wanted) < 0) {
-                owner.getLogger().warning(pluginName + " " + actual + " is older than " + wanted
-                        + "; the " + pluginName + " hook stays off.");
+                owner.getLogger().warning(tooOld(pluginName, wanted, actual));
                 return null;
             }
         }
@@ -171,8 +170,7 @@ public final class SoftDependency<T> {
             try {
                 Class.forName(cls, false, target.getClass().getClassLoader());
             } catch (ClassNotFoundException | LinkageError missing) {
-                owner.getLogger().warning(pluginName + " does not provide " + cls
-                        + "; the " + pluginName + " hook stays off.");
+                owner.getLogger().warning(missingClass(pluginName, cls));
                 return null;
             }
         }
@@ -183,6 +181,16 @@ public final class SoftDependency<T> {
                     + t.getClass().getSimpleName() + "); that integration stays off.", t);
             return null;
         }
+    }
+
+    /** The line logged when the target is older than {@link #minVersion(String)}. */
+    static String tooOld(String plugin, String required, String installed) {
+        return "Hook '" + plugin + "' requires version >= " + required + " (installed: " + installed + "); hook disabled";
+    }
+
+    /** The line logged when the target lacks the class of {@link #requiresClass(String)}. */
+    static String missingClass(String plugin, String className) {
+        return "Hook '" + plugin + "': required class " + className + " not found; hook disabled";
     }
 
     @Override

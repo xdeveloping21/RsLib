@@ -234,6 +234,17 @@ public final class SelfUpdater {
                     tell(sender, message);
                 }
             }
+
+            @Override
+            public void alert(String message) {
+                if (stopped) {
+                    return;
+                }
+                logger.warning(message);
+                if (!(sender instanceof ConsoleCommandSender)) {
+                    tell(sender, message);
+                }
+            }
         };
     }
 

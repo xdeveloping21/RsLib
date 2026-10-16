@@ -201,7 +201,10 @@ class RsCronTest {
         assertFalse(cron.isScheduled("x"));
         assertEquals(1, host.warnings.size());
         String warning = host.warnings.get(0);
-        assertTrue(warning.startsWith("Cron job 'x': Invalid cron expression \"61 * * * *\""), warning);
+        assertTrue(warning.startsWith("Cron job 'x': Cron expression '61 * * * *': minute"), warning);
+        cron.schedule("y", "0 4 * *", record("y"));
+        assertEquals("Cron job 'y': Cron expression '0 4 * *': expected 5 fields (minute hour day month day-of-week),"
+                + " got 4; not scheduled.", host.warnings.get(1));
         assertTrue(warning.endsWith("; not scheduled."), warning);
         assertThrows(IllegalArgumentException.class, () -> cron.schedule(" ", "hourly", record("x")));
         assertThrows(IllegalArgumentException.class, () -> CronExpr.parse("61 * * * *"));

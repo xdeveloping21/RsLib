@@ -228,7 +228,8 @@ class YamlMergeTest {
                 + "# rs:extensible\nempty: {}\n# rs:extensible\nlist: []\n");
         List<String> warnings = YamlUpdater.markerWarnings(lines);
         assertEquals(1, warnings.size(), warnings.toString());
-        assertTrue(warnings.get(0).contains("'name'") && warnings.get(0).contains("line 2"), warnings.get(0));
+        assertEquals("'name' is marked rs:extensible but holds a value; the marker only protects the entries of a"
+                + " section", warnings.get(0));
     }
 
     @Test

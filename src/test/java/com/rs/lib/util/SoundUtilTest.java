@@ -46,11 +46,17 @@ class SoundUtilTest {
         SoundUtil.Spec spec = SoundUtil.parse("BLOCK_NOTE_BLOCK_PLING loud -2", warnings::add);
         assertEquals(1f, spec.volume());
         assertEquals(1f, spec.pitch());
-        assertEquals(2, warnings.size());
-        assertTrue(warnings.get(0).contains("volume 'loud'"), warnings.get(0));
-        assertTrue(warnings.get(1).contains("pitch '-2'"), warnings.get(1));
+        assertEquals(List.of("Invalid volume/pitch in 'BLOCK_NOTE_BLOCK_PLING loud -2'; using 1.0"), warnings);
+        assertEquals(0.5f, SoundUtil.parse("X 0.5 x", warnings::add).volume());
         assertEquals(1f, SoundUtil.parse("X NaN", warnings::add).volume());
         assertEquals(1f, SoundUtil.parse("X Infinity", warnings::add).volume());
+    }
+
+    @Test
+    void unknownSoundLineNamesTheNamespaceRule() {
+        assertEquals("Invalid sound 'ENTITY_PLAYER_LEVELUPP': not resolved by enum nor by Registry.SOUNDS, and it"
+                + " carries no namespace, so it cannot be a resource pack sound either; ignored. A custom pack sound"
+                + " must be written as 'namespace:id'", SoundUtil.unknownSound("ENTITY_PLAYER_LEVELUPP"));
     }
 
     @Test

@@ -26,8 +26,8 @@ import org.bukkit.entity.Player;
  * underscores), then the sound registry by key. An id with an explicit namespace that is not in
  * the registry ({@code mypack:ui.click}) is a resource pack sound and is sent to the client by
  * name. An id without a namespace that matches nothing is a typo: it does not play and is
- * reported once per id. A volume or pitch that is not a non-negative number is reported once and
- * reads as 1.0.</p>
+ * reported once per id. A volume or pitch that is not a non-negative number reads as 1.0, with
+ * one report for the spec.</p>
  *
  * <p>Works the same on servers where {@link Sound} is an enum (1.20) and where it is a
  * registry-backed interface (1.21.3+): the code never calls a method on a {@code Sound} value
@@ -135,25 +135,22 @@ public final class SoundUtil {
         if (id.isEmpty() || id.equalsIgnoreCase("none")) {
             return null;
         }
-        float volume = words.length > 1 ? number(words[1], "volume", spec, warn) : 1f;
-        float pitch = words.length > 2 ? number(words[2], "pitch", spec, warn) : 1f;
-        return new Spec(id, volume, pitch);
+        float volume = words.length > 1 ? number(words[1]) : 1f;
+        float pitch = words.length > 2 ? number(words[2]) : 1f;
+        if ((Float.isNaN(volume) || Float.isNaN(pitch)) && warn != null) {
+            warn.accept("Invalid volume/pitch in '" + spec.trim() + "'; using 1.0");
+        }
+        return new Spec(id, Float.isNaN(volume) ? 1f : volume, Float.isNaN(pitch) ? 1f : pitch);
     }
 
-    private static float number(String word, String what, String spec, Consumer<String> warn) {
-        float value;
+    /** A volume or pitch: a finite number from 0, else NaN. */
+    private static float number(String word) {
         try {
-            value = Float.parseFloat(word);
+            float value = Float.parseFloat(word);
+            return Float.isFinite(value) && value >= 0 ? value : Float.NaN;
         } catch (NumberFormatException notANumber) {
-            value = Float.NaN;
+            return Float.NaN;
         }
-        if (Float.isFinite(value) && value >= 0) {
-            return value;
-        }
-        if (warn != null) {
-            warn.accept("Invalid " + what + " '" + word + "' in sound '" + spec.trim() + "'; using 1.0.");
-        }
-        return 1f;
     }
 
     /**
@@ -179,10 +176,16 @@ public final class SoundUtil {
         if (known == Target.UNKNOWN && report) {
             warnOnce(id.indexOf(':') >= 0
                     ? "Sound '" + id + "' is not a valid sound id; it will not play."
-                    : "Unknown sound '" + id + "' (an id without a namespace must be a sound of this"
-                            + " Minecraft version); it will not play.");
+                    : unknownSound(id));
         }
         return known;
+    }
+
+    /** The report for an id without a namespace that is no sound of this server (after the {@code [RsLib]} tag). */
+    static String unknownSound(String id) {
+        return "Invalid sound '" + id + "': not resolved by enum nor by Registry.SOUNDS, and it carries no namespace,"
+                + " so it cannot be a resource pack sound either; ignored. A custom pack sound must be written as"
+                + " 'namespace:id'";
     }
 
     private static Target lookup(String id) {

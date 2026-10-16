@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,8 +43,12 @@ final class LangLoader {
     private final Logger log;
     private final BiConsumer<String, Supplier<String>> warnOnce;
 
-    /** The maps one load fills: the language in use, its prefix and both layers of entries. */
-    private record Layers(String language, String prefix, Map<String, Entry> active, Map<String, Entry> fallback) {
+    /**
+     * The maps one load fills: the language in use, its prefix, both layers of entries and, for
+     * each active entry, the file it was read from ({@code lang/messages_es.yml}), for warnings.
+     */
+    private record Layers(String language, String prefix, Map<String, Entry> active, Map<String, Entry> fallback,
+                          Map<String, String> files) {
     }
 
     LangLoader(JavaPlugin plugin, BiConsumer<String, Supplier<String>> warnOnce) {
@@ -94,15 +99,17 @@ final class LangLoader {
         }
 
         String prefix = activeYaml.getString("prefix", englishYaml.getString("prefix", ""));
-        Layers layers = new Layers(language, prefix, new HashMap<>(), new HashMap<>());
+        Layers layers = new Layers(language, prefix, new HashMap<>(), new HashMap<>(), new HashMap<>());
         flatten(activeYaml, prefix, layers.active);
+        String activeFile = langPath(language);
+        layers.active.keySet().forEach(key -> layers.files.put(key, activeFile));
         if (activeYaml != englishYaml) {
             flatten(englishYaml, prefix, layers.fallback);
         }
         for (Map.Entry<String, String> source : sources.entrySet()) {
             overlay(source.getKey(), source.getValue(), layers);
         }
-        warnPrefixToken(layers.active);
+        warnPrefixToken(log, activeFile, layers.active, layers.files);
         warnLostTags(log, plugin::getResource, language, layers.active, layers.fallback);
         return new Catalog(language, prefix == null ? "" : prefix, Map.copyOf(layers.active),
                 Map.copyOf(layers.fallback));
@@ -307,8 +314,12 @@ final class LangLoader {
             YamlUpdater.update(plugin, folder + "/messages_en.yml", english, false);
         }
         YamlConfiguration source = parse(english, log);
+        String sourceFile = folder + "/messages_en.yml";
         if (!layers.language.equals("en")) {
             source = overlayTranslation(dir, folder, layers.language, english, source);
+            if (new File(dir, "messages_" + layers.language + ".yml").isFile()) {
+                sourceFile = folder + "/messages_" + layers.language + ".yml";
+            }
         }
         Map<String, Entry> entries = new HashMap<>();
         flatten(source, layers.prefix, entries);
@@ -320,6 +331,7 @@ final class LangLoader {
                 continue;
             }
             layers.active.put(key, entry.getValue());
+            layers.files.put(key, sourceFile);
         }
     }
 
@@ -373,26 +385,36 @@ final class LangLoader {
         }
     }
 
-    private void warnPrefixToken(Map<String, Entry> active) {
-        int count = 0;
-        for (Entry entry : active.values()) {
-            for (Line line : entry.lines()) {
+    /**
+     * One warning per file whose values write the {@code {prefix}} token: it is not a
+     * placeholder, so it shows as written next to the prefix RsLib already puts there.
+     * {@code files} names the file of each key; a key without one counts for {@code firstFile}.
+     */
+    static void warnPrefixToken(Logger log, String firstFile, Map<String, Entry> active, Map<String, String> files) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        counts.put(firstFile, 0);
+        for (Map.Entry<String, Entry> entry : active.entrySet()) {
+            for (Line line : entry.getValue().lines()) {
                 if (line.raw.contains("{prefix}")) {
-                    count++;
+                    counts.merge(files.getOrDefault(entry.getKey(), firstFile), 1, Integer::sum);
                     break;
                 }
             }
         }
-        if (count > 0) {
-            log.warning(count + " message(s) contain '{prefix}'. The prefix is added on its own, so that text"
-                    + " is shown as written; remove it from those messages.");
-        }
+        counts.forEach((file, count) -> {
+            if (count > 0) {
+                log.warning(count + " message key(s) in " + file + " embed the literal {prefix} token; RsLib"
+                        + " prepends the configured prefix automatically, so the token renders literally - remove it"
+                        + " from those values");
+            }
+        });
     }
 
     /**
-     * One warning naming every message whose jar default has a {@code <click>} or {@code <hover>}
-     * that the live value lost: the button still looks the same but does nothing. The reference
-     * is the jar copy of the active language, or the English one when the jar has none.
+     * One warning per file naming every message whose jar default has a {@code <click>} or
+     * {@code <hover>} that the live value lost: the button still looks the same but does nothing.
+     * The reference is the jar copy of the active language, or the English one when the jar has
+     * none; a value read from the English fallback counts for {@code lang/messages_en.yml}.
      */
     static void warnLostTags(Logger log, Function<String, InputStream> resources, String language,
             Map<String, Entry> active, Map<String, Entry> fallback) {
@@ -403,15 +425,17 @@ final class LangLoader {
         if (reference == null) {
             return;
         }
-        List<String> lost = new ArrayList<>();
+        Map<String, List<String>> lost = new LinkedHashMap<>();
         for (String key : reference.getKeys(true)) {
             Object value = reference.get(key);
             if (value instanceof ConfigurationSection || value == null) {
                 continue;
             }
             Entry live = active.get(key);
+            String file = langPath(language);
             if (live == null) {
                 live = fallback.get(key);
+                file = langPath("en");
             }
             if (live == null) {
                 continue;
@@ -422,12 +446,12 @@ final class LangLoader {
                 now.append(line.raw).append('\n');
             }
             if (lostTag(def, now.toString(), "<click:") || lostTag(def, now.toString(), "<hover:")) {
-                lost.add(key);
+                lost.computeIfAbsent(file, f -> new ArrayList<>()).add(key);
             }
         }
-        if (!lost.isEmpty()) {
-            log.warning("Messages that lost a <click> or <hover> their default has: " + String.join(", ", lost));
-        }
+        lost.forEach((file, keys) -> log.warning(keys.size() + " message key(s) in " + file + " lost the <click>/<hover>"
+                + " tag their jar default carries (" + String.join(", ", keys) + "); the button still renders but"
+                + " clicking it does nothing - restore the tags in those values"));
     }
 
     private static boolean lostTag(String reference, String live, String tag) {
@@ -454,6 +478,11 @@ final class LangLoader {
         } catch (IOException | InvalidConfigurationException | RuntimeException e) {
             return null;
         }
+    }
+
+    /** {@code lang/messages_<code>.yml}, as warnings name it. */
+    private static String langPath(String code) {
+        return "lang/messages_" + code + ".yml";
     }
 
     private File langFile(String code) {

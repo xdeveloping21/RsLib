@@ -130,9 +130,20 @@ class ArgsTest {
 
     @Test
     void durationRejectsWhatItWouldMisread() {
-        for (String bad : List.of("1,5h", "-5m", "1e3s", "+5m", "2w", "999999999d", "1d please", "h1", "1d, 2h")) {
+        for (String bad : List.of("1,5h", "1, 5h", "-5m", "1e3s", "+5m", "2w", "999999999d", "soon", "0.0001s")) {
             assertThrows(ArgParseException.class, () -> Args.duration().parse(SENDER, bad), bad);
         }
+    }
+
+    /** Read like a config duration: unknown units are skipped, a bare number is seconds; only zero is refused. */
+    @Test
+    void durationSkipsUnknownUnitsLikeTheConfigReader() throws ArgParseException {
+        assertEquals(86_400_000L, Args.duration().parse(SENDER, "1d please"));
+        assertEquals(1_000L, Args.duration().parse(SENDER, "h1"));
+        assertEquals(93_600_000L, Args.duration().parse(SENDER, "1d, 2h"));
+        assertEquals(93_600_000L, Args.duration().parse(SENDER, "1 day 2 hours"));
+        assertEquals(45_000L, Args.duration().parse(SENDER, "45"));
+        assertEquals(3_600_000L, Args.duration().parse(SENDER, "1h 2w"));
     }
 
     @Test

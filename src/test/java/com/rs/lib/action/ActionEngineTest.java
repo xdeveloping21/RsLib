@@ -3,6 +3,7 @@ package com.rs.lib.action;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.bukkit.event.inventory.ClickType;
 import org.junit.jupiter.api.BeforeEach;
@@ -283,6 +285,10 @@ class ActionEngineTest {
         ActionContext context = new ActionContext(steve.player, null, pages, ClickType.LEFT, null);
         run(context, "[next-page]", "[previous-page]", "[set-page] 3", "[refresh-page]", "[refresh-menu]");
         assertTrue(pages.calls.isEmpty());
+        assertTrue(host.debug.contains("Action [refresh-menu] skipped: pagination not enabled (opt-in per menu)"),
+                host.debug.toString());
+        assertTrue(host.debug.contains("Action [set-page] skipped: pagination not enabled (opt-in per menu)"),
+                host.debug.toString());
         pages.enabled = true;
         run(context, "[next-page]", "[previous-page]", "[set-page] 3", "[set-page] three", "[set-page] 0",
                 "[refresh-page]", "[refresh-menu]");
@@ -347,8 +353,6 @@ class ActionEngineTest {
         assertEquals(0.3, full.offZ());
         assertEquals(0.05, full.extra());
         assertEquals("#FF0000", full.options().get("color"));
-        ParticleAction.Parsed three = ParticleAction.parse("FLAME 5 1 2", warnings::add);
-        assertEquals(0, three.offX(), "offsets need four numbers after the type");
         ParticleAction.Parsed four = ParticleAction.parse("FLAME 5 1 2 3", warnings::add);
         assertEquals(1, four.offX());
         assertEquals(3, four.offZ());
@@ -359,6 +363,42 @@ class ActionEngineTest {
         assertEquals(org.bukkit.Color.fromRGB(255, 0, 0), ParticleAction.color("255, 0,0", null));
         assertEquals(org.bukkit.Color.fromRGB(0x12AB34), ParticleAction.color("#12ab34", null));
         assertThrows(IllegalArgumentException.class, () -> ParticleAction.color("red", null));
+
+        // Offsets come as all three numbers or not at all.
+        warnings.clear();
+        ParticleAction.Parsed three = ParticleAction.parse("FLAME 5 1 2", warnings::add);
+        assertEquals(0, three.offX());
+        assertEquals(5, three.count());
+        assertEquals(List.of("[particle] FLAME 5 1 2: the offsets need all three numbers (offX offY offZ); they are"
+                + " ignored."), warnings);
+    }
+
+    @Test
+    void particleOptionsFallBackOrSkip() {
+        List<String> warnings = new ArrayList<>();
+        org.bukkit.Particle dust = org.bukkit.Particle.valueOf("DUST");
+        org.bukkit.Particle.DustOptions red = (org.bukkit.Particle.DustOptions) ParticleAction.data(dust,
+                Map.of("color", "orange", "size", "big"), warnings::add);
+        assertEquals(org.bukkit.Color.RED, red.getColor());
+        assertEquals(1f, red.getSize());
+        assertEquals(List.of("color 'orange' is not #RRGGBB; using red.", "size 'big' is not a positive number; using 1.0."),
+                warnings);
+
+        warnings.clear();
+        org.bukkit.Particle.DustTransition fade = (org.bukkit.Particle.DustTransition) ParticleAction.data(
+                org.bukkit.Particle.valueOf("DUST_COLOR_TRANSITION"), Map.of("color", "#00FF00"), warnings::add);
+        assertEquals(org.bukkit.Color.LIME, fade.getToColor());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+
+        assertNull(ParticleAction.data(org.bukkit.Particle.valueOf("FLAME"), Map.of("color", "#FF0000", "glow", "1"),
+                warnings::add));
+        assertEquals(List.of("option 'color=' does not apply to FLAME; it is ignored.",
+                "option 'glow=' is unknown; it is ignored."), warnings.stream().sorted().toList());
+
+        warnings.clear();
+        assertSame(ParticleAction.SKIP, ParticleAction.data(org.bukkit.Particle.valueOf("BLOCK"), Map.of(),
+                warnings::add));
+        assertEquals(List.of("BLOCK needs block=MATERIAL; nothing shows."), warnings);
     }
 
     @Test

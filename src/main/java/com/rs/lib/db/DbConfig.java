@@ -110,7 +110,7 @@ public final class DbConfig {
             case "sqlite" -> Type.SQLITE;
             case "mysql" -> Type.MYSQL;
             default -> {
-                logger.warning("Unknown database.type '" + raw + "'; using sqlite.");
+                logger.warning("invalid database.type: '" + raw + "', using sqlite");
                 yield Type.SQLITE;
             }
         };

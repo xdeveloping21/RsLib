@@ -352,6 +352,11 @@ public final class ActionEngine {
         warnOnce(id, Level.WARNING, message, null);
     }
 
+    /** Logs {@code message} as information the first time {@code id} comes up. */
+    void noticeOnce(String id, Supplier<String> message) {
+        warnOnce(id, Level.INFO, message, null);
+    }
+
     private void warnOnce(String id, Level level, Supplier<String> message, Throwable cause) {
         if (warned.size() >= MAX_WARNED) {
             warned.clear();

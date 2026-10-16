@@ -6,7 +6,8 @@ package com.rs.lib.util;
  *
  * <p>Each number takes the unit that follows it, read by its first letter: {@code d} days,
  * {@code h} hours, {@code m} minutes, {@code s} seconds, {@code t} ticks; a unit starting with
- * {@code ms} is milliseconds and a number without a unit is seconds. Other words are ignored.
+ * {@code ms} or {@code milli} is milliseconds and a number without a unit is seconds. A number
+ * with any other unit is skipped, and so are words without a number.
  * {@code m} is always minutes (also {@code mo}/{@code month}): existing configs rely on it.
  * Null or text without numbers reads as 0; the result is never negative. Pure, any thread.</p>
  *
@@ -173,7 +174,7 @@ public final class TimeUtil {
             return SECOND;
         }
         String lower = unit.toLowerCase(java.util.Locale.ROOT);
-        if (lower.startsWith("ms")) {
+        if (lower.startsWith("ms") || lower.startsWith("milli")) {
             return 1L;
         }
         return switch (lower.charAt(0)) {

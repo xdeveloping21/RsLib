@@ -193,7 +193,7 @@ class CronExprTest {
         "hourly x", "hourly :", "hourly 1 2", "weekly"})
     void rejectsWhatIsNotTheGrammar(String expr) {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> CronExpr.parse(expr));
-        assertTrue(e.getMessage().startsWith("Invalid cron expression") || e.getMessage().contains("empty"),
+        assertTrue(e.getMessage().startsWith("Cron expression '") || e.getMessage().contains("empty"),
                 e.getMessage());
     }
 

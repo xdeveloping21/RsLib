@@ -99,7 +99,8 @@ class RsLibJarsTest {
         rsLibJar(plugins().resolve("RsLib-1.0.0.jar"), "1.0.0");
         rsLibJar(plugins().resolve("RsLib-0.9.0.jar"), "0.9.0");
         UpdateRefused two = assertThrows(UpdateRefused.class, () -> RsLibJars.resolveInstalled(plugins(), null));
-        assertTrue(two.getMessage().contains("2 RsLib jars"), two.getMessage());
+        assertEquals("plugins/ holds more than one RsLib jar (RsLib-0.9.0.jar and RsLib-1.0.0.jar); the self-updater"
+                + " will not touch any of them until only one is left.", two.getMessage());
     }
 
     // ------------------------------------------------------------------ installing

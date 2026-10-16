@@ -568,7 +568,7 @@ public final class RsItem {
         }
         if (skullOwner != null) {
             if (texture != null) {
-                warn.accept("Both skull-owner and a head texture are set; skull-owner wins.");
+                warn.accept(ItemParts.SKULL_AND_TEXTURE);
             }
             SkinCache.apply(skull, skullOwner, skinRefresh, warn);
         } else {

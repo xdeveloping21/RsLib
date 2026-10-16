@@ -13,6 +13,7 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -154,21 +155,47 @@ public final class RsLibJars {
                 return sameName;
             }
         }
-        List<Path> found = new ArrayList<>();
-        try (DirectoryStream<Path> jars = Files.newDirectoryStream(plugins, "*.jar")) {
-            for (Path jar : jars) {
-                if (Files.isRegularFile(jar) && isRsLib(jar)) {
-                    found.add(jar);
-                }
-            }
+        List<Path> found;
+        try {
+            found = rsLibJars(plugins);
         } catch (IOException e) {
             throw new UpdateRefused("could not list " + plugins + ": " + e.getMessage());
         }
         if (found.size() != 1) {
             throw new UpdateRefused(found.isEmpty() ? "the installed RsLib jar was not found in " + plugins
-                    : "there are " + found.size() + " RsLib jars in " + plugins + "; keep only one");
+                    : severalJars(found));
         }
         return found.get(0);
+    }
+
+    /** Every jar directly in {@code pluginsDir} whose plugin.yml names RsLib, sorted by file name. */
+    static List<Path> rsLibJars(Path pluginsDir) throws IOException {
+        List<Path> found = new ArrayList<>();
+        try (DirectoryStream<Path> jars = Files.newDirectoryStream(pluginsDir, "*.jar")) {
+            for (Path jar : jars) {
+                if (Files.isRegularFile(jar) && isRsLib(jar)) {
+                    found.add(jar);
+                }
+            }
+        }
+        found.sort(Comparator.comparing(jar -> jar.getFileName().toString()));
+        return found;
+    }
+
+    /**
+     * Why the self-updater stays away from {@code plugins/}: the server loads one of several
+     * RsLib jars at random, so replacing any of them could leave the wrong one in place.
+     */
+    static String severalJars(List<Path> jars) {
+        StringBuilder names = new StringBuilder();
+        for (int i = 0; i < jars.size(); i++) {
+            if (i > 0) {
+                names.append(i == jars.size() - 1 ? " and " : ", ");
+            }
+            names.append(jars.get(i).getFileName());
+        }
+        return "plugins/ holds more than one RsLib jar (" + names + "); the self-updater will not touch any of them"
+                + " until only one is left.";
     }
 
     // ------------------------------------------------------------------ hashing

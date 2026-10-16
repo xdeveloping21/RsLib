@@ -12,6 +12,9 @@ class TimeUtilTest {
         assertEquals(86_400_000L + 7_200_000L, TimeUtil.parseMillis("1 day, 2 hours"));
         assertEquals(90_000L, TimeUtil.parseMillis("90"));
         assertEquals(500L, TimeUtil.parseMillis("500ms"));
+        assertEquals(250L, TimeUtil.parseMillis("250 milliseconds"));
+        assertEquals(120_000L + 3_000L, TimeUtil.parseMillis("2 minutes 3 seconds"));
+        assertEquals(3_600_000L, TimeUtil.parseMillis("1h 2w"));
         assertEquals(1_000L, TimeUtil.parseMillis("20t"));
         assertEquals(5_400_000L, TimeUtil.parseMillis("1.5h"));
         assertEquals(120_000L, TimeUtil.parseMillis("2mo"));

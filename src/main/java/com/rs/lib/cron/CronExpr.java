@@ -79,8 +79,7 @@ public final class CronExpr {
             return hourly(expr, parts);
         }
         if (parts.length != 5) {
-            throw invalid(expr, "expected 5 fields (minute hour day-of-month month day-of-week) or"
-                    + " 'daily [HH:mm]' / 'hourly [:mm]', found " + parts.length + " part" + (parts.length == 1 ? "" : "s"));
+            throw invalid(expr, "expected 5 fields (minute hour day month day-of-week), got " + parts.length);
         }
         long weekdays = field(expr, parts[4], "day-of-week", 0, 7);
         if ((weekdays & (1L << 7)) != 0) {
@@ -224,7 +223,7 @@ public final class CronExpr {
     }
 
     private IllegalStateException neverRuns() {
-        return new IllegalStateException("Cron expression \"" + text + "\" never matches a date");
+        return new IllegalStateException("Cron expression '" + text + "': never matches a date");
     }
 
     private static boolean anyMonthHasADay(long days, long months) {
@@ -377,6 +376,6 @@ public final class CronExpr {
     }
 
     private static IllegalArgumentException invalid(String expr, String problem) {
-        return new IllegalArgumentException("Invalid cron expression \"" + expr + "\": " + problem);
+        return new IllegalArgumentException("Cron expression '" + expr + "': " + problem);
     }
 }

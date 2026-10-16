@@ -181,9 +181,10 @@ class YamlUpdaterFilesTest {
         Files.writeString(file, "# rs:extensible\nname: x\n# sn:extensible\nother: y\n");
         update("# rs:extensible\nname: a\nother: b\n", file.toFile(), false);
         List<String> warnings = log.warnings();
-        assertEquals(2, warnings.size(), warnings.toString());
-        assertTrue(warnings.get(0).contains("(jar copy)") && warnings.get(0).contains("'name'"));
-        assertTrue(warnings.get(1).contains("'other'"));
+        assertEquals(List.of(
+                "'name' is marked rs:extensible but holds a value; the marker only protects the entries of a section",
+                "'other' is marked rs:extensible but holds a value; the marker only protects the entries of a section"),
+                warnings);
     }
 
     @Test

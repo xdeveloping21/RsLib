@@ -241,7 +241,8 @@ class RsFutureTest {
         assertEquals(0, host.disables);
         host.runMain();
         assertEquals(1, host.disables);
-        assertEquals(List.of("Critical database operation failed; disabling Test."), host.log.messages(Level.SEVERE));
+        assertEquals(List.of("Critical database operation failed; disabling Test: cannot connect"),
+                host.log.messages(Level.SEVERE));
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.rs.lib.update.internal;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import com.rs.lib.update.Versions;
 
@@ -15,7 +16,8 @@ import com.rs.lib.update.Versions;
  * <p>The site keeps one jar per product, so the pass only ever looks at that one version. The
  * download comes from that fixed address (no redirects), must weigh between 16 KiB and 64 MiB
  * and exactly the size the site announced, match the site's SHA-256 and carry the plugin.yml of
- * RsLib at exactly the site's version. Anything else is refused with a warning.</p>
+ * RsLib at exactly the site's version. Anything else is refused with a warning. With more than
+ * one RsLib jar in {@code plugins/} the pass refuses before asking the site anything.</p>
  */
 public final class UpdatePass {
 
@@ -46,6 +48,11 @@ public final class UpdatePass {
         /** Something the console is told on every pass, forced or not. */
         default void notice(String message) {
             step(message);
+        }
+
+        /** A refusal the console gets word for word, without the updater's tag. */
+        default void alert(String message) {
+            warn(message);
         }
     }
 
@@ -103,6 +110,17 @@ public final class UpdatePass {
 
     private static Outcome pass(Env env, Reporter report) {
         String installed = env.installedVersion();
+        List<Path> jars;
+        try {
+            jars = RsLibJars.rsLibJars(env.pluginsDir());
+        } catch (IOException e) {
+            jars = List.of();
+        }
+        if (jars.size() > 1) {
+            // The server loads one of them at random: touching any could leave the wrong one.
+            report.alert(RsLibJars.severalJars(jars));
+            return new Outcome(Status.FAILED, null, null);
+        }
         report.step("Asking rsdevelopment.dev for the current RsLib...");
         SiteClient.Info info;
         try {

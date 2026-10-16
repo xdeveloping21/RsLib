@@ -220,7 +220,11 @@ class ResolutionTest {
                 root.resolve(NOBODY, "rk", "ban Steve 1d 2h 30m".split(" ")));
         assertEquals(95_400_000L, run.context().<Long>get("time"));
         assertEquals("/rk ban <player> <time>", phs(root.resolve(NOBODY, "rk", new String[] {"ban"})).get("usage"));
-        assertEquals("rslib.invalid-value", key(root.resolve(NOBODY, "rk", "ban Steve 1d please".split(" "))));
+        // Unknown words are skipped like in a config; only a duration of zero is refused.
+        Resolution.Run skipped = assertInstanceOf(Resolution.Run.class,
+                root.resolve(NOBODY, "rk", "ban Steve 1d please".split(" ")));
+        assertEquals(86_400_000L, skipped.context().<Long>get("time"));
+        assertEquals("rslib.invalid-value", key(root.resolve(NOBODY, "rk", "ban Steve some day".split(" "))));
         // Not last: one word, as before.
         Resolution.Run delay = assertInstanceOf(Resolution.Run.class,
                 root.resolve(NOBODY, "rk", "delay 5m Steve".split(" ")));

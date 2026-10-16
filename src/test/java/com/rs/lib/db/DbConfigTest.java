@@ -96,7 +96,7 @@ class DbConfigTest {
         assertEquals(DbConfig.Type.MYSQL, load("database:\n  type: MySQL\n").type());
         assertTrue(log.warnings().isEmpty());
         assertEquals(DbConfig.Type.SQLITE, load("database:\n  type: postgres\n").type());
-        assertEquals(List.of("Unknown database.type 'postgres'; using sqlite."), log.warnings());
+        assertEquals(List.of("invalid database.type: 'postgres', using sqlite"), log.warnings());
     }
 
     @Test

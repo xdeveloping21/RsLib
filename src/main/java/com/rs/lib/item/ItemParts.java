@@ -39,6 +39,9 @@ final class ItemParts {
 
     static final int DEFAULT_EFFECT_TICKS = 200;
     static final String HIDE_ALL = "HIDE_ALL";
+    /** Reported when an item sets both a skull owner and a texture head. */
+    static final String SKULL_AND_TEXTURE = "skull-owner and base64 texture defined at the same time for PLAYER_HEAD;"
+            + " skull-owner wins and the base64 texture is ignored";
     static final String HIDE_TOOLTIP = "HIDE_TOOLTIP";
     /** How a head texture starts ({@link HeadUtil}'s prefixes and a skin URL). */
     private static final String[] TEXTURE_PREFIXES = {"texture-", "texture:", "base64-", "base64:", "basehead-",

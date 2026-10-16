@@ -181,7 +181,7 @@ public final class ItemAppearance {
         Value owner = scalars.get("skull-owner");
         if (owner != null && materialValue != null && !materialValue.variable()
                 && ItemParts.material(materialValue.raw(), m -> true, w -> { }).texture() != null) {
-            warn.accept("Both skull-owner and a head texture are set; skull-owner wins.");
+            warn.accept(ItemParts.SKULL_AND_TEXTURE);
         }
         this.variable = anyVariable || owner != null || !materialFixed;
     }

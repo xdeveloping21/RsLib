@@ -339,7 +339,7 @@ final class GuiParser {
         boolean hasKey = section.contains("key");
         if (hasSlots) {
             if (hasKey) {
-                w.accept("has both 'slots' and 'key'; 'slots' wins");
+                warn.at("", "Item '" + key + "': declares both 'slots' and 'key'; slots wins and key is ignored");
             }
             slots = SlotParser.parse(section.get("slots"), message -> w.accept("slots: " + message));
             located = true;

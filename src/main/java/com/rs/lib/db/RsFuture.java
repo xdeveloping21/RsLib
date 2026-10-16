@@ -167,8 +167,8 @@ public final class RsFuture<T> {
                 return;
             }
             Throwable cause = unwrap(error);
-            host.logger().log(Level.SEVERE, "Critical database operation failed; disabling " + host.name() + ".",
-                    cause);
+            host.logger().log(Level.SEVERE, "Critical database operation failed; disabling " + host.name() + ": "
+                    + (cause.getMessage() == null ? cause.toString() : cause.getMessage()), cause);
             if (!host.isEnabled()) {
                 return;
             }

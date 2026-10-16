@@ -108,6 +108,43 @@ class UpdatePassTest {
     }
 
     @Test
+    void twoRsLibJarsStopThePassBeforeAnyRequest() throws Exception {
+        Path old = installed("1.0.0");
+        Path stray = TestJars.write(plugins().resolve("RsLib-0.9.0.jar"), TestJars.jar(TestJars.rsLibYml("0.9.0"), 100));
+        publish("1.1.0", TestJars.jar(TestJars.rsLibYml("1.1.0"), 20_000), null);
+        List<String> alerts = new ArrayList<>();
+        UpdatePass.Reporter alerting = new UpdatePass.Reporter() {
+            @Override
+            public void step(String message) {
+                steps.add(message);
+            }
+
+            @Override
+            public void warn(String message) {
+                warnings.add(message);
+            }
+
+            @Override
+            public void alert(String message) {
+                alerts.add(message);
+            }
+        };
+
+        UpdatePass.Outcome outcome = UpdatePass.run(env("1.0.0", old, true), alerting);
+
+        assertEquals(UpdatePass.Status.FAILED, outcome.status());
+        assertEquals(List.of("plugins/ holds more than one RsLib jar (RsLib-0.9.0.jar and RsLib-1.0.0.jar); the"
+                + " self-updater will not touch any of them until only one is left."), alerts);
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertTrue(http.sent.isEmpty(), "asked the site anyway");
+        assertTrue(Files.exists(old));
+        assertTrue(Files.exists(stray));
+        // Back to one jar: the next pass installs.
+        Files.delete(stray);
+        assertEquals(UpdatePass.Status.INSTALLED, UpdatePass.run(env("1.0.0", old, true), alerting).status());
+    }
+
+    @Test
     void newMajorIsSkippedWhenSameMajorOnly() throws Exception {
         Path old = installed("1.1.0");
         publish("2.0.0", TestJars.jar(TestJars.rsLibYml("2.0.0"), 20_000), null);

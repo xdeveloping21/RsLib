@@ -215,8 +215,8 @@ public final class YamlUpdater {
     }
 
     private static String markerMessage(Node node) {
-        return "'" + node.path() + "' (line " + (node.line() + 1) + ") is marked " + EXTENSIBLE_MARKER
-                + " but holds a single value, so the marker protects nothing; put it above a section";
+        return "'" + node.path() + "' is marked " + EXTENSIBLE_MARKER
+                + " but holds a value; the marker only protects the entries of a section";
     }
 
     /**
@@ -377,8 +377,7 @@ public final class YamlUpdater {
             if (!force && !mayMerge(path)) {
                 int missing = missingKeys(referenceLines, clean);
                 if (missing > 0) {
-                    logger.warning(PREFIX + "update-configs is false: " + missing + " key"
-                            + (missing == 1 ? "" : "s") + " missing in " + name);
+                    logger.warning(PREFIX + "update-configs is false: " + missing + " keys missing in " + name);
                 }
                 return Outcome.UNCHANGED;
             }
@@ -463,7 +462,7 @@ public final class YamlUpdater {
                 diskRoot = YamlOutline.parse(lines);
             }
         }
-        reportMarkers(logger, name, resRoot, diskRoot);
+        reportMarkers(logger, resRoot, diskRoot);
         List<String> merged = merge(reference, resRoot, lines, diskRoot,
                 note -> logger.fine(PREFIX + name + ": " + note));
         return prune ? prune(resRoot, merged) : merged;
@@ -475,15 +474,15 @@ public final class YamlUpdater {
         return newline < 0 ? trimmed : trimmed.substring(0, newline);
     }
 
-    private static void reportMarkers(Logger logger, String name, Node resRoot, Node diskRoot) {
+    private static void reportMarkers(Logger logger, Node resRoot, Node diskRoot) {
         Set<String> known = new HashSet<>();
         for (Node node : uselessMarkers(resRoot)) {
             known.add(node.path());
-            logger.warning(PREFIX + name + " (jar copy): " + markerMessage(node));
+            logger.warning(markerMessage(node));
         }
         for (Node node : uselessMarkers(diskRoot)) {
             if (!known.contains(node.path())) {
-                logger.warning(PREFIX + name + ": " + markerMessage(node));
+                logger.warning(markerMessage(node));
             }
         }
     }

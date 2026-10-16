@@ -73,7 +73,7 @@ final class Builtins {
         into.put("refresh-page", page("refresh-page", PageTarget::refreshPage));
         into.put("refresh-menu", page("refresh-menu", PageTarget::refreshMenu));
         into.put("set-page", this::setPage);
-        into.put("particle", new ParticleAction(engine::warnOnce));
+        into.put("particle", new ParticleAction(engine::warnOnce, engine::noticeOnce));
         into.put("potion", new PotionAction(engine::warnOnce));
         into.put("remove-item", new RemoveItemAction(host, engine::warnOnce));
     }
@@ -210,17 +210,22 @@ final class Builtins {
         return (player, arg, context) -> {
             PageTarget target = context.pageTarget();
             if (target == null || !target.paginationEnabled()) {
-                host.debug(() -> "[" + tag + "] did nothing: no paginated menu here (pagination: true).");
+                host.debug(() -> skippedPage(tag));
                 return;
             }
             action.accept(target);
         };
     }
 
+    /** The debug line of a page action outside a menu with {@code pagination: true}. */
+    static String skippedPage(String tag) {
+        return "Action [" + tag + "] skipped: pagination not enabled (opt-in per menu)";
+    }
+
     private void setPage(Player player, String arg, ActionContext context) {
         PageTarget target = context.pageTarget();
         if (target == null || !target.paginationEnabled()) {
-            host.debug(() -> "[set-page] did nothing: no paginated menu here (pagination: true).");
+            host.debug(() -> skippedPage("set-page"));
             return;
         }
         target.setPage(pageNumber(arg, engine::warnOnce));
