@@ -27,6 +27,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -74,10 +75,14 @@ final class ItemListener implements Listener {
             return locked() || registry.stamped(pdc, ItemRegistry.TAG_NO_DROP) || def != null && def.refusesDrop();
         }
 
-        /** Manual equipping is refused: no-manual-equip, COMMAND_ONLY or locked. */
+        /** Command and API only ({@link ObtainMode#COMMAND_ONLY}): never crafted. */
+        boolean commandOnly() {
+            return ItemListener.commandOnly(registry.stamped(pdc, ItemRegistry.TAG_OBTAIN_VIA), def);
+        }
+
+        /** Manual equipping is refused: no-manual-equip or locked. */
         boolean noManualEquip() {
-            return locked() || registry.stamped(pdc, ItemRegistry.TAG_NO_MANUAL_EQUIP)
-                    || registry.stamped(pdc, ItemRegistry.TAG_OBTAIN_VIA) || def != null && def.noManualEquip();
+            return locked() || registry.stamped(pdc, ItemRegistry.TAG_NO_MANUAL_EQUIP) || def != null && def.noManualEquip();
         }
 
         boolean moveable() {
@@ -123,6 +128,16 @@ final class ItemListener implements Listener {
     }
 
     // ------------------------------------------------------------------ pure rules
+
+    /** Whether an item stamped (or defined) COMMAND_ONLY: either one is enough. */
+    static boolean commandOnly(boolean stamped, ItemDef def) {
+        return stamped || def != null && def.obtainVia() == ObtainMode.COMMAND_ONLY;
+    }
+
+    /** What the redeem handler receives: an immutable snapshot of the stacks taken. */
+    static List<ItemStack> snapshot(List<ItemStack> taken) {
+        return List.copyOf(taken);
+    }
 
     /**
      * Whether putting an item into the equipment slot {@code target} by hand is refused:
@@ -291,13 +306,27 @@ final class ItemListener implements Listener {
         }
         if (total > 0) {
             try {
-                entry.handler().redeem(player, total, taken);
+                entry.handler().redeem(player, total, snapshot(taken));
             } catch (RuntimeException e) {
                 found.registry().logger().log(Level.WARNING, "Redeeming '" + found.id() + "' failed for "
                         + player.getName(), e);
             }
         }
         return true;
+    }
+
+    // ------------------------------------------------------------------ crafting
+
+    /** A COMMAND_ONLY item never comes out of a crafting grid (whoever's recipe made it). */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPrepareCraft(PrepareItemCraftEvent event) {
+        if (ItemRegistry.none()) {
+            return;
+        }
+        Found found = find(event.getInventory().getResult());
+        if (found != null && found.commandOnly()) {
+            event.getInventory().setResult(null);
+        }
     }
 
     // ------------------------------------------------------------------ dropping, placing, swapping

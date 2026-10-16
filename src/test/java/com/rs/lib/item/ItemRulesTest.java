@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +20,11 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import org.bukkit.Material;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,7 +42,7 @@ class ItemRulesTest {
         // Nothing is refused for the main hand or no slot.
         assertFalse(ItemListener.equipRefused(EquipmentSlot.HAND, EquipmentSlot.HEAD, true));
         assertFalse(ItemListener.equipRefused(null, EquipmentSlot.HEAD, true));
-        // no-manual-equip, locked and COMMAND_ONLY refuse every equipment slot.
+        // no-manual-equip and locked refuse every equipment slot.
         assertTrue(ItemListener.equipRefused(EquipmentSlot.HEAD, null, true));
         assertTrue(ItemListener.equipRefused(EquipmentSlot.OFF_HAND, EquipmentSlot.OFF_HAND, true));
         // A declared slot only takes that slot.
@@ -150,5 +155,100 @@ class ItemRulesTest {
         ItemWarnings.forget();
         first.accept("Unknown material 'X'; using STONE.");
         assertEquals(3, printed.size());
+    }
+
+    /** A custom-durability call only breaks the stack when it takes it from above 0 to 0. */
+    @Test
+    void breakFlowOnlyOnTheBreakingCall() {
+        assertTrue(ItemRegistry.breaks(5, 0));
+        assertTrue(ItemRegistry.breaks(1, 0));
+        assertFalse(ItemRegistry.breaks(0, 0), "already broken: no second break flow");
+        assertFalse(ItemRegistry.breaks(5, 2));
+        assertFalse(ItemRegistry.breaks(-1, -1));
+    }
+
+    /** The stack is found by identity first, then by equality; -1 for a cursor or detached copy. */
+    @Test
+    void slotOfFindsIdentityFirst() {
+        Label a = new Label("a");
+        Label equalToA = new Label("a");
+        Label b = new Label("b");
+        Inventory inventory = inventory(equalToA, null, b, a);
+        assertEquals(3, ItemRegistry.slotOf(inventory, a));
+        assertEquals(2, ItemRegistry.slotOf(inventory, b));
+        assertEquals(0, ItemRegistry.slotOf(inventory, new Label("a")));
+        assertEquals(-1, ItemRegistry.slotOf(inventory, new Label("cursor")));
+    }
+
+    /** The redeem handler receives a snapshot it cannot change and that later changes do not reach. */
+    @Test
+    void redeemHandlerGetsAnImmutableSnapshot() {
+        List<ItemStack> taken = new ArrayList<>(List.of(new Label("x")));
+        List<ItemStack> snapshot = ItemListener.snapshot(taken);
+        taken.add(new Label("y"));
+        assertEquals(1, snapshot.size());
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.add(new Label("z")));
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.remove(0));
+    }
+
+    /** Item files may wrap their ids in a root items: section; a plain file reads its top level. */
+    @Test
+    void itemFileLayouts() throws InvalidConfigurationException {
+        YamlConfiguration top = yaml("sword:\n  material: DIAMOND_SWORD\nwand:\n  material: STICK\n");
+        assertFalse(ItemRegistry.wrapped(top));
+        assertEquals("sword", ItemRegistry.itemsPath(top, "sword"));
+
+        YamlConfiguration wrapped = yaml("items:\n  sword:\n    material: DIAMOND_SWORD\n  wand:\n    material: STICK\n");
+        assertTrue(ItemRegistry.wrapped(wrapped));
+        assertEquals("items.sword", ItemRegistry.itemsPath(wrapped, "sword"));
+        assertEquals("missing", ItemRegistry.itemsPath(wrapped, "missing"));
+
+        // An item that is itself called "items" stays a top-level item.
+        assertFalse(ItemRegistry.wrapped(yaml("items:\n  material: CHEST\n  lore: [a]\n")));
+        assertFalse(ItemRegistry.wrapped(yaml("items:\n  material: CHEST\n  custom-durability:\n    max: 3\n")));
+        // A section holding a plain value is not a wrapper either.
+        assertFalse(ItemRegistry.wrapped(yaml("items:\n  sword:\n    material: STONE\n  glow: true\n")));
+        assertFalse(ItemRegistry.wrapped(null));
+        // A top-level item of the same id wins over the wrapped one.
+        YamlConfiguration both = yaml("items:\n  sword:\n    material: STONE\nsword:\n  material: STICK\n");
+        assertEquals("sword", ItemRegistry.itemsPath(both, "sword"));
+    }
+
+    private static YamlConfiguration yaml(String text) throws InvalidConfigurationException {
+        YamlConfiguration config = new YamlConfiguration();
+        config.loadFromString(text);
+        return config;
+    }
+
+    private static Inventory inventory(ItemStack... cells) {
+        return (Inventory) Proxy.newProxyInstance(ItemRulesTest.class.getClassLoader(), new Class<?>[] {Inventory.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getSize" -> cells.length;
+                    case "getItem" -> cells[(Integer) args[0]];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    /** A stack that is only a label: equal to any stack with the same label. */
+    private static final class Label extends ItemStack {
+        private final String label;
+
+        @SuppressWarnings("deprecation")
+        Label(String label) {
+            super();
+            this.label = label;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Label stack && stack.label.equals(label);
+        }
+
+        @Override
+        public int hashCode() {
+            return label.hashCode();
+        }
     }
 }
