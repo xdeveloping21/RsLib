@@ -55,7 +55,7 @@ class YamlUpdaterSwitchTest {
         List<String> warnings = log.records.stream().filter(r -> r.getLevel() == Level.WARNING)
                 .map(r -> r.getMessage()).toList();
         assertEquals(1, warnings.size(), warnings.toString());
-        assertTrue(warnings.get(0).contains("lacks 2 keys"), warnings.get(0));
+        assertEquals("[update-configs] update-configs is false: 2 keys missing in config.yml", warnings.get(0));
     }
 
     @Test

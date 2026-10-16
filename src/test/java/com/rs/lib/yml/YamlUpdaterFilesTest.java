@@ -108,21 +108,43 @@ class YamlUpdaterFilesTest {
         assertTrue(update("a: 1\n", file.toFile(), false));
         assertEquals("a: 1\n", read(file));
         assertEquals("a: [unclosed\n", read(dir.resolve("config.yml.backup-1")));
-        assertTrue(log.warnings().stream().anyMatch(m -> m.startsWith("[config-updater]")
-                && m.contains("config.yml.backup-1")), log.warnings().toString());
+        assertEquals(List.of("[update-configs] config.yml does not parse as YAML: backed up to config.yml.backup-1"
+                + " and regenerated from the jar"), log.warnings());
         Files.writeString(file, "b: {\n");
         update("a: 1\n", file.toFile(), false);
         assertEquals("b: {\n", read(dir.resolve("config.yml.backup-2")));
+        assertEquals("a: [unclosed\n", read(dir.resolve("config.yml.backup-1")));
     }
 
     @Test
-    void tabIndentedFileIsRepairedThenMerged() throws IOException {
+    void tabIndentedFileIsMergedKeepingItsTabs() throws IOException {
+        Path file = dir.resolve("config.yml");
+        Files.writeString(file, "s:\n\ta: 5\n\tc: 6\n");
+        assertTrue(update("s:\n  a: 1\n  b: 2\n  c: 3\nt: 4\n", file.toFile(), false));
+        assertEquals("s:\n\ta: 5\n  b: 2\n\tc: 6\nt: 4\n", read(file));
+        // The reader of the file warns about the tabs; the updater does not repeat it.
+        assertTrue(log.warnings().isEmpty(), log.warnings().toString());
+    }
+
+    @Test
+    void tabsAloneNeverRewriteTheFile() throws IOException {
         Path file = dir.resolve("config.yml");
         Files.writeString(file, "s:\n\ta: 5\n");
-        assertTrue(update("s:\n  a: 1\n  b: 2\n", file.toFile(), false));
-        assertEquals("s:\n  a: 5\n  b: 2\n", read(file));
-        assertTrue(log.warnings().stream().anyMatch(m -> m.contains("Indentation tabs fixed") && m.contains("[2]")),
-                log.warnings().toString());
+        assertFalse(update("s:\n  a: 1\n", file.toFile(), false));
+        assertEquals("s:\n\ta: 5\n", read(file));
+        assertTrue(backups().isEmpty());
+        assertTrue(log.warnings().isEmpty(), log.warnings().toString());
+    }
+
+    @Test
+    void keepTabsPutsBackOnlyTheRepairedLinesTheMergeKept() {
+        List<String> raw = List.of("s:", "\ta: 5", "\t# note");
+        List<String> clean = YamlText.lines(YamlPreprocessor.preprocess(String.join("\n", raw)).cleanText());
+        // An inserted line equal to a repaired one stays as inserted.
+        List<String> merged = List.of(clean.get(0), new String("  a: 5"), clean.get(1), clean.get(2));
+        assertEquals(List.of("s:", "  a: 5", "\ta: 5", "\t# note"),
+                YamlUpdater.keepTabs(merged, clean, raw, List.of(2, 3)));
+        assertEquals(merged, YamlUpdater.keepTabs(merged, clean, raw, List.of()));
     }
 
     @Test
@@ -140,7 +162,7 @@ class YamlUpdaterFilesTest {
         Path file = dir.resolve("config.yml");
         assertFalse(YamlUpdater.updateResource(log.logger, p -> null, "config.yml", file.toFile(), false, false));
         assertFalse(Files.exists(file));
-        assertEquals(List.of("[config-updater] Resource config.yml absent from the jar"), log.warnings());
+        assertEquals(List.of("[update-configs] Resource config.yml absent from the jar"), log.warnings());
     }
 
     @Test
@@ -150,7 +172,7 @@ class YamlUpdaterFilesTest {
         assertFalse(update("a: 1\n", folder.toFile(), false));
         List<String> severe = log.messages(Level.SEVERE);
         assertEquals(1, severe.size());
-        assertTrue(severe.get(0).startsWith("[config-updater]"), severe.get(0));
+        assertTrue(severe.get(0).startsWith("[update-configs]"), severe.get(0));
     }
 
     @Test
@@ -184,31 +206,30 @@ class YamlUpdaterFilesTest {
         assertEquals(List.of("config.yml"), List.of(dir.toFile().list()));
         assertEquals(1, log.warnings().size(), log.warnings().toString());
         String warning = log.warnings().get(0);
-        assertTrue(warning.startsWith("[config-updater] config.yml is not valid YAML; keeping the previous content"
+        assertTrue(warning.startsWith("[update-configs] config.yml is not valid YAML; keeping the previous content"
                 + " until it is fixed. "), warning);
         assertFalse(warning.contains("\n"), warning);
     }
 
     @Test
-    void onlyThreeNewestCorruptBackupsOfThatNameAreKept() throws IOException {
+    void corruptBackupTakesTheFirstFreeNumberAndKeepsEveryEarlierOne() throws IOException {
         Path file = dir.resolve("config.yml");
         for (String name : List.of("config.yml.backup-1", "config.yml.backup-2", "config.yml.backup-3",
-                "config-extra.yml.backup-1", "config.yml.backup-x")) {
+                "config.yml.backup-5", "config-extra.yml.backup-4", "config.yml.backup-x")) {
             Files.writeString(dir.resolve(name), name);
         }
         Files.writeString(file, "a: [unclosed\n");
         assertTrue(update("a: 1\n", file.toFile(), false));
         assertEquals("a: 1\n", read(file));
         assertEquals("a: [unclosed\n", read(dir.resolve("config.yml.backup-4")));
-        String[] names = dir.toFile().list();
-        Arrays.sort(names);
-        assertEquals(List.of("config-extra.yml.backup-1", "config.yml", "config.yml.backup-2", "config.yml.backup-3",
-                "config.yml.backup-4", "config.yml.backup-x"), List.of(names));
-        // Numbering continues after the highest even when lower numbers are gone.
         Files.writeString(file, "b: {\n");
         update("a: 1\n", file.toFile(), false);
-        assertEquals("b: {\n", read(dir.resolve("config.yml.backup-5")));
-        assertFalse(Files.exists(dir.resolve("config.yml.backup-2")));
+        assertEquals("b: {\n", read(dir.resolve("config.yml.backup-6")));
+        String[] names = dir.toFile().list();
+        Arrays.sort(names);
+        assertEquals(List.of("config-extra.yml.backup-4", "config.yml", "config.yml.backup-1", "config.yml.backup-2",
+                "config.yml.backup-3", "config.yml.backup-4", "config.yml.backup-5", "config.yml.backup-6",
+                "config.yml.backup-x"), List.of(names));
     }
 
     @Test

@@ -8,8 +8,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -22,7 +24,7 @@ import java.util.regex.Pattern;
  * kits, ...) must ignore names for which {@link #isMergeBackup(String)} is true.</p>
  *
  * <p>A file that is not valid YAML when it is first mounted is moved to
- * {@code <name>.backup-N}; the same {@link #KEEP} limit applies to those, newest by N.</p>
+ * {@code <name>.backup-N} with the first free N; those are never rotated.</p>
  */
 public final class MergeBackups {
 
@@ -102,30 +104,27 @@ public final class MergeBackups {
     }
 
     /**
-     * Moves an unreadable file aside to {@code <name>.backup-N}, N being one more than the
-     * highest already there (from 1), and deletes the {@code .backup-N} files of that name
-     * beyond the {@link #KEEP} newest.
+     * Moves an unreadable file aside to {@code <name>.backup-N}, N being the first number (from
+     * 1) no file of that name uses yet. Earlier backups are never deleted: each one may hold the
+     * only copy of the owner's settings.
      *
      * @return where it was moved
      */
     public static Path moveCorrupt(Path file) throws IOException {
         String name = file.getFileName().toString();
-        List<Integer> taken = corruptNumbers(file);
-        int next = taken.isEmpty() ? 1 : taken.get(0) + 1;
-        Path target = file.resolveSibling(name + CORRUPT_SUFFIX + next);
-        Path moved = Files.move(file, target);
-        taken.add(0, next);
-        for (int i = KEEP; i < taken.size(); i++) {
-            Files.deleteIfExists(file.resolveSibling(name + CORRUPT_SUFFIX + taken.get(i)));
+        Set<Integer> taken = corruptNumbers(file);
+        int next = 1;
+        while (taken.contains(next)) {
+            next++;
         }
-        return moved;
+        return Files.move(file, file.resolveSibling(name + CORRUPT_SUFFIX + next));
     }
 
-    /** The N of every {@code <name>.backup-N} next to {@code file}, highest (newest) first. */
-    private static List<Integer> corruptNumbers(Path file) {
+    /** The N of every {@code <name>.backup-N} next to {@code file}. */
+    private static Set<Integer> corruptNumbers(Path file) {
         String prefix = file.getFileName().toString() + CORRUPT_SUFFIX;
         String[] all = file.toAbsolutePath().getParent().toFile().list();
-        List<Integer> out = new ArrayList<>();
+        Set<Integer> out = new HashSet<>();
         if (all == null) {
             return out;
         }
@@ -138,7 +137,6 @@ public final class MergeBackups {
                 }
             }
         }
-        out.sort(Collections.reverseOrder());
         return out;
     }
 }

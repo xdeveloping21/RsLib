@@ -273,13 +273,17 @@ final class LangLoader {
         }
     }
 
-    private static YamlConfiguration parse(File file, Logger log) {
+    static YamlConfiguration parse(File file, Logger log) {
         YamlConfiguration yaml = new YamlConfiguration();
         if (!file.isFile()) {
             return yaml;
         }
         try {
-            yaml.loadFromString(YamlPreprocessor.preprocess(YamlPreprocessor.read(file.toPath())).cleanText());
+            YamlPreprocessor.Result result = YamlPreprocessor.preprocess(YamlPreprocessor.read(file.toPath()));
+            if (!result.fixedLines().isEmpty()) {
+                log.warning("Indentation tabs fixed in " + file.getName() + " (lines " + result.fixedLines() + ")");
+            }
+            yaml.loadFromString(result.cleanText());
         } catch (IOException | InvalidConfigurationException e) {
             log.log(Level.WARNING, file.getName() + " could not be read; its messages are not available: "
                     + e.getMessage());

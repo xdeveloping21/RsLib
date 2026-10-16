@@ -8,7 +8,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -51,31 +53,34 @@ import com.rs.lib.yml.internal.YamlText;
  * {@code sn:extensible-root}, already present in existing files, are recognized too. Either
  * side can declare a marker and it only adds protection: declared by the resource it is binding
  * (deleting it on disk does not re-enable merging); declared on disk, the owner freezes that
- * subtree and what was not inserted is logged at FINE only. A marker above a key with a single
- * value protects nothing and is reported by {@link #markerWarnings(List)}.</p>
+ * subtree silently: how many keys were held back is logged at FINE only. A marker above a key
+ * with a single value protects nothing and is reported by {@link #markerWarnings(List)}.</p>
  *
  * <h2>Files</h2>
  * <p>Before rewriting a file, it is copied to {@code old-<name>-<yyyyMMdd-HHmmss>.yml} in the
- * same folder and only the three newest backups of that exact name are kept. When a file is
- * first mounted, a disk file that is not valid YAML (even after repairing tabs) is moved to
- * {@code <name>.backup-N} (the three newest are kept) and seeded again from the jar, with a
- * warning. On a reload of a file already in use it is left untouched instead, with a warning,
- * and the content read before stays in use until it is fixed. Files are written with
- * {@code '\n'} line endings through a temporary file. I/O errors are logged as SEVERE with the prefix {@code [config-updater]};
- * nothing here throws.</p>
+ * same folder and only the three newest backups of that exact name are kept; nothing is copied
+ * when there is nothing to write. When a file is first mounted, a disk file that is not valid
+ * YAML (even after repairing tabs) is moved to {@code <name>.backup-N} (the first free N, so
+ * earlier backups are never touched) and seeded again from the jar, with a warning. On a
+ * reload of a file already in use it is left untouched instead, with a warning, and the
+ * content read before stays in use until it is fixed. Files are written with {@code '\n'} line
+ * endings through a temporary file. I/O errors are logged as SEVERE with the prefix
+ * {@code [update-configs]}; nothing here throws.</p>
  *
  * <h2>The {@code update-configs} switch</h2>
  * <p>{@code update-configs} in {@code plugins/RsLib/config.yml} (true by default) turns merging
  * on and off for every plugin at once ({@link #setMergeEnabled}). When it is false, an existing
- * file is never written: the keys it lacks are counted and reported in one warning per file,
- * and RsLib's own config.yml is still merged so the switch itself can arrive. Missing files are
- * still created from the jar, and a file that is not valid YAML is still handled as below.</p>
+ * file is never written: the keys it lacks are counted and reported in one warning per file
+ * ({@code update-configs is false: N keys missing in <file>}), and RsLib's own config.yml is
+ * still merged so the switch itself can arrive. Missing files are still created from the jar,
+ * and a file that is not valid YAML is still handled as below.</p>
  *
  * <h2>Tabs</h2>
  * <p>The structure is computed on spaces only, so a disk file indented with tabs is repaired
- * with {@link YamlPreprocessor} <em>before</em> merging (an RsLib decision): validity and
- * structure are judged on the same text, and the file is written back repaired (with a backup
- * and a warning listing the lines).</p>
+ * with {@link YamlPreprocessor} in memory <em>before</em> merging: validity and structure are
+ * judged on the same text. Tabs alone never make the file be written; when keys are inserted,
+ * the lines the owner indented with tabs are written back exactly as they were. The warning
+ * listing those lines comes from whoever reads the file ({@link RsYml}, the lang loader).</p>
  */
 public final class YamlUpdater {
 
@@ -88,7 +93,7 @@ public final class YamlUpdater {
     /** Spelling used by files written for SnLib; still recognized. */
     public static final String LEGACY_EXTENSIBLE_ROOT_MARKER = "sn:extensible-root";
 
-    static final String PREFIX = "[config-updater] ";
+    static final String PREFIX = "[update-configs] ";
     static final String OBSOLETE_KEY = "update-configs";
 
     private static volatile boolean mergeEnabled = true;
@@ -368,26 +373,22 @@ public final class YamlUpdater {
             if (error != null) {
                 return invalidFile(logger, referenceLines, path, error, keepInvalid);
             }
+            List<String> clean = YamlText.lines(repaired.cleanText());
             if (!force && !mayMerge(path)) {
-                int missing = missingKeys(referenceLines, YamlText.lines(repaired.cleanText()));
+                int missing = missingKeys(referenceLines, clean);
                 if (missing > 0) {
-                    logger.warning(PREFIX + name + " lacks " + missing + " key" + (missing == 1 ? "" : "s")
-                            + " of the plugin's version; not added because update-configs is false in"
-                            + " plugins/RsLib/config.yml.");
+                    logger.warning(PREFIX + "update-configs is false: " + missing + " key"
+                            + (missing == 1 ? "" : "s") + " missing in " + name);
                 }
                 return Outcome.UNCHANGED;
             }
-            List<String> merged = mergedLines(logger, name, referenceLines,
-                    YamlText.lines(repaired.cleanText()), prune, dropObsolete);
-            if (merged.equals(YamlText.lines(raw))) {
+            List<String> merged = mergedLines(logger, name, referenceLines, clean, prune, dropObsolete);
+            if (merged.equals(clean)) {
                 return Outcome.UNCHANGED;
             }
-            if (!repaired.fixedLines().isEmpty()) {
-                logger.warning(PREFIX + "Indentation tabs fixed in " + name + " (lines "
-                        + repaired.fixedLines() + ")");
-            }
+            List<String> out = keepTabs(merged, clean, YamlText.lines(raw), repaired.fixedLines());
             MergeBackups.backup(path);
-            YamlText.write(path, YamlText.join(merged));
+            YamlText.write(path, YamlText.join(out));
             return Outcome.WRITTEN;
         } catch (IOException | RuntimeException e) {
             logger.log(Level.SEVERE, PREFIX + "Could not update " + diskFile.getPath(), e);
@@ -398,8 +399,7 @@ public final class YamlUpdater {
     /**
      * A disk file that is not valid YAML. On a reload it is kept as it is, so the content read
      * before stays in use until the owner fixes it; otherwise it is moved to
-     * {@code <name>.backup-N} (only the newest {@link MergeBackups#KEEP} are kept) and seeded
-     * again from the jar.
+     * {@code <name>.backup-N} (the first free N) and seeded again from the jar.
      */
     private static Outcome invalidFile(Logger logger, List<String> referenceLines, Path path, String error,
                                        boolean keepInvalid) throws IOException {
@@ -411,9 +411,37 @@ public final class YamlUpdater {
         }
         Path moved = MergeBackups.moveCorrupt(path);
         seed(path, referenceLines);
-        logger.warning(PREFIX + name + " is not valid YAML; it was moved to " + moved.getFileName()
-                + " and created again from the jar. Copy your changes back from the backup.");
+        logger.warning(PREFIX + name + " does not parse as YAML: backed up to " + moved.getFileName()
+                + " and regenerated from the jar");
         return Outcome.WRITTEN;
+    }
+
+    /**
+     * {@code merged} with every line whose tabs were repaired in memory put back as the owner
+     * wrote it. The merge, the pruning and the obsolete-key removal only copy the disk lines
+     * they keep (the same String objects), so a repaired line is found by identity; inserted
+     * lines are always new objects and stay as they are.
+     *
+     * @param clean      the repaired disk lines given to the merge
+     * @param raw        the disk lines as read, line for line with {@code clean}
+     * @param fixedLines the 1-based numbers of the repaired lines
+     */
+    static List<String> keepTabs(List<String> merged, List<String> clean, List<String> raw,
+                                 List<Integer> fixedLines) {
+        if (fixedLines.isEmpty() || clean.size() != raw.size()) {
+            return merged;
+        }
+        Map<String, String> original = new IdentityHashMap<>();
+        for (int number : fixedLines) {
+            if (number >= 1 && number <= clean.size()) {
+                original.put(clean.get(number - 1), raw.get(number - 1));
+            }
+        }
+        List<String> out = new ArrayList<>(merged.size());
+        for (String line : merged) {
+            out.add(original.getOrDefault(line, line));
+        }
+        return out;
     }
 
     /**

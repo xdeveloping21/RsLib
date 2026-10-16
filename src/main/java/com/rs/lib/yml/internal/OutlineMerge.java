@@ -45,14 +45,11 @@ public final class OutlineMerge {
         if (resNode.marked() || diskNode.marked()) {
             if (!resNode.marked() && fine != null) {
                 List<String> skipped = new ArrayList<>();
-                for (Node child : resNode.children()) {
-                    if (diskNode.child(child.key()) == null) {
-                        skipped.add(child.key());
-                    }
-                }
-                if (!skipped.isEmpty()) {
+                int count = withheld(resNode, diskNode, "", skipped);
+                if (count > 0) {
                     fine.accept("'" + (diskNode.isRoot() ? "<top level>" : diskNode.path())
-                            + "' is marked extensible on disk; not added from the jar: " + skipped);
+                            + "' is marked extensible on disk; " + count + " key" + (count == 1 ? "" : "s")
+                            + " withheld from the jar: " + skipped);
                 }
             }
             return;
@@ -73,6 +70,26 @@ public final class OutlineMerge {
             List<String> block = reindent(res.subList(resChild.start(), resChild.end()), shift);
             out.add(new Insertion(position, out.size(), block));
         }
+    }
+
+    /**
+     * How many keys the merge would have inserted below {@code diskNode} had the owner not marked
+     * it (a missing block counts with everything nested in it); {@code out} gets the path of each
+     * missing block, relative to {@code diskNode}. Sections the jar copy marks itself are left
+     * out: the owner's marker does not hold those back.
+     */
+    private static int withheld(Node resNode, Node diskNode, String prefix, List<String> out) {
+        int count = 0;
+        for (Node resChild : resNode.children()) {
+            Node diskChild = diskNode.child(resChild.key());
+            if (diskChild == null) {
+                out.add(prefix + resChild.key());
+                count += 1 + YamlOutline.descendants(resChild).size();
+            } else if (resChild.isSection() && diskChild.isSection() && !resChild.marked()) {
+                count += withheld(resChild, diskChild, prefix + resChild.key() + ".", out);
+            }
+        }
+        return count;
     }
 
     private static int insertionPoint(Node resNode, Node diskNode, int index) {

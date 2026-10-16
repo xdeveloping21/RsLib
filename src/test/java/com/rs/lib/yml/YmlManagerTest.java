@@ -197,6 +197,24 @@ class YmlManagerTest {
     }
 
     @Test
+    void tabIndentedManagedFileWarnsOnceAndKeepsItsTabsOnDisk() throws IOException {
+        jar.put("config.yml", "s:\n  a: 1\n");
+        Files.writeString(dir.resolve("config.yml"), "s:\n\ta: 5\n");
+        YmlManager yml = manager();
+        assertEquals("s:\n\ta: 5\n", read("config.yml"));
+        assertEquals(List.of("config.yml"), List.of(dir.toFile().list()));
+        assertEquals(5, yml.config().getInt("s.a", 0));
+        assertEquals(List.of("Indentation tabs fixed in config.yml (lines [2])"), host.log.warnings());
+        // A new key arrives without touching the owner's tabs; still one warning per read.
+        jar.put("config.yml", "s:\n  a: 1\n  b: 2\n");
+        host.log.clear();
+        yml.reloadAll();
+        assertEquals("s:\n\ta: 5\n  b: 2\n", read("config.yml"));
+        assertEquals(2, yml.config().getInt("s.b", 0));
+        assertEquals(List.of("Indentation tabs fixed in config.yml (lines [2])"), host.log.warnings());
+    }
+
+    @Test
     void unmountWritesPendingSavesAndForgetsTheFile() throws IOException {
         jar.put("config.yml", "a: 1\n");
         YmlManager yml = manager();

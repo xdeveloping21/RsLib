@@ -1,6 +1,7 @@
 package com.rs.lib;
 
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -62,12 +63,8 @@ public abstract class RsPlugin extends JavaPlugin {
         try {
             onInnerEnable();
         } catch (RuntimeException | LinkageError e) {
-            if (!isEnabled()) {
-                abortedQuietly(e);
-            } else {
-                getLogger().log(Level.SEVERE, "Error while enabling " + getName() + "; disabling it.", e);
-                getServer().getPluginManager().disablePlugin(this);
-            }
+            hookFailed(getLogger(), "onInnerEnable", e, isEnabled(),
+                    () -> getServer().getPluginManager().disablePlugin(this));
             return;
         }
         if (isEnabled()) {
@@ -104,8 +101,7 @@ public abstract class RsPlugin extends JavaPlugin {
         }
         int required = requiredApiLevel();
         if (installed < required) {
-            getLogger().severe(getName() + " needs RsLib API level " + required + " but the installed RsLib has "
-                    + installed + ". Update RsLib from https://rsdevelopment.dev");
+            getLogger().severe(handshakeMessage(required, installed));
             getServer().getPluginManager().disablePlugin(this);
             return false;
         }
@@ -117,12 +113,8 @@ public abstract class RsPlugin extends JavaPlugin {
         try {
             proceed = onPreEnable();
         } catch (RuntimeException | LinkageError e) {
-            if (!isEnabled()) {
-                abortedQuietly(e);
-            } else {
-                getLogger().log(Level.SEVERE, "Error before enabling " + getName() + "; disabling it.", e);
-                getServer().getPluginManager().disablePlugin(this);
-            }
+            hookFailed(getLogger(), "onPreEnable", e, isEnabled(),
+                    () -> getServer().getPluginManager().disablePlugin(this));
             return false;
         }
         if (!isEnabled()) {
@@ -135,10 +127,29 @@ public abstract class RsPlugin extends JavaPlugin {
         return true;
     }
 
-    /** The plugin disabled itself and then threw: one line, the trace only at FINE. */
-    private void abortedQuietly(Throwable e) {
-        String reason = e.getMessage() == null || e.getMessage().isBlank() ? e.getClass().getSimpleName() : e.getMessage();
-        getLogger().severe("Enable aborted: " + reason);
-        getLogger().log(Level.FINE, "Enable aborted", e);
+    /**
+     * The line logged when the installed RsLib is older than the plugin needs. The plugin's
+     * logger already starts it with {@code [<Plugin>]}.
+     */
+    static String handshakeMessage(int required, int installed) {
+        return "Requires RsLib API level " + required + " (installed: " + installed
+                + "). Update RsLib.jar (restart required): https://rsdevelopment.dev/plugins/rslib";
+    }
+
+    /**
+     * A hook threw. When the plugin had already disabled itself that was its own refusal: one
+     * line, the trace only at FINE. Otherwise it blew up: SEVERE with the trace, and the plugin
+     * is disabled.
+     */
+    static void hookFailed(Logger logger, String hook, Throwable e, boolean stillEnabled, Runnable disable) {
+        if (!stillEnabled) {
+            String reason = e.getMessage() == null || e.getMessage().isBlank()
+                    ? e.getClass().getSimpleName() : e.getMessage();
+            logger.severe("Enable aborted: " + reason);
+            logger.log(Level.FINE, "Enable aborted", e);
+            return;
+        }
+        logger.log(Level.SEVERE, hook + " failed", e);
+        disable.run();
     }
 }

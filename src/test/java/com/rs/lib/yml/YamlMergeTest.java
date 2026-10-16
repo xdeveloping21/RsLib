@@ -190,6 +190,21 @@ class YamlMergeTest {
     }
 
     @Test
+    void diskMarkerNoteCountsEveryWithheldKey() {
+        String res = "worlds:\n  spawn:\n    safe: true\n    pvp: false\n  nether:\n    safe: false\n";
+        String disk = "# RS:EXTENSIBLE\nworlds:\n  spawn:\n    safe: false\n";
+        List<String> notes = new ArrayList<>();
+        assertEquals(l(disk), YamlUpdater.merge(l(res), l(disk), notes::add));
+        assertEquals(List.of("'worlds' is marked extensible on disk; 3 keys withheld from the jar:"
+                + " [spawn.pvp, nether]"), notes);
+        // A marker with words after it is not a marker: the section is merged.
+        String wordy = "# rs:extensible please\nworlds:\n  spawn:\n    safe: false\n";
+        notes.clear();
+        assertTrue(YamlUpdater.merge(l(res), l(wordy), notes::add).contains("  nether:"));
+        assertTrue(notes.isEmpty(), notes.toString());
+    }
+
+    @Test
     void rootMarkerOnEitherSideStopsTopLevelMerging() {
         for (String marker : List.of("# rs:extensible-root", "# sn:extensible-root", "# SN:EXTENSIBLE-ROOT")) {
             String res = "# Entries\n" + marker + "\n\nexample:\n  a: 1\n";
