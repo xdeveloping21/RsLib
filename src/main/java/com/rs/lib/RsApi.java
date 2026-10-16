@@ -24,12 +24,21 @@ package com.rs.lib;
  *     <li>2 (1.1.0): cuboids and the selection wand ({@code rs().selections()}), RsLib's own
  *     events (armour equip, chunk move, selection complete), calendar jobs
  *     ({@code rs().cron()}) and, on Velocity, the proxy base ({@code com.rs.lib.velocity}).</li>
+ *     <li>3 (1.3.0): rewards with guaranteed delivery ({@code rs().rewards()}), notices for
+ *     later ({@code rs().notices()}), the staff audit log ({@code rs().audit()}), player
+ *     settings and broadcast channels ({@code rs().settings()}), chat interceptors and rules
+ *     ({@code rs().chat()}), offline money and transfers, sell prices ({@code rs().prices()}),
+ *     multipliers ({@code rs().modifiers()}), formats ({@code rs().formats()}), registered
+ *     regions with enter and leave events ({@code rs().regions()}), clickable blocks
+ *     ({@code rs().blocks()}), hotbar cooldowns, the multi-question wizard, the list editor,
+ *     database export and import, alt accounts ({@code rs().accounts()}), the shared timer
+ *     and hologram view range and movement.</li>
  * </ul>
  */
 public final class RsApi {
 
     /** Must stay a literal so the compiler inlines it into every plugin. */
-    public static final int LEVEL = 2;
+    public static final int LEVEL = 3;
 
     private RsApi() {
     }

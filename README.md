@@ -1,4 +1,4 @@
-# RsLib 1.2.0
+# RsLib 1.3.0
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -39,6 +39,26 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
   `"daily 04:00"`), con recuperación opcional de una ejecución perdida con el servidor apagado.
 - Expresiones cron, duraciones, números, sonidos, cabezas con textura, nombres de jugadores,
   inventario, ubicaciones y experiencia.
+- Recompensas con entrega garantizada (`rs().rewards()`): ítems, comandos, dinero, experiencia,
+  pociones y mensajes con probabilidad, peso, permiso y requisitos; lo que no cabe o se gana sin
+  estar conectado se guarda y se entrega al entrar, y el premio se puede decidir antes de una
+  animación y entregar exactamente igual después.
+- Avisos para después (`rs().notices()`), registro de auditoría para el staff (`rs().audit()`,
+  `/rslib logs`), preferencias de cada jugador en un menú común y canales de anuncios que se
+  pueden silenciar (`rs().settings()`, `/rslib settings`), y captura del chat con reglas de quién
+  lee a quién (`rs().chat()`).
+- Dinero a jugadores desconectados y transferencias con reembolso, precios de venta con la lista
+  del plugin o el `worth.yml` de EssentialsX (`rs().prices()`) y multiplicadores por permiso
+  (`rs().modifiers()`).
+- `formats.yml` con dinero, fechas y tiempos relativos (`{x:money}`, `{x:date}`,
+  `{x:relative}`), valores por defecto en placeholders (`%x|texto%`, `{x|texto}`), acciones
+  `[delay]` y `[firework]`, y tareas de `rs().cron()` con condiciones.
+- Regiones con eventos de entrar y salir (`rs().regions()`), consultas a WorldGuard sin depender
+  de él, bloques que responden a clics y no se pueden romper (`rs().blocks()`), el jugador
+  responsable de un golpe y cooldowns visibles sobre el ítem.
+- Asistente de varias preguntas con confirmación, editor de listas en un menú, exportar e
+  importar la base de datos de un plugin (`/rslib db`) y detección de cuentas alternas por hash
+  de la IP (`/rslib alts`).
 - Avisos de versiones nuevas desde rsdevelopment.dev (`RsSpec.updates()`), y RsLib se
   actualiza sola (`auto-update` en su config.yml); además avisa en la consola y a quien tenga
   `rslib.admin.update` (también al entrar) cuando sale una versión nueva, aunque la
@@ -59,7 +79,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -135,6 +155,22 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
+- **1.3.0:** novedades tomadas de la revisión de ExyliaLib, escritas desde cero: recompensas con
+  entrega garantizada (lo que no cabe se guarda por defecto), avisos para después, registro de
+  auditoría (`/rslib logs`), preferencias y canales silenciables (`/rslib settings`, solo con
+  permiso), captura de chat y reglas de lectores, dinero sin conexión y transferencias con
+  reembolso, precios de venta, multiplicadores por permiso, `formats.yml` con dinero, fechas y
+  `:relative` en el idioma de cada plugin, placeholders con valor por defecto, `[delay]` y
+  `[firework]`, cron con condiciones, regiones con entrar y salir, WorldGuard opcional, bloques
+  con clic protegidos, cooldown visible en el ítem, asistente de preguntas, editor de listas,
+  exportar e importar la base (`/rslib db`) y cuentas alternas (`/rslib alts`). Los textos de
+  esos comandos se traducen con el `lang` nuevo del config.yml de RsLib. Arreglos: Discord ya
+  no deja mencionar a `@everyone` ni a nadie salvo que el plugin lo permita, reintenta los
+  errores del servidor de Discord y deja de usar un webhook borrado; una tarea repetitiva que
+  falla se cancela. Rendimiento: un solo reloj para hologramas y menús, hologramas que no
+  trabajan si nadie los ve, movimiento suave, placeholders compartidos en menús y benchmarks.
+  Estructura: parte de la implementación pasó a paquetes `internal` y las clases de más de 1.000
+  líneas se dividieron. CI en GitHub Actions. Nivel de API 3.
 - **1.2.0:** `/rslib` igual al `/snlib` documentado: subcomandos `plugins`, `integrations`
   (los enganches opcionales de cada plugin, activos o no), `iteminfo` (las etiquetas PDC del ítem
   en la mano) y `help`, con los textos de SnLib en `version`, `reload` y `debug`; sin argumento
