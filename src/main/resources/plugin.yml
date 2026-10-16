@@ -10,7 +10,7 @@ softdepend: [PlaceholderAPI, Vault, WorldGuard]
 commands:
   rslib:
     description: RsLib administration.
-    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|logs|debug|db|alts|help>
+    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|logs|debug|db|alts|settings|help>
 permissions:
   # Grants every subcommand but debug and db. rslib.admin.debug and rslib.admin.db are not
   # children: grant them apart.
@@ -56,3 +56,9 @@ permissions:
   rslib.admin.alts:
     description: Allows /rslib alts (accounts that joined from the same address).
     default: op
+  rslib.settings:
+    description: Allows /rslib settings, the menu with your preferences in every plugin.
+    default: true
+  rslib.chat.bypass:
+    description: Reads every chat message and is read by everyone, whatever the plugins' chat rules say.
+    default: false

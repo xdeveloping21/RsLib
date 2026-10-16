@@ -14,6 +14,7 @@ import com.rs.lib.action.ActionEngine;
 import com.rs.lib.block.RsBlocks;
 import com.rs.lib.audit.AuditLog;
 import com.rs.lib.bossbar.BossBarUtil;
+import com.rs.lib.chat.ChatManager;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.Cooldowns;
 import com.rs.lib.cron.RsCron;
@@ -40,6 +41,7 @@ import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reload.ReloadManager;
 import com.rs.lib.reward.Rewards;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.settings.SettingsManager;
 import com.rs.lib.snapshot.Snapshots;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.UpdateChecker;
@@ -88,6 +90,8 @@ public final class Rs {
     private final AuditLog audit;
     private final Rewards rewards;
     private final RsFormats formats;
+    private final SettingsManager settings;
+    private final ChatManager chat;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -134,6 +138,8 @@ public final class Rs {
         this.snapshots = new Snapshots(this);
         this.inputs = new Inputs(this);
         this.rewards = new Rewards(this);
+        this.settings = new SettingsManager(this);
+        this.chat = new ChatManager(this);
         this.guis = spec.guis() ? new GuiManager(this) : null;
         if (guis != null) {
             guis.load();
@@ -334,6 +340,19 @@ public final class Rs {
         return formats;
     }
 
+    /**
+     * Player preferences and announcement channels players can mute, listed with every plugin's in one
+     * menu. Registering an option needs {@code RsSpec.builder().db()}.
+     */
+    public SettingsManager settings() {
+        return settings;
+    }
+
+    /** Chat interceptors and rules on who reads whom. */
+    public ChatManager chat() {
+        return chat;
+    }
+
     /** Reloads config, messages, items, menus, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
@@ -408,6 +427,7 @@ public final class Rs {
         shuttingDown = true;
         // Chat questions end before menus close, so a SHUT_DOWN callback finds no menu to reopen.
         step("chat questions", inputs::shutdown);
+        step("chat handlers", chat::shutdown);
         if (guis != null) {
             step("menus", guis::shutdown);
         }
@@ -435,6 +455,7 @@ public final class Rs {
         if (db != null) {
             step("player data", db::flushPlayerCaches);
         }
+        step("player settings", settings::shutdown);
         step("cooldowns", cooldowns::shutdown);
         step("modifiers", modifiers::shutdown);
         if (audit != null) {

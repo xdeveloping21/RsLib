@@ -33,6 +33,7 @@ import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.region.RegionRegistry;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.settings.SettingsManager;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
@@ -193,6 +194,7 @@ public final class RsLibPlugin extends JavaPlugin {
             selfUpdater.shutdown();
             selfUpdater = null;
         }
+        SettingsManager.closeMenus();
         RsLib.shutdownAll();
         ItemRegistry.shutdownShared();
         RegionRegistry.stopShared();
@@ -222,6 +224,7 @@ public final class RsLibPlugin extends JavaPlugin {
         DEBUG("rslib.admin.debug", "turn RsLib's debug output on or off"),
         DB("rslib.admin.db", "export a plugin's database to a file, or import one"),
         ALTS("rslib.admin.alts", "the accounts that joined from the same address as a player"),
+        SETTINGS(SettingsManager.PERMISSION, "your preferences in every plugin"),
         HELP(null, "the subcommands you can use");
 
         final String permission;
@@ -261,7 +264,7 @@ public final class RsLibPlugin extends JavaPlugin {
         }
     }
 
-    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|logs|debug|db|alts|help>";
+    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|logs|debug|db|alts|settings|help>";
 
     private final class AdminCommand implements TabExecutor {
 
@@ -328,6 +331,13 @@ public final class RsLibPlugin extends JavaPlugin {
                         return true;
                     }
                     AltsAdmin.run(sender, args[1], scheduler);
+                }
+                case SETTINGS -> {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage("Only a player can use this.");
+                        return true;
+                    }
+                    SettingsManager.openCommon(player);
                 }
                 case HELP -> {
                     sender.sendMessage("RsLib commands:");

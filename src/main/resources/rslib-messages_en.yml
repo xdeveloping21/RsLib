@@ -46,6 +46,19 @@ rslib:
     timeout: "&7Selection expired."
   notices:
     more: "&7...and &f{count}&7 more."
+  settings:
+    menu-title: "&8Settings"
+    none: "&7There are no settings for you."
+    plugin: "&8{plugin}"
+    value: "&7Value: &f{value}"
+    state-on: "&aOn"
+    state-off: "&cOff"
+    click-toggle: "&eClick to switch it."
+    click-cycle: "&eLeft click: next. Right click: previous."
+    click-number: "&eLeft click: +{step}. Right click: -{step}."
+    previous-page: "&ePrevious page"
+    next-page: "&eNext page"
+    close: "&cClose"
   help:
     header: "&6&l{plugin} &8» &7Commands"
     entry: "&e{usage} &7{description}"

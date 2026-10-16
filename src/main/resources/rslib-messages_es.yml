@@ -46,6 +46,19 @@ rslib:
     timeout: "&7La selección caducó."
   notices:
     more: "&7...y &f{count}&7 más."
+  settings:
+    menu-title: "&8Preferencias"
+    none: "&7No hay preferencias para ti."
+    plugin: "&8{plugin}"
+    value: "&7Valor: &f{value}"
+    state-on: "&aActivado"
+    state-off: "&cDesactivado"
+    click-toggle: "&eHaz clic para cambiarlo."
+    click-cycle: "&eClic izquierdo: siguiente. Clic derecho: anterior."
+    click-number: "&eClic izquierdo: +{step}. Clic derecho: -{step}."
+    previous-page: "&ePágina anterior"
+    next-page: "&ePágina siguiente"
+    close: "&cCerrar"
   help:
     header: "&6&l{plugin} &8» &7Comandos"
     entry: "&e{usage} &7{description}"

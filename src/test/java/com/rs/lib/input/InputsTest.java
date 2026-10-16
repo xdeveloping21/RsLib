@@ -6,23 +6,23 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import com.rs.lib.chat.PaperChatSim;
 
 /** Chat questions and the notes' traps, without a server. */
 class InputsTest {
@@ -55,30 +55,66 @@ class InputsTest {
         return future.join();
     }
 
-    /** Trap 1: the legacy chat event is heard first (LOWEST) and cancelled; the modern one is the fallback. */
-    @Test
-    @SuppressWarnings("deprecation")
-    void chatIsTakenAtLowestAndCancelled() throws Exception {
-        Listener listener = Inputs.chatListener();
-        Method legacy = listener.getClass().getMethod("onLegacyChat", AsyncPlayerChatEvent.class);
-        Method modern = listener.getClass().getMethod("onChat", io.papermc.paper.event.player.AsyncChatEvent.class);
-        assertEquals(EventPriority.LOWEST, legacy.getAnnotation(EventHandler.class).priority());
-        assertFalse(legacy.getAnnotation(EventHandler.class).ignoreCancelled());
-        assertEquals(EventPriority.LOWEST, modern.getAnnotation(EventHandler.class).priority());
-        assertTrue(modern.getAnnotation(EventHandler.class).ignoreCancelled(),
-                "the modern event arrives cancelled after the legacy one took the answer");
-        legacy.setAccessible(true);
+    /** A Paper server whose chat router has the chat questions on it. */
+    private static PaperChatSim chatServer() {
+        PaperChatSim sim = new PaperChatSim(true);
+        Inputs.registerChat(sim.events);
+        sim.start();
+        return sim;
+    }
 
-        AsyncPlayerChatEvent chatter = new AsyncPlayerChatEvent(true, alex, "hello all", new HashSet<>());
-        legacy.invoke(listener, chatter);
-        assertFalse(chatter.isCancelled(), "chat without a question must pass");
+    /**
+     * Trap 1: an answer is taken on the first chat event of the message (Paper's alone, or the
+     * legacy one while another plugin listens to it), before any other plugin sees it, and cancelled.
+     */
+    @Test
+    void chatIsTakenAtLowestAndCancelled() throws Exception {
+        PaperChatSim server = chatServer();
+        List<PaperChatSim.Registered> lowest = server.permanent.stream()
+                .filter(each -> each.priority() == EventPriority.LOWEST).toList();
+        assertEquals(1, lowest.size(), "one handler takes answers");
+        assertTrue(server.permanent.stream().allMatch(each ->
+                each.type() == io.papermc.paper.event.player.AsyncChatEvent.class), "on Paper's event only");
+        assertEquals(null, server.legacy, "no legacy listener while no other plugin has one");
+
+        PaperChatSim.Outcome chatter = server.paper(alex, "hello all", Set.of(alex), false);
+        assertFalse(chatter.cancelled, "chat without a question must pass");
 
         CompletableFuture<InputResult<String>> future = inputs.text(alex).open();
-        AsyncPlayerChatEvent answer = new AsyncPlayerChatEvent(true, alex, "  my answer ", new HashSet<>());
-        legacy.invoke(listener, answer);
-        assertTrue(answer.isCancelled(), "the answer must never reach the public chat");
+        PaperChatSim.Outcome answer = server.paper(alex, "  my answer ", Set.of(alex), false);
+        assertTrue(answer.cancelled, "the answer must never reach the public chat");
+        assertFalse(answer.otherSaw);
         host.tick();
         assertEquals("my answer", done(future).value());
+
+        server.events.refresh(true);
+        CompletableFuture<InputResult<String>> second = inputs.text(alex).open();
+        PaperChatSim.Outcome viaLegacy = server.paper(alex, "other", Set.of(alex), true);
+        assertTrue(viaLegacy.cancelled);
+        assertFalse(viaLegacy.otherLegacySaw, "taken before another plugin's legacy listener");
+        assertFalse(viaLegacy.otherSaw);
+        host.tick();
+        assertEquals("other", done(second).value());
+    }
+
+    /** Trap 1b: an answer is read once on both paths, never again on Paper's event. */
+    @Test
+    void anAnswerIsReadOnce() throws Exception {
+        PaperChatSim server = chatServer();
+        List<String> parsed = new ArrayList<>();
+        CompletableFuture<InputResult<String>> future = inputs.<String>custom(alex, typed -> {
+            parsed.add(typed);
+            throw new InputRejected("rslib.invalid-value", com.rs.lib.Ph.literal("value", typed));
+        }).maxAttempts(5).open();
+
+        server.paper(alex, "42", Set.of(alex), false);
+        host.tick();
+        assertEquals(List.of("42"), parsed, "one message, one attempt");
+        server.events.refresh(true);
+        server.paper(alex, "43", Set.of(alex), true);
+        host.tick();
+        assertEquals(List.of("42", "43"), parsed, "the legacy path also reads it once");
+        assertFalse(future.isDone());
     }
 
     /** Trap 2: chat arrives on another thread; the answer is checked on the player's thread. */

@@ -14,6 +14,8 @@ import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.block.RsBlocks;
 import com.rs.lib.action.ActionEngine;
+import com.rs.lib.chat.ChatEvents;
+import com.rs.lib.chat.ChatManager;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.HotbarCooldowns;
 import com.rs.lib.db.PlayerDataCache;
@@ -29,6 +31,7 @@ import com.rs.lib.region.RegionRegistry;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reward.Rewards;
 import com.rs.lib.scheduler.RsScheduler;
+import com.rs.lib.settings.SettingsManager;
 import com.rs.lib.teleport.Teleports;
 import com.rs.lib.update.internal.UpdateHub;
 
@@ -47,7 +50,12 @@ public final class ListenerHub {
         pm.registerEvents(new Shared(rslib), rslib);
         pm.registerEvents(RsCommands.priorityListener(), rslib);
         pm.registerEvents(PlayerDataCache.joinListener(), rslib);
-        pm.registerEvents(Inputs.chatListener(), rslib);
+        // Chat questions first, then the interceptors of every plugin.
+        ChatEvents chat = ChatEvents.server();
+        Inputs.registerChat(chat);
+        ChatManager.registerShared(chat, rslib.getLogger());
+        chat.install(rslib);
+        pm.registerEvents(SettingsManager.sharedListener(), rslib);
         pm.registerEvents(ItemRegistry.sharedListener(), rslib);
         pm.registerEvents(GuiManager.sharedListener(), rslib);
         pm.registerEvents(GuiManager.protectionListener(), rslib);
