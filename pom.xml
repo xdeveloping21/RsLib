@@ -6,7 +6,7 @@
 
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
     <packaging>jar</packaging>
 
     <name>RsLib</name>
@@ -194,6 +194,9 @@
                 <configuration>
                     <!-- velocity-plugin.json es un recurso; el procesador de anotaciones de Velocity no se usa. -->
                     <proc>none</proc>
+                    <!-- javac aparte: el javac de Java 25 dentro del proceso de Maven falla con
+                         "this.hashes is null" al compilar las pruebas. -->
+                    <fork>true</fork>
                     <compilerArgs>
                         <arg>-Xlint:all,-processing,-serial</arg>
                     </compilerArgs>
