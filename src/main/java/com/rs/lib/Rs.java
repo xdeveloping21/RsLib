@@ -96,6 +96,7 @@ public final class Rs {
                 yml == null ? null : yml.config().getSection("database"))) : null;
         this.commands = new RsCommands(this, lang, spec.debugCommand(), spec.commandPriority());
         this.reload = new ReloadManager(this);
+        reload.register(discord::resetDeadWebhooks);
         this.updates = new UpdateChecker(this);
         this.items = new ItemRegistry(this);
         items.bindActions(ItemActions.engine(this));

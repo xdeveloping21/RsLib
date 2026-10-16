@@ -28,6 +28,9 @@ import java.util.logging.Logger;
  *   (at least one second). A success that leaves the bucket empty
  *   ({@code X-RateLimit-Remaining: 0}) makes the worker wait {@code X-RateLimit-Reset-After}
  *   before the next message, so Discord rarely has to say 429 at all.</li>
+ *   <li>HTTP 404 (the webhook was deleted) or 401 (its token is wrong): the address is dead.
+ *   Its waiting messages are dropped, and so is everything sent to it later, with one warning;
+ *   {@link #resetDead()} (called on every plugin reload) lets it be tried again.</li>
  *   <li>Any other failure (a status that is not 2xx, the network, a bad address) drops the
  *   message with one warning per webhook, then silence. Logs never show a webhook's token:
  *   its last path segment is replaced by {@code ***}.</li>
@@ -57,6 +60,8 @@ final class WebhookQueue {
     private final LongSupplier clock;
     private final Object lock = new Object();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
+    /** Webhook addresses that answered 404 or 401, exactly as the plugin gave them. */
+    private final Set<String> dead = ConcurrentHashMap.newKeySet();
 
     /** Guarded by {@link #lock}. */
     private final Deque<Pending> queue = new ArrayDeque<>();
@@ -97,6 +102,9 @@ final class WebhookQueue {
                 warnOnce("closed", "A Discord message was sent after " + owner + " shut down; dropped.");
                 return;
             }
+            if (dead.contains(url)) {
+                return;
+            }
             if (queue.size() >= MAX_QUEUED) {
                 if (!overflowWarned) {
                     overflowWarned = true;
@@ -111,6 +119,11 @@ final class WebhookQueue {
                 schedulePump(Math.max(0L, notBefore - clock.getAsLong()));
             }
         }
+    }
+
+    /** Lets every dead webhook be tried again; the next 404 or 401 warns again. */
+    void resetDead() {
+        dead.clear();
     }
 
     /** Number of messages waiting; for tests. */
@@ -281,6 +294,10 @@ final class WebhookQueue {
             return Outcome.DROPPED;
         }
         long now = clock.getAsLong();
+        if (reply.status() == 404 || reply.status() == 401) {
+            markDead(message.url(), reply.status());
+            return Outcome.DROPPED;
+        }
         if (reply.status() == 429) {
             notBefore = now + retryNanos(reply);
             return Outcome.RETRY;
@@ -314,6 +331,27 @@ final class WebhookQueue {
         worker.allowCoreThreadTimeOut(true);
         worker.setRemoveOnCancelPolicy(true);
         return worker;
+    }
+
+    /** Stops every message to {@code url}, queued or future, with one warning. */
+    private void markDead(String url, int status) {
+        if (!dead.add(url)) {
+            return;
+        }
+        int dropped = 0;
+        synchronized (lock) {
+            for (var it = queue.iterator(); it.hasNext(); ) {
+                if (it.next().url().equals(url)) {
+                    it.remove();
+                    dropped++;
+                }
+            }
+        }
+        logger.warning("Discord webhook " + redact(url) + " answered HTTP " + status
+                + (status == 404 ? " (unknown webhook: it was deleted)" : " (its token was refused)")
+                + "; nothing more is sent to it until " + owner + " is reloaded"
+                + (dropped > 0 ? " (" + dropped + " waiting message" + (dropped == 1 ? "" : "s") + " dropped)" : "")
+                + ".");
     }
 
     private void warnEndpoint(String url, String why) {

@@ -27,6 +27,8 @@ class DiscordWebhookTest {
     private static final String TOKEN = "s3cr3t-T0ken_abcdefghijklmnop";
     private static final String HOOK = "https://discord.com/api/webhooks/123456/" + TOKEN;
     private static final String OTHER = "https://discord.com/api/webhooks/999/other-token";
+    /** What every payload ends with when the plugin allowed no ping. */
+    private static final String NO_PINGS = "\"allowed_mentions\":{\"parse\":[]}";
 
     private final List<String> warnings = Collections.synchronizedList(new ArrayList<>());
     private FakeTransport transport;
@@ -76,13 +78,13 @@ class DiscordWebhookTest {
                 + "\"footer\":{\"text\":\"F\",\"icon_url\":\"https://x.y/f.png\"},"
                 + "\"author\":{\"name\":\"A\",\"url\":\"https://x.y/a\",\"icon_url\":\"https://x.y/a.png\"},"
                 + "\"thumbnail\":{\"url\":\"https://x.y/th.png\"},\"image\":{\"url\":\"https://x.y/im.png\"},"
-                + "\"fields\":[{\"name\":\"N\",\"value\":\"V\",\"inline\":true}]}]}", json);
+                + "\"fields\":[{\"name\":\"N\",\"value\":\"V\",\"inline\":true}]}]," + NO_PINGS + "}", json);
     }
 
     @Test
     void partsLeftOutAreNotWritten() {
-        assertEquals("{\"content\":\"hi\"}", discord.message(HOOK).content("hi").toJson());
-        assertEquals("{\"embeds\":[{\"footer\":{\"text\":\"f\"}}]}",
+        assertEquals("{\"content\":\"hi\"," + NO_PINGS + "}", discord.message(HOOK).content("hi").toJson());
+        assertEquals("{\"embeds\":[{\"footer\":{\"text\":\"f\"}}]," + NO_PINGS + "}",
                 discord.message(HOOK).embed(discord.embed().footer("f")).toJson());
     }
 
@@ -93,21 +95,21 @@ class DiscordWebhookTest {
                 .image("  ").author("A", "", " ");
         String json = discord.message(HOOK).content("hi").username(" ").avatarUrl("").embed(embed).toJson();
         assertEquals("{\"content\":\"hi\",\"embeds\":[{\"title\":\"T\",\"footer\":{\"text\":\"F\"},"
-                + "\"author\":{\"name\":\"A\"}}]}", json);
+                + "\"author\":{\"name\":\"A\"}}]," + NO_PINGS + "}", json);
 
         String noAuthor = discord.message(HOOK).embed(discord.embed().title("T")
                 .author(" ", "https://x.y/a", "https://x.y/a.png").footer("", "https://x.y/f.png")).toJson();
-        assertEquals("{\"embeds\":[{\"title\":\"T\"}]}", noAuthor, "a blank name drops the whole author bar");
+        assertEquals("{\"embeds\":[{\"title\":\"T\"}]," + NO_PINGS + "}", noAuthor, "a blank name drops the whole author bar");
 
         String nullAuthor = discord.message(HOOK).embed(discord.embed().title("T")
                 .author(null, "https://x.y/a", "https://x.y/a.png")).toJson();
-        assertEquals("{\"embeds\":[{\"title\":\"T\"}]}", nullAuthor);
+        assertEquals("{\"embeds\":[{\"title\":\"T\"}]," + NO_PINGS + "}", nullAuthor);
     }
 
     @Test
     void textIsEscaped() {
         String json = discord.message(HOOK).content("a \"q\" \\ b\nc\td\u0001\u2028").toJson();
-        assertEquals("{\"content\":\"a \\\"q\\\" \\\\ b\\nc\\td\\u0001\\u2028\"}", json);
+        assertEquals("{\"content\":\"a \\\"q\\\" \\\\ b\\nc\\td\\u0001\\u2028\"," + NO_PINGS + "}", json);
     }
 
     @Test
@@ -143,6 +145,107 @@ class DiscordWebhookTest {
         assertEquals("a", Json.cut("a\uD83D\uDE00", 2), "a surrogate pair is never split");
     }
 
+    // ---------------------------------------------------------------- mentions
+
+    @Test
+    void nothingPingsByDefaultWhateverTheTextSays() {
+        String json = discord.message(HOOK).content("@everyone @here <@123> <@&456>").toJson();
+        assertTrue(json.endsWith(",\"allowed_mentions\":{\"parse\":[]}}"), json);
+        String embedOnly = discord.message(HOOK).embed(discord.embed().description("@everyone")).toJson();
+        assertTrue(embedOnly.endsWith("]," + NO_PINGS + "}"), embedOnly);
+    }
+
+    @Test
+    void onlyThePingsThePluginAllowsAreAllowed() {
+        String json = discord.message(HOOK).content("<@123> <@&456> @everyone")
+                .allowUserPing("123").allowUserPing(" 123 ").allowUserPing("abc").allowUserPing(null)
+                .allowUserPing("1".repeat(21)).allowRolePing("456").allowRolePing("").toJson();
+        assertTrue(json.endsWith(",\"allowed_mentions\":{\"parse\":[],\"users\":[\"123\"],\"roles\":[\"456\"]}}"), json);
+
+        String everyone = discord.message(HOOK).content("@here").allowEveryonePing().toJson();
+        assertTrue(everyone.endsWith(",\"allowed_mentions\":{\"parse\":[\"everyone\"]}}"), everyone);
+
+        DiscordWebhook.Message many = discord.message(HOOK).content("x");
+        for (int i = 0; i < 150; i++) {
+            many.allowRolePing(String.valueOf(1000 + i));
+        }
+        String capped = many.toJson();
+        assertTrue(capped.contains("\"1099\"") && !capped.contains("\"1100\""), "at most 100 ids");
+    }
+
+    // ---------------------------------------------------------------- dead webhooks
+
+    @Test
+    void a404StopsEveryMessageToThatWebhookQueuedOrLaterUntilReset() throws InterruptedException {
+        transport.script.add(reply(404));
+        transport.delayNanos = TimeUnit.MILLISECONDS.toNanos(200);
+        CountDownLatch started = new CountDownLatch(1);
+        transport.onStart = started;
+        transport.expect(2);
+        discord.send(HOOK, "a");
+        assertTrue(started.await(5, TimeUnit.SECONDS));
+        discord.send(HOOK, "b");
+        discord.send(OTHER, "c");
+        discord.send(HOOK, "d");
+        transport.await();
+        transport.onStart = null;
+        transport.delayNanos = 0;
+
+        transport.expect(1);
+        discord.send(HOOK, "e");
+        discord.send(OTHER, "f");
+        transport.await();
+
+        assertEquals(List.of(HOOK, OTHER, OTHER), transport.urls());
+        assertEquals(List.of(content("a"), content("c"), content("f")), transport.bodies());
+        assertEquals(1, warnings.size(), warnings.toString());
+        String warning = warnings.get(0);
+        assertTrue(warning.contains("webhooks/123456/***") && warning.contains("HTTP 404"), warning);
+        assertTrue(warning.contains("2 waiting messages dropped"), warning);
+        assertFalse(warning.contains(TOKEN), warning);
+        assertEquals(0, queue.waiting());
+
+        discord.resetDeadWebhooks();
+        transport.expect(1);
+        discord.send(HOOK, "g");
+        transport.await();
+        assertEquals(content("g"), transport.bodies().get(3), "a reload lets the webhook be tried again");
+    }
+
+    @Test
+    void a401IsDeadTooAndWarnsAgainAfterAReset() throws InterruptedException {
+        transport.script.add(reply(401));
+        transport.expect(2);
+        discord.send(HOOK, "a");
+        discord.send(HOOK, "b");
+        discord.send(OTHER, "c");
+        transport.await();
+        assertEquals(List.of(HOOK, OTHER), transport.urls());
+        assertEquals(1, warnings.size(), warnings.toString());
+        assertTrue(warnings.get(0).contains("HTTP 401"), warnings.get(0));
+
+        discord.resetDeadWebhooks();
+        transport.script.add(reply(401));
+        transport.expect(2);
+        discord.send(HOOK, "d");
+        discord.send(OTHER, "e");
+        transport.await();
+        assertEquals(2, warnings.size(), "still dead after the reload: one more warning");
+    }
+
+    @Test
+    void otherFailuresDropOnlyThatMessage() throws InterruptedException {
+        transport.script.add(reply(500));
+        transport.script.add(reply(400));
+        transport.expect(3);
+        discord.send(HOOK, "a");
+        discord.send(HOOK, "b");
+        discord.send(HOOK, "c");
+        transport.await();
+        assertEquals(List.of(content("a"), content("b"), content("c")), transport.bodies());
+        assertEquals(1, warnings.size(), warnings.toString());
+    }
+
     // ---------------------------------------------------------------- tokens never logged (trap 13.6)
 
     @Test
@@ -161,8 +264,8 @@ class DiscordWebhookTest {
 
     @Test
     void failuresWarnOncePerWebhookWithoutTheToken() throws InterruptedException {
-        transport.script.add(reply(404));
-        transport.script.add(reply(404));
+        transport.script.add(reply(400));
+        transport.script.add(reply(500));
         transport.script.add(new Boom(new IOException("connect to " + OTHER + " refused")));
         transport.script.add(reply(400));
         transport.expect(4);
@@ -192,7 +295,7 @@ class DiscordWebhookTest {
         discord.send(HOOK, "real");
         transport.await();
 
-        assertEquals(List.of("{\"content\":\"real\"}"), transport.bodies());
+        assertEquals(List.of(content("real")), transport.bodies());
     }
 
     @Test
@@ -205,7 +308,7 @@ class DiscordWebhookTest {
 
         List<String> expected = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            expected.add("{\"content\":\"m" + i + "\"}");
+            expected.add(content("m" + i));
         }
         assertEquals(expected, transport.bodies());
         for (Sent sent : transport.sent) {
@@ -222,7 +325,7 @@ class DiscordWebhookTest {
         discord.send(HOOK, "second");
         transport.await();
 
-        assertEquals(List.of("{\"content\":\"first\"}", "{\"content\":\"first\"}", "{\"content\":\"second\"}"),
+        assertEquals(List.of(content("first"), content("first"), content("second")),
                 transport.bodies());
         long waited = transport.sent.get(1).at() - transport.sent.get(0).at();
         assertTrue(waited >= TimeUnit.MILLISECONDS.toNanos(950), "waited " + waited / 1_000_000 + " ms");
@@ -313,6 +416,11 @@ class DiscordWebhookTest {
 
     // ---------------------------------------------------------------- fakes
 
+    /** The payload of a plain text message. */
+    private static String content(String text) {
+        return "{\"content\":\"" + text + "\"," + NO_PINGS + "}";
+    }
+
     private static WebhookTransport.Reply reply(int status) {
         return WebhookTransport.Reply.of(status);
     }
@@ -347,6 +455,12 @@ class DiscordWebhookTest {
 
         void await() throws InterruptedException {
             assertTrue(latch.await(10, TimeUnit.SECONDS), "requests did not arrive: " + sent.size());
+        }
+
+        List<String> urls() {
+            synchronized (sent) {
+                return sent.stream().map(Sent::url).toList();
+            }
         }
 
         List<String> bodies() {

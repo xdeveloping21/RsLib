@@ -4,7 +4,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.rs.lib.Rs;
 
@@ -27,8 +29,15 @@ import com.rs.lib.Rs;
  *   (content 2000, username 80, title 256, description 4096, field name 256 and value 1024,
  *   footer 2048, author 256 characters), and an empty field name or value becomes a
  *   zero-width space, so Discord does not refuse the whole message.</li>
+ *   <li>No message pings anyone by default: every payload carries {@code allowed_mentions} with
+ *   nothing allowed, so {@code @everyone}, {@code @here}, {@code <@id>} or {@code <@&id>} in the
+ *   text (a player's chat line, say) stay plain text. A plugin that wants a ping says so with
+ *   {@link Message#allowUserPing}, {@link Message#allowRolePing} or
+ *   {@link Message#allowEveryonePing}.</li>
  *   <li>Rate limits are respected: see {@link WebhookQueue}. Failures are reported once per
- *   webhook, and logs never show a webhook's token.</li>
+ *   webhook, and logs never show a webhook's token. A webhook that Discord says no longer
+ *   exists (HTTP 404) or refuses the token of (HTTP 401) gets nothing more until the plugin is
+ *   reloaded or {@link #resetDeadWebhooks()} is called.</li>
  *   <li>Webhook addresses live in each plugin's config.</li>
  * </ul>
  *
@@ -49,6 +58,8 @@ public final class DiscordWebhook {
     static final int MAX_FIELD_VALUE = 1024;
     static final int MAX_FOOTER = 2048;
     static final int MAX_AUTHOR = 256;
+    /** The most user or role ids Discord accepts in {@code allowed_mentions}. */
+    static final int MAX_PING_IDS = 100;
 
     private final WebhookQueue queue;
 
@@ -84,6 +95,14 @@ public final class DiscordWebhook {
         queue.drain(DRAIN_BUDGET);
     }
 
+    /**
+     * Lets webhooks that answered 404 or 401 be tried again. Runs by itself on every
+     * {@code rs().reloadAll()}; a plugin that reloads its config another way can call it after.
+     */
+    public void resetDeadWebhooks() {
+        queue.resetDead();
+    }
+
     /** A webhook message. Not thread-safe while being built; {@link #send()} copies it. */
     public final class Message {
 
@@ -92,6 +111,9 @@ public final class DiscordWebhook {
         private String username;
         private String avatarUrl;
         private final List<Embed> embeds = new ArrayList<>(1);
+        private final Set<String> pingUsers = new LinkedHashSet<>(0);
+        private final Set<String> pingRoles = new LinkedHashSet<>(0);
+        private boolean pingEveryone;
 
         private Message(String url) {
             this.url = url;
@@ -122,6 +144,38 @@ public final class DiscordWebhook {
             return this;
         }
 
+        /**
+         * Lets this message ping the user with that Discord id (digits only) when the content
+         * mentions them; anything else, and ids past the hundredth, are ignored.
+         */
+        public Message allowUserPing(String userId) {
+            addId(pingUsers, userId);
+            return this;
+        }
+
+        /**
+         * Lets this message ping the role with that Discord id (digits only) when the content
+         * mentions it; anything else, and ids past the hundredth, are ignored.
+         */
+        public Message allowRolePing(String roleId) {
+            addId(pingRoles, roleId);
+            return this;
+        }
+
+        /** Lets {@code @everyone} and {@code @here} in the content ping. Off unless called. */
+        public Message allowEveryonePing() {
+            this.pingEveryone = true;
+            return this;
+        }
+
+        private static void addId(Set<String> ids, String id) {
+            String trimmed = id == null ? "" : id.trim();
+            if (!trimmed.isEmpty() && trimmed.length() <= 20 && trimmed.chars().allMatch(c -> c >= '0' && c <= '9')
+                    && ids.size() < MAX_PING_IDS) {
+                ids.add(trimmed);
+            }
+        }
+
         /** Queues the message as it is now; an empty one (no content, no embed) is dropped. */
         public void send() {
             if ((content == null || content.isBlank()) && embeds.isEmpty()) {
@@ -148,8 +202,28 @@ public final class DiscordWebhook {
                     embeds.get(i).write(out);
                 }
                 out.append(']');
+                first = false;
             }
-            return out.append('}').toString();
+            out.append(first ? "" : ",").append("\"allowed_mentions\":{\"parse\":[");
+            out.append(pingEveryone ? "\"everyone\"]" : "]");
+            ids(out, "users", pingUsers);
+            ids(out, "roles", pingRoles);
+            return out.append("}}").toString();
+        }
+
+        /** {@code ,"name":["id",...]} when there are ids. */
+        private static void ids(StringBuilder out, String name, Set<String> ids) {
+            if (ids.isEmpty()) {
+                return;
+            }
+            out.append(",\"").append(name).append("\":[");
+            boolean first = true;
+            for (String id : ids) {
+                out.append(first ? "" : ",");
+                Json.string(out, id);
+                first = false;
+            }
+            out.append(']');
         }
     }
 

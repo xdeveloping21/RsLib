@@ -7,6 +7,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -29,43 +30,59 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
  * Like Bukkit,
  * scheduling for a plugin that is already disabled throws
  * {@link org.bukkit.plugin.IllegalPluginAccessException}.</p>
+ *
+ * <p>A task that throws never takes anything else down: the error is logged once, with the
+ * plugin's name and the stack trace, and a repeating task that throws is cancelled (its handle
+ * then says so); a one-shot task only logs. This holds for every method here, on both
+ * schedulers, sync and async.</p>
  */
 public final class RsScheduler {
 
     private static final long MILLIS_PER_TICK = 50L;
 
-    private final JavaPlugin plugin;
+    private final Logger logger;
+    private final String owner;
+    private final BooleanSupplier enabled;
     private final Backend backend;
 
     public RsScheduler(JavaPlugin plugin) {
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
-        this.backend = RsVersion.isFolia() ? new FoliaBackend(plugin) : new PaperBackend(plugin);
+        this(Objects.requireNonNull(plugin, "plugin").getLogger(), plugin.getName(), plugin::isEnabled,
+                RsVersion.isFolia() ? new FoliaBackend(plugin) : new PaperBackend(plugin));
+    }
+
+    RsScheduler(Logger logger, String owner, BooleanSupplier enabled, Backend backend) {
+        this.logger = logger;
+        this.owner = owner;
+        this.enabled = enabled;
+        this.backend = backend;
     }
 
     /** Runs on the main thread (global region on Folia) on the next tick. */
     public TaskHandle sync(Runnable task) {
-        return backend.sync(task);
+        return backend.sync(once(task));
     }
 
     /** Runs off the main thread. */
     public TaskHandle async(Runnable task) {
-        return backend.async(task);
+        return backend.async(once(task));
     }
 
     public TaskHandle syncLater(long delayTicks, Runnable task) {
-        return backend.syncLater(atLeastOne(delayTicks), task);
+        return backend.syncLater(atLeastOne(delayTicks), once(task));
     }
 
     public TaskHandle asyncLater(long delayTicks, Runnable task) {
-        return backend.asyncLater(atLeastOne(delayTicks), task);
+        return backend.asyncLater(atLeastOne(delayTicks), once(task));
     }
 
     public TaskHandle timer(long delayTicks, long periodTicks, Runnable task) {
-        return backend.timer(atLeastOne(delayTicks), atLeastOne(periodTicks), task);
+        Guarded guarded = repeating(task);
+        return guarded.bind(backend.timer(atLeastOne(delayTicks), atLeastOne(periodTicks), guarded));
     }
 
     public TaskHandle timerAsync(long delayTicks, long periodTicks, Runnable task) {
-        return backend.timerAsync(atLeastOne(delayTicks), atLeastOne(periodTicks), task);
+        Guarded guarded = repeating(task);
+        return guarded.bind(backend.timerAsync(atLeastOne(delayTicks), atLeastOne(periodTicks), guarded));
     }
 
     /**
@@ -82,7 +99,7 @@ public final class RsScheduler {
      * (a player who left) never runs, and the handle comes back cancelled.
      */
     public TaskHandle entity(Entity entity, Runnable task) {
-        return backend.entity(Objects.requireNonNull(entity, "entity"), task);
+        return backend.entity(Objects.requireNonNull(entity, "entity"), once(task));
     }
 
     /**
@@ -92,12 +109,13 @@ public final class RsScheduler {
      * must check that the entity is still there.
      */
     public TaskHandle entity(Entity entity, Runnable task, Runnable retired) {
-        return backend.entity(Objects.requireNonNull(entity, "entity"), task, Objects.requireNonNull(retired, "retired"));
+        return backend.entity(Objects.requireNonNull(entity, "entity"), once(task),
+                once(Objects.requireNonNull(retired, "retired")));
     }
 
     /** Same as {@link #entity} after {@code delayTicks} (at least one). */
     public TaskHandle entityLater(Entity entity, long delayTicks, Runnable task) {
-        return backend.entityLater(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks), task);
+        return backend.entityLater(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks), once(task));
     }
 
     /**
@@ -106,8 +124,9 @@ public final class RsScheduler {
      * own scheduler on Folia, where the task stops by itself once the entity is gone.
      */
     public TaskHandle entityTimer(Entity entity, long delayTicks, long periodTicks, Runnable task) {
-        return backend.entityTimer(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks),
-                atLeastOne(periodTicks), task);
+        Guarded guarded = repeating(task);
+        return guarded.bind(backend.entityTimer(Objects.requireNonNull(entity, "entity"), atLeastOne(delayTicks),
+                atLeastOne(periodTicks), guarded));
     }
 
     /**
@@ -125,7 +144,7 @@ public final class RsScheduler {
     public TaskHandle at(Location location, Runnable task) {
         Objects.requireNonNull(location, "location");
         Objects.requireNonNull(location.getWorld(), "location has no world");
-        return backend.at(location, task);
+        return backend.at(location, once(task));
     }
 
     /**
@@ -156,16 +175,16 @@ public final class RsScheduler {
     public <T> void thenSync(CompletableFuture<T> future, Consumer<T> consumer) {
         future.whenComplete((value, error) -> {
             if (error != null) {
-                plugin.getLogger().log(Level.WARNING, "Async task finished with an error: " + describe(error), error);
+                logger.log(Level.WARNING, "Async task finished with an error: " + describe(error), error);
                 return;
             }
-            if (!plugin.isEnabled()) {
+            if (!enabled.getAsBoolean()) {
                 return;
             }
             try {
                 sync(() -> consumer.accept(value));
             } catch (RuntimeException disabledMeanwhile) {
-                plugin.getLogger().warning("Hop to main discarded: plugin disabled during scheduling");
+                logger.warning("Hop to main discarded: plugin disabled during scheduling");
             }
         });
     }
@@ -173,6 +192,61 @@ public final class RsScheduler {
     /** Cancels every task of this plugin, on both schedulers on Folia. */
     public void cancelAll() {
         backend.cancelAll();
+    }
+
+    private Guarded once(Runnable task) {
+        return new Guarded(Objects.requireNonNull(task, "task"), false);
+    }
+
+    private Guarded repeating(Runnable task) {
+        return new Guarded(Objects.requireNonNull(task, "task"), true);
+    }
+
+    /**
+     * A task that catches what it throws: logged once with the plugin's name and the stack
+     * trace, and, when it repeats, cancelled through the handle its scheduler gave back. A throw
+     * that comes before the handle is known cancels it as soon as {@link #bind} receives it.
+     */
+    private final class Guarded implements Runnable {
+
+        private final Runnable task;
+        private final boolean repeats;
+        private volatile TaskHandle handle;
+        private volatile boolean failed;
+
+        Guarded(Runnable task, boolean repeats) {
+            this.task = task;
+            this.repeats = repeats;
+        }
+
+        /** Remembers the handle of this repeating task and returns it unchanged. */
+        TaskHandle bind(TaskHandle scheduled) {
+            handle = scheduled;
+            if (failed) {
+                scheduled.cancel();
+            }
+            return scheduled;
+        }
+
+        @Override
+        public void run() {
+            if (failed) {
+                return;
+            }
+            try {
+                task.run();
+            } catch (Throwable error) {
+                if (repeats) {
+                    failed = true;
+                    TaskHandle known = handle;
+                    if (known != null) {
+                        known.cancel();
+                    }
+                }
+                logger.log(Level.SEVERE, (repeats ? "A repeating task of " : "A task of ") + owner + " threw "
+                        + describe(error) + (repeats ? "; it was cancelled and will not run again." : "."), error);
+            }
+        }
     }
 
     private static long atLeastOne(long ticks) {
@@ -207,7 +281,7 @@ public final class RsScheduler {
     }
 
     /** Where tasks go; delays and periods arrive in ticks, already at least one. */
-    private interface Backend {
+    interface Backend {
 
         TaskHandle sync(Runnable task);
 
