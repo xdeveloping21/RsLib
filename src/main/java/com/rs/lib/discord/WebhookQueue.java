@@ -54,6 +54,11 @@ final class WebhookQueue {
     private static final long IDLE_SECONDS = 30L;
     /** How long before the end of {@link #drain}'s budget the worker stops starting new sends. */
     private static final long DRAIN_GRACE_MILLIS = 250L;
+    /**
+     * What {@link #drain} keeps of its budget, at most, to stop the worker and close the client
+     * after waiting for the last send, so the whole drain fits the budget.
+     */
+    private static final long DRAIN_TEARDOWN_MILLIS = 100L;
     /** Times a message that met a 5xx or a network failure is tried again before it is dropped. */
     static final int MAX_RETRIES = 3;
     /** The wait before the first of those tries; each next one waits twice as long (2, 4, 8 s). */
@@ -197,9 +202,11 @@ final class WebhookQueue {
             // The worker stops sending a little before the end, so the whole drain fits the budget.
             long end = clock.getAsLong() + budget.toNanos();
             long deadline = end - Math.min(budget.toNanos() / 4, TimeUnit.MILLISECONDS.toNanos(DRAIN_GRACE_MILLIS));
+            // A send still running is waited for only until the teardown's share of the budget.
+            long waitEnd = end - Math.min(budget.toNanos() / 10, TimeUnit.MILLISECONDS.toNanos(DRAIN_TEARDOWN_MILLIS));
             Future<?> done = worker.submit(() -> drainUntil(deadline));
             try {
-                done.get(Math.max(0L, end - clock.getAsLong()), TimeUnit.NANOSECONDS);
+                done.get(Math.max(0L, waitEnd - clock.getAsLong()), TimeUnit.NANOSECONDS);
             } catch (TimeoutException tooSlow) {
                 done.cancel(true);
             } catch (ExecutionException failed) {
