@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.account.Accounts;
 import com.rs.lib.action.ActionEngine;
 import com.rs.lib.block.RsBlocks;
 import com.rs.lib.bossbar.BossBarUtil;
@@ -231,6 +232,15 @@ public final class Rs {
     /** Discord webhook messages, sent in the background. */
     public DiscordWebhook discord() {
         return discord;
+    }
+
+    /**
+     * Alt-account detection, shared by every plugin: salted hashes of the addresses players
+     * joined from, in RsLib's own database. Check {@link Accounts#enabled()} first
+     * ({@code accounts.enabled} in RsLib's config.yml).
+     */
+    public Accounts accounts() {
+        return Accounts.get();
     }
 
     /** The plugin's database. Needs {@code RsSpec.builder().db()}. */

@@ -1,6 +1,7 @@
 package com.rs.lib.db;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -83,6 +84,9 @@ public final class RsDb {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicInteger bootstraps = new AtomicInteger();
     private final List<PlayerDataCache<?>> caches = new CopyOnWriteArrayList<>();
+    /** The tables and migrations the plugin declared, run again before an import. */
+    private final List<Schema> declaredSchemas = new CopyOnWriteArrayList<>();
+    private volatile Migration[] declaredMigrations;
 
     /** Created by the context when the spec declares {@code db()}; opens nothing yet. */
     public RsDb(Rs rs, DbConfig config) {
@@ -158,6 +162,7 @@ public final class RsDb {
         for (Schema schema : copy) {
             Objects.requireNonNull(schema, "schema");
         }
+        declaredSchemas.addAll(Arrays.asList(copy));
         return bootstrap(connection -> {
             try (Statement statement = connection.createStatement()) {
                 for (Schema schema : copy) {
@@ -198,6 +203,7 @@ public final class RsDb {
                 throw new IllegalArgumentException("Two migrations have version " + sorted[i].version());
             }
         }
+        declaredMigrations = sorted;
         return startup(connection -> runMigrations(connection, sorted));
     }
 
@@ -219,6 +225,76 @@ public final class RsDb {
         PlayerDataCache.register(cache);
         host.onQuit(cache::quit);
         return cache;
+    }
+
+    // ------------------------------------------------------------------ export and import
+
+    /**
+     * Writes every table of this database (all of the SQLite file, all of the MySQL schema)
+     * and this plugin's records of {@code rslib_migrations} to one gzip file of JSON lines.
+     * {@code destination} is a folder, where the file is named
+     * {@code <Plugin>-<engine>-<yyyyMMdd-HHmmss>.rsdump.gz}, or the exact path of a file ending
+     * in {@code .rsdump.gz}; an existing file is never overwritten.
+     *
+     * <p>The tables are read in one transaction, so the file is one moment of the database.
+     * Whole numbers, exact decimals, floating-point numbers, text, blobs and nulls keep their
+     * type. On SQLite the plugin's other database work waits while the export runs. A file is
+     * only left behind once complete.</p>
+     */
+    public RsFuture<TransferReport> exportTo(Path destination) {
+        return exportTo(destination, TransferReport.Progress.NONE);
+    }
+
+    /** {@link #exportTo(Path)}, telling {@code progress} after each table. */
+    public RsFuture<TransferReport> exportTo(Path destination, TransferReport.Progress progress) {
+        Objects.requireNonNull(destination, "destination");
+        Objects.requireNonNull(progress, "progress");
+        DbTransfer transfer = new DbTransfer(host.name(), config.type());
+        return future(submit(connection -> transfer.export(connection, destination, progress)));
+    }
+
+    /**
+     * Reads a file written by {@link #exportTo} into this database, which may be the other
+     * backend (SQLite to MySQL, or back).
+     *
+     * <ol>
+     *   <li>The tables the plugin declared with {@link #bootstrap(Schema...)} are created and
+     *   its {@link #migrate} migrations applied, as at startup.</li>
+     *   <li>Refused, with nothing written, when the file belongs to another plugin, was written
+     *   at another migration version, names a table or column this database lacks, or (without
+     *   {@code force}) a table of the file already holds rows here.</li>
+     *   <li>All rows are written in one transaction; any failure (a value the database refuses,
+     *   a file cut short) rolls it all back.</li>
+     * </ol>
+     *
+     * <p>{@code force} is a merge, not a replace: a row whose primary key is in the file
+     * overwrites the one in the table, and every other row of the table stays. A table that has
+     * rows and no primary key is refused even then. The plugin's records in
+     * {@code rslib_migrations} are replaced by the file's. Refusals fail the future with
+     * {@link TransferRefused}. The plugin keeps whatever it already loaded in memory: restart
+     * the server after an import.</p>
+     */
+    public RsFuture<TransferReport> importFrom(Path file, boolean force) {
+        return importFrom(file, force, TransferReport.Progress.NONE);
+    }
+
+    /** {@link #importFrom(Path, boolean)}, telling {@code progress} after each table. */
+    public RsFuture<TransferReport> importFrom(Path file, boolean force, TransferReport.Progress progress) {
+        Objects.requireNonNull(file, "file");
+        Objects.requireNonNull(progress, "progress");
+        DbTransfer transfer = new DbTransfer(host.name(), config.type());
+        List<Schema> schemas = List.copyOf(declaredSchemas);
+        Migration[] migrations = declaredMigrations;
+        return future(submit(connection -> transfer.importFrom(connection, file, force, progress, c -> {
+            try (Statement statement = c.createStatement()) {
+                for (Schema schema : schemas) {
+                    statement.execute(schema.createSql());
+                }
+            }
+            if (migrations != null) {
+                runMigrations(c, migrations);
+            }
+        })));
     }
 
     // ------------------------------------------------------------------ shutdown

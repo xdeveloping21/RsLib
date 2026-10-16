@@ -10,11 +10,12 @@ softdepend: [PlaceholderAPI, Vault, WorldGuard]
 commands:
   rslib:
     description: RsLib administration.
-    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|debug|help>
+    usage: /rslib <version|plugins|integrations|iteminfo|update|reload|debug|db|alts|help>
 permissions:
-  # Grants the first six subcommands. rslib.admin.debug is not a child: grant it apart.
+  # Grants the first six subcommands and alts. rslib.admin.debug and rslib.admin.db are not
+  # children: grant them apart.
   rslib.admin:
-    description: Grants every RsLib admin subcommand except debug.
+    description: Grants every RsLib admin subcommand except debug and db.
     default: op
     children:
       rslib.admin.version: true
@@ -23,6 +24,7 @@ permissions:
       rslib.admin.iteminfo: true
       rslib.admin.update: true
       rslib.admin.reload: true
+      rslib.admin.alts: true
   rslib.admin.version:
     description: Allows /rslib version.
     default: op
@@ -43,4 +45,10 @@ permissions:
     default: op
   rslib.admin.debug:
     description: Allows /rslib debug.
+    default: op
+  rslib.admin.db:
+    description: Allows /rslib db export and import (a plugin's whole database).
+    default: op
+  rslib.admin.alts:
+    description: Allows /rslib alts (accounts that joined from the same address).
     default: op

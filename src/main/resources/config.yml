@@ -31,3 +31,15 @@ regions:
   # Ticks between the checks that catch a player moved without an event (a plugin moving them
   # by packet, a vehicle). 20 ticks are one second. Clamped to 1-200.
   check-interval-ticks: 5
+
+# Alt-account detection (/rslib alts <player>, and for plugins rs().accounts()). When a player
+# joins, RsLib stores a salted SHA-256 hash of their IP address, never the address itself, with
+# their UUID, name and the time, in its own database: plugins/RsLib/database.db (SQLite). The
+# salt is created once in plugins/RsLib/accounts-salt.key: keep it private and do not delete it,
+# or the addresses recorded so far stop matching.
+accounts:
+  # false: nothing is recorded, and /rslib alts and plugins are told that detection is off.
+  enabled: true
+  # Records of an address not used for this many days are deleted (checked one minute after
+  # startup and then once a day). At least 1.
+  keep-days: 90
