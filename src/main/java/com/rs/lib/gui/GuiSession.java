@@ -450,10 +450,14 @@ public final class GuiSession implements PageTarget {
 
     /**
      * Sets how many pages there are when no paged bind says it (a plugin paging a region itself);
-     * 0 means unknown, and then "next" is never disabled.
+     * 0 means unknown, and then "next" is never disabled. Like the page changes, it needs
+     * {@code pagination: true}.
      */
     public void setTotalPages(int total) {
         if (hop(() -> setTotalPages(total))) {
+            return;
+        }
+        if (!pageable()) {
             return;
         }
         declaredTotal = Math.max(0, total);

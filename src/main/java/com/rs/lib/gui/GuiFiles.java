@@ -8,8 +8,10 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -69,6 +71,21 @@ final class GuiFiles {
         }
         names.sort(null);
         return names;
+    }
+
+    /**
+     * Which files of a folder to mount and how, in load order: each name the jar ships (true,
+     * seeded and merged), then each name only on disk (false, read as it is).
+     */
+    static Map<String, Boolean> mounts(List<String> shipped, List<String> onDisk) {
+        Map<String, Boolean> out = new LinkedHashMap<>();
+        for (String name : shipped) {
+            out.put(name, true);
+        }
+        for (String name : onDisk) {
+            out.putIfAbsent(name, false);
+        }
+        return out;
     }
 
     /**

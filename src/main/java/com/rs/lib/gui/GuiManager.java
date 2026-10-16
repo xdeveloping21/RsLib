@@ -34,10 +34,12 @@ import com.rs.lib.yml.YmlManager;
  * ({@code old-<name>-<date>.yml}). Every menu loads on its own: a broken file is reported and
  * skipped, and every value written wrong is reported once per load with the file and the key,
  * then falls back to its default. Extra folders ({@link #loadFolder}) give ids
- * {@code <namespace>:<file>}.</p>
+ * {@code <namespace>:<file>}, and their top-level {@code *.yml} in the jar are seeded and merged
+ * the same way.</p>
  *
  * <h2>Lifecycle</h2>
- * <p>Loading closes every open menu of the plugin first. Menus close (without close actions)
+ * <p>Loading closes every open menu of the plugin first; loading or unloading one extra folder
+ * closes only the open menus of its namespace. Menus close (without close actions)
  * when their player leaves, on reload and when the plugin stops; nothing opens while the plugin
  * shuts down. With {@link #reopenAfterReload(boolean)} the menus open at a reload come back at
  * the same page for players still online.</p>
@@ -124,29 +126,13 @@ public final class GuiManager {
         warnings.forget();
         closeAll();
         Map<String, RsYml> found = new LinkedHashMap<>();
-        Set<String> shipped = new LinkedHashSet<>(GuiFiles.shipped(rs.plugin().getClass(), FOLDER, host.logger()));
-        for (String name : shipped) {
-            mount(found, name, FOLDER + "/" + name + GuiFiles.EXTENSION, yml, true);
-        }
-        for (String name : GuiFiles.onDisk(new File(rs.plugin().getDataFolder(), FOLDER))) {
-            if (!shipped.contains(name)) {
-                mount(found, name, FOLDER + "/" + name + GuiFiles.EXTENSION, yml, false);
-            }
-        }
+        mountFolder(found, FOLDER, null, Set.of(), yml);
         Map<String, String> extra;
         synchronized (guis) {
             extra = new LinkedHashMap<>(folders);
         }
         for (Map.Entry<String, String> folder : extra.entrySet()) {
-            for (String name : GuiFiles.onDisk(new File(rs.plugin().getDataFolder(), folder.getKey()))) {
-                String id = folder.getValue() + ":" + name;
-                if (found.containsKey(id)) {
-                    warnings.warn(folder.getKey() + "/" + name + GuiFiles.EXTENSION, "", "the menu id " + id
-                            + " is already taken; this file is skipped");
-                    continue;
-                }
-                mount(found, id, folder.getKey() + "/" + name + GuiFiles.EXTENSION, yml, false);
-            }
+            mountFolder(found, folder.getKey(), folder.getValue(), Set.of(), yml);
         }
         Map<String, GuiDef> parsed = new LinkedHashMap<>();
         for (Map.Entry<String, RsYml> entry : found.entrySet()) {
@@ -187,8 +173,12 @@ public final class GuiManager {
 
     /**
      * Also loads the menus in {@code folder} (relative to the plugin folder), with ids
-     * {@code <namespace>:<file>}, now and on every load. Each folder needs its own namespace; an
-     * id that is already taken is skipped with a warning (the first one wins).
+     * {@code <namespace>:<file>}, now and on every load. Its top-level {@code *.yml} in the jar
+     * are seeded and merged like {@code guis/}. Calling it again for the same folder reads its
+     * files from disk again. Only the open menus of that namespace close.
+     *
+     * @throws IllegalArgumentException when the namespace is not a word without {@code :}, or
+     *         another folder already uses it
      */
     public void loadFolder(String folder, String namespace) {
         Objects.requireNonNull(folder, "folder");
@@ -196,28 +186,157 @@ public final class GuiManager {
             throw new IllegalArgumentException("Menu namespace must be a word without ':', got '" + namespace + "'");
         }
         String path = YmlPath.normalize(folder);
+        String previous;
         synchronized (guis) {
             for (Map.Entry<String, String> known : folders.entrySet()) {
                 if (known.getValue().equals(namespace) && !known.getKey().equals(path)) {
-                    host.logger().warning("Menu namespace '" + namespace + "' is already used by " + known.getKey()
-                            + "; " + path + " is not loaded.");
-                    return;
+                    throw new IllegalArgumentException("Menu namespace '" + namespace + "' is already used by "
+                            + known.getKey() + "; give " + path + " its own namespace");
                 }
             }
-            folders.put(path, namespace);
+            previous = folders.put(path, namespace);
         }
-        load();
+        if (previous != null && !previous.equals(namespace)) {
+            dropNamespace(previous);
+        }
+        rereadFolder(path);
+        loadNamespace(path, namespace);
     }
 
-    /** Stops loading {@code folder}; its menus close and are removed. */
+    /** Stops loading {@code folder}; its open menus close and its menus are removed. Others stay open. */
     public void unloadFolder(String folder) {
         String path = YmlPath.normalize(Objects.requireNonNull(folder, "folder"));
-        boolean removed;
+        String namespace;
         synchronized (guis) {
-            removed = folders.remove(path) != null;
+            namespace = folders.remove(path);
         }
-        if (removed) {
-            load();
+        if (namespace != null) {
+            dropNamespace(namespace);
+        }
+    }
+
+    /**
+     * Seeds and mounts the menus of {@code folder} into {@code found}: the files the jar ships
+     * as managed, the ones only on disk as plain. Ids are {@code <namespace>:<file>}, or the
+     * bare file name for a null namespace; an id already in {@code found} or {@code taken} is
+     * skipped with a warning.
+     */
+    private void mountFolder(Map<String, RsYml> found, String folder, String namespace, Set<String> taken,
+            YmlManager yml) {
+        Map<String, Boolean> names = GuiFiles.mounts(GuiFiles.shipped(rs.plugin().getClass(), folder, host.logger()),
+                GuiFiles.onDisk(new File(rs.plugin().getDataFolder(), folder)));
+        for (Map.Entry<String, Boolean> name : names.entrySet()) {
+            String id = namespace == null ? name.getKey() : namespace + ":" + name.getKey();
+            String path = folder + "/" + name.getKey() + GuiFiles.EXTENSION;
+            if (found.containsKey(id) || taken.contains(id)) {
+                warnings.warn(path, "", "the menu id " + id + " is already taken; this file is skipped");
+                continue;
+            }
+            mount(found, id, path, yml, name.getValue());
+        }
+    }
+
+    /** Reads again from disk (merging the jar copies) the mounted files under {@code path}. */
+    private void rereadFolder(String path) {
+        String prefix = path + "/";
+        List<RsYml> mounted = new ArrayList<>();
+        synchronized (guis) {
+            for (RsYml file : files.values()) {
+                if (file.name().startsWith(prefix)) {
+                    mounted.add(file);
+                }
+            }
+        }
+        for (RsYml file : mounted) {
+            try {
+                file.reload();
+            } catch (RuntimeException e) {
+                host.logger().log(Level.WARNING, "Could not read " + file.name() + " again", e);
+            }
+        }
+    }
+
+    /**
+     * {@link #load()} for one extra folder: only the open menus of {@code namespace} close, and
+     * only its menus are parsed and swapped in.
+     */
+    private void loadNamespace(String path, String namespace) {
+        String prefix = namespace + ":";
+        List<Reopen> again = reopenAfterReload ? openNow(prefix) : List.of();
+        closeNamespace(prefix);
+        YmlManager yml = rs == null ? null : rs.ymlOrNull();
+        if (yml == null) {
+            if (rs != null) {
+                GuiWarnings.once(host.logger(), "RsSpec guis() needs config(\"config.yml\"); no menus are loaded.");
+            }
+            return;
+        }
+        warnings.forget(path + "/");
+        Set<String> taken;
+        synchronized (guis) {
+            taken = new LinkedHashSet<>(guis.keySet());
+        }
+        taken.removeIf(id -> id.startsWith(prefix));
+        Map<String, RsYml> found = new LinkedHashMap<>();
+        mountFolder(found, path, namespace, taken, yml);
+        Map<String, GuiDef> parsed = new LinkedHashMap<>();
+        for (Map.Entry<String, RsYml> entry : found.entrySet()) {
+            GuiDef def = parse(entry.getKey(), entry.getValue());
+            if (def != null) {
+                parsed.put(entry.getKey(), def);
+            }
+        }
+        List<RsYml> stale = new ArrayList<>();
+        synchronized (guis) {
+            guis.keySet().removeIf(id -> id.startsWith(prefix) && !parsed.containsKey(id));
+            for (Map.Entry<String, GuiDef> entry : parsed.entrySet()) {
+                Gui gui = guis.get(entry.getKey());
+                if (gui == null) {
+                    guis.put(entry.getKey(), new Gui(this, entry.getValue()));
+                } else {
+                    gui.def(entry.getValue());
+                }
+            }
+            files.entrySet().removeIf(old -> {
+                if (!old.getKey().startsWith(prefix)) {
+                    return false;
+                }
+                if (!found.containsKey(old.getKey())) {
+                    stale.add(old.getValue());
+                }
+                return true;
+            });
+            files.putAll(found);
+        }
+        for (RsYml file : stale) {
+            unmount(yml, file);
+        }
+        reopen(again);
+    }
+
+    /** Closes the open menus of {@code namespace}, removes its menus and unmounts their files. */
+    private void dropNamespace(String namespace) {
+        String prefix = namespace + ":";
+        closeNamespace(prefix);
+        List<RsYml> gone = new ArrayList<>();
+        synchronized (guis) {
+            guis.keySet().removeIf(id -> id.startsWith(prefix));
+            files.entrySet().removeIf(file -> file.getKey().startsWith(prefix) && gone.add(file.getValue()));
+        }
+        YmlManager yml = rs == null ? null : rs.ymlOrNull();
+        if (yml != null) {
+            for (RsYml file : gone) {
+                unmount(yml, file);
+            }
+        }
+    }
+
+    /** Closes, without close actions, the open menus whose id starts with {@code prefix}. */
+    private void closeNamespace(String prefix) {
+        for (GuiSession session : openSessions()) {
+            if (session.guiId().startsWith(prefix)) {
+                session.close();
+            }
         }
     }
 
@@ -369,9 +488,16 @@ public final class GuiManager {
     }
 
     private List<Reopen> openNow() {
+        return openNow("");
+    }
+
+    /** The open menus whose id starts with {@code prefix}, to open again after a load. */
+    private List<Reopen> openNow(String prefix) {
         List<Reopen> out = new ArrayList<>();
         for (GuiSession session : openSessions()) {
-            out.add(new Reopen(session.viewerId(), session.guiId(), session.page()));
+            if (session.guiId().startsWith(prefix)) {
+                out.add(new Reopen(session.viewerId(), session.guiId(), session.page()));
+            }
         }
         return out;
     }

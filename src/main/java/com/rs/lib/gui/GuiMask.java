@@ -6,17 +6,23 @@ import java.util.List;
 /** Slots of a character in an ASCII mask, the way {@code layout:} reads: cell (row i, column j) is slot {@code i*9+j}. */
 public final class GuiMask {
 
+    /** The character of an empty cell; it never names an element. */
+    static final char EMPTY = ' ';
+
     private GuiMask() {
     }
 
-    /** Every slot where {@code rows} holds {@code key}, row by row; extra rows and columns are ignored. */
+    /**
+     * Every slot where {@code rows} holds {@code key}, row by row; extra rows and columns are
+     * ignored. A space is always an empty cell, so {@code ' '} selects nothing.
+     */
     public static int[] slots(char key, String... rows) {
         return rows == null ? new int[0] : slots(key, Arrays.asList(rows));
     }
 
     /** Same as {@link #slots(char, String...)}. */
     public static int[] slots(char key, List<String> rows) {
-        if (rows == null) {
+        if (rows == null || key == EMPTY) {
             return new int[0];
         }
         int[] out = new int[Layout.MAX_ROWS * Layout.COLUMNS];
