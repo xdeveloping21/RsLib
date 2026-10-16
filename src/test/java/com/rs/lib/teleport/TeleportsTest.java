@@ -198,6 +198,8 @@ class TeleportsTest {
     }
 
     private final Location home = new Location(WORLD, 100.5, 64, -20.5);
+    /** The builder's default wait. */
+    private static final TeleportOptions WAIT = TeleportOptions.builder().build();
 
     // ---------------------------------------------------------------- requests
 
@@ -225,6 +227,35 @@ class TeleportsTest {
         assertEquals(TeleportResult.FAILED, teleports.request(player, home, options));
         assertTrue(TeleportResult.TELEPORTED.accepted());
         assertTrue(TeleportResult.ON_COOLDOWN.rejected());
+    }
+
+    /** Pending and cooldown are answered before an unloaded world is noticed. */
+    @Test
+    void anUnloadedWorldIsCheckedAfterPendingAndCooldown() {
+        FakeHost host = new FakeHost();
+        Teleports teleports = teleports(host);
+        TeleportOptions options = TeleportOptions.builder().warmupSeconds(5).cooldown("home", 60).build();
+        assertEquals(TeleportResult.WARMUP_STARTED, teleports.request(player, home, options));
+        host.loaded = false;
+        assertEquals(TeleportResult.ALREADY_PENDING, teleports.request(player, home, options));
+        teleports.cancel(player);
+        host.cooldowns.put("home", 1000L);
+        assertEquals(TeleportResult.ON_COOLDOWN, teleports.request(player, home, options));
+        host.cooldowns.clear();
+        assertEquals(TeleportResult.FAILED, teleports.request(player, home, options));
+        assertEquals(TeleportResult.FAILED, teleports.request(player, new Location(null, 0, 0, 0), options));
+    }
+
+    /** Without options (or with null ones) the teleport is instant. */
+    @Test
+    void noOptionsMeansAnInstantTeleport() {
+        FakeHost host = new FakeHost();
+        Teleports teleports = teleports(host);
+        assertEquals(TeleportResult.TELEPORTED, teleports.request(player, home));
+        assertEquals(TeleportResult.TELEPORTED, teleports.request(player, home, null));
+        assertEquals(2, host.moves.size());
+        assertTrue(host.timers.isEmpty(), "no wait was scheduled");
+        assertTrue(host.sent.isEmpty(), "no warmup message");
     }
 
     @Test
@@ -319,12 +350,12 @@ class TeleportsTest {
         Teleports teleports = teleports(host);
         Teleports.CancelListener listener = (Teleports.CancelListener) Teleports.sharedListener();
         Location from = new Location(WORLD, 0, 64, 0);
-        teleports.request(player, home);
+        teleports.request(player, home, WAIT);
         listener.onTeleport(new PlayerTeleportEvent(player, from, new Location(WORLD, 0.5, 64, 0.5)));
         assertTrue(teleports.isPending(player), "a teleport inside the same block does not count");
         listener.onTeleport(new PlayerTeleportEvent(player, from, new Location(NETHER, 0, 64, 0)));
         assertFalse(teleports.isPending(player));
-        teleports.request(player, home);
+        teleports.request(player, home, WAIT);
         listener.onWorldChange(new PlayerChangedWorldEvent(player, NETHER));
         assertFalse(teleports.isPending(player));
         long moved = host.sent.stream().filter(TeleportOptions.CANCELLED_MOVE_KEY::equals).count();
@@ -335,7 +366,7 @@ class TeleportsTest {
     void damageAndDeathCancelWithTheDamageMessage() {
         FakeHost host = new FakeHost();
         Teleports teleports = teleports(host);
-        teleports.request(player, home);
+        teleports.request(player, home, WAIT);
         host.sent.clear();
         Teleports.dispatchDamage(player);
         assertFalse(teleports.isPending(player));
@@ -386,7 +417,7 @@ class TeleportsTest {
         };
         List<String> done = new ArrayList<>();
         a.request(player, home, TeleportOptions.builder().onComplete(p -> done.add("a")).build());
-        b.request(player, home);
+        b.request(player, home, WAIT);
         hostA.timers.get(0).fire();
         assertEquals(List.of("a"), done);
         assertFalse(b.isPending(player), "plugin B's wait ends when plugin A moves the player");

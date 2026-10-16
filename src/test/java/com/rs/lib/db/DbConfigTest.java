@@ -108,7 +108,18 @@ class DbConfigTest {
         assertEquals(0, low.socketTimeoutSeconds());
         DbConfig high = load("database:\n  connect-timeout-seconds: 99999\n  socket-timeout-seconds: 99999\n");
         assertEquals(3600, high.connectTimeoutSeconds());
-        assertEquals(3600, high.socketTimeoutSeconds());
+        assertEquals(99999, high.socketTimeoutSeconds(), "the socket timeout has no upper cap");
+    }
+
+    @Test
+    void longSocketTimeoutFitsTheDriver() {
+        DbConfig config = load("database:\n  type: mysql\n  host: h\n  database: d\n"
+                + "  socket-timeout-seconds: 99999\n");
+        assertTrue(config.jdbcUrl().endsWith("&socketTimeout=99999000"), config.jdbcUrl());
+        DbConfig huge = load("database:\n  type: mysql\n  host: h\n  database: d\n"
+                + "  socket-timeout-seconds: 2000000000\n");
+        assertEquals(2_000_000_000, huge.socketTimeoutSeconds());
+        assertTrue(huge.jdbcUrl().endsWith("&socketTimeout=" + Integer.MAX_VALUE), huge.jdbcUrl());
     }
 
     /** Trap: without these flags MySQL 8 (caching_sha2_password, no SSL) refuses the connection. */

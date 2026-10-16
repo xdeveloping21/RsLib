@@ -102,15 +102,15 @@ public final class DiscordWebhook {
             return this;
         }
 
-        /** Overrides the webhook's name for this message. */
+        /** Overrides the webhook's name for this message; null or blank keeps the webhook's. */
         public Message username(String username) {
-            this.username = username;
+            this.username = Json.blankToNull(username);
             return this;
         }
 
-        /** Overrides the webhook's avatar for this message. */
+        /** Overrides the webhook's avatar for this message; null or blank keeps the webhook's. */
         public Message avatarUrl(String avatarUrl) {
-            this.avatarUrl = avatarUrl;
+            this.avatarUrl = Json.blankToNull(avatarUrl);
             return this;
         }
 
@@ -153,7 +153,10 @@ public final class DiscordWebhook {
         }
     }
 
-    /** A rich embed. Every part is optional; null leaves it out. */
+    /**
+     * A rich embed. Every part is optional; null leaves it out, and so does a blank link, image,
+     * footer or author, so an empty string read from a config simply hides that part.
+     */
     public static final class Embed {
 
         private String title;
@@ -201,32 +204,35 @@ public final class DiscordWebhook {
             return footer(text, null);
         }
 
+        /** A blank text drops the footer; a blank icon drops only the icon. */
         public Embed footer(String text, String iconUrl) {
-            this.footer = text;
-            this.footerIcon = iconUrl;
+            this.footer = Json.blankToNull(text);
+            this.footerIcon = Json.blankToNull(iconUrl);
             return this;
         }
 
         /** The link of the title. */
         public Embed url(String url) {
-            this.url = url;
+            this.url = Json.blankToNull(url);
             return this;
         }
 
+        /** A null or blank name drops the whole author bar, link and icon included. */
         public Embed author(String name, String url, String iconUrl) {
-            this.authorName = name;
-            this.authorUrl = url;
-            this.authorIcon = iconUrl;
+            String shown = Json.blankToNull(name);
+            this.authorName = shown;
+            this.authorUrl = shown == null ? null : Json.blankToNull(url);
+            this.authorIcon = shown == null ? null : Json.blankToNull(iconUrl);
             return this;
         }
 
         public Embed thumbnail(String url) {
-            this.thumbnail = url;
+            this.thumbnail = Json.blankToNull(url);
             return this;
         }
 
         public Embed image(String url) {
-            this.image = url;
+            this.image = Json.blankToNull(url);
             return this;
         }
 

@@ -156,7 +156,7 @@ public final class RsScheduler {
     public <T> void thenSync(CompletableFuture<T> future, Consumer<T> consumer) {
         future.whenComplete((value, error) -> {
             if (error != null) {
-                plugin.getLogger().log(Level.WARNING, "An async task failed: " + describe(error), error);
+                plugin.getLogger().log(Level.WARNING, "Async task finished with an error: " + describe(error), error);
                 return;
             }
             if (!plugin.isEnabled()) {
@@ -165,8 +165,7 @@ public final class RsScheduler {
             try {
                 sync(() -> consumer.accept(value));
             } catch (RuntimeException disabledMeanwhile) {
-                plugin.getLogger().warning("A result arrived while " + plugin.getName()
-                        + " was being disabled; it was dropped.");
+                plugin.getLogger().warning("Hop to main discarded: plugin disabled during scheduling");
             }
         });
     }

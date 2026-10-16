@@ -73,6 +73,19 @@ class RsDebugTest {
         assertTrue(lines.isEmpty());
     }
 
+    /** toggle() answers the master switch, even when the level keeps log() quiet. */
+    @Test
+    void toggleAnswersTheMasterSwitchNotEnabled() {
+        RsDebug debug = memory();
+        debug.setLevel(Level.OFF);
+        assertTrue(debug.toggle());
+        assertFalse(debug.enabled());
+        assertFalse(debug.toggle());
+        debug.setLevel(Level.INFO);
+        assertTrue(debug.toggle());
+        assertFalse(debug.enabled());
+    }
+
     @Test
     void categoryFilter() {
         RsDebug debug = memory();

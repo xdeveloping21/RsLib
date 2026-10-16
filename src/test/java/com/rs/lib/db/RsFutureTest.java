@@ -66,7 +66,7 @@ class RsFutureTest {
         source.completeExceptionally(new CompletionException(new SQLException("no such table: x")));
         assertEquals(0, host.queued());
         assertTrue(events.isEmpty());
-        assertEquals(List.of("An async task failed: SQLException: no such table: x"), host.log.warnings());
+        assertEquals(List.of("Async task finished with an error: SQLException: no such table: x"), host.log.warnings());
         assertTrue(host.log.records.get(0).getThrown() instanceof SQLException);
     }
 
@@ -75,7 +75,7 @@ class RsFutureTest {
         future.thenSync(events::add);
         host.refuseSync = true;
         source.complete("x");
-        assertEquals(List.of("A result arrived while Test was being disabled; it was dropped."), host.log.warnings());
+        assertEquals(List.of("Hop to main discarded: plugin disabled during scheduling"), host.log.warnings());
     }
 
     @Test

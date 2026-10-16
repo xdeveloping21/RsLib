@@ -105,8 +105,8 @@ class UpdateCheckerTest {
         checker.check(ID);
         List<String> warnings = log.warnings();
         assertEquals(1, warnings.size(), warnings.toString());
-        assertTrue(warnings.get(0).contains("HTTP 404") && warnings.get(0).contains("unknown product"),
-                warnings.get(0));
+        assertTrue(warnings.get(0).startsWith("update check of '" + ID + "' failed: HTTP 404"), warnings.get(0));
+        assertTrue(warnings.get(0).contains("unknown product"), warnings.get(0));
         assertEquals(4, http.sent.size(), "failures are not cached");
         assertTrue(checker.findings().isEmpty());
 

@@ -3,10 +3,14 @@ package com.rs.lib.util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 
 /** Pure texture parsing; applying a profile to an item needs a running server. */
@@ -71,5 +75,14 @@ class HeadUtilTest {
         assertEquals(HeadUtil.profileId(VALUE), HeadUtil.profileId(VALUE));
         assertNotEquals(HeadUtil.profileId(VALUE), HeadUtil.profileId(VALUE + "x"));
         assertEquals(3, HeadUtil.profileId(VALUE).version());
+    }
+
+    /** fromValue is the alias of fromBase64 that SnLib's examples use. */
+    @Test
+    void fromValueIsAPublicAliasOfFromBase64() throws NoSuchMethodException {
+        Method alias = HeadUtil.class.getMethod("fromValue", String.class);
+        assertTrue(Modifier.isStatic(alias.getModifiers()));
+        assertEquals(ItemStack.class, alias.getReturnType());
+        assertEquals(HeadUtil.class.getMethod("fromBase64", String.class).getReturnType(), alias.getReturnType());
     }
 }

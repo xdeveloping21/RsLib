@@ -40,11 +40,13 @@ import com.rs.lib.util.TimeUtil;
  * </pre>
  *
  * <ul>
- *   <li>A request is decided in this order: no player or destination, an unloaded world or a
+ *   <li>A request is decided in this order: no player or destination, an offline player or a
  *   plugin shutting down gives {@link TeleportResult#FAILED}; a wait already running for the
  *   player (from this plugin) gives {@link TeleportResult#ALREADY_PENDING}; a running cooldown
- *   of the options' category gives {@link TeleportResult#ON_COOLDOWN}; no wait teleports at once
- *   ({@link TeleportResult#TELEPORTED}); otherwise the wait starts with its message.</li>
+ *   of the options' category gives {@link TeleportResult#ON_COOLDOWN}; a destination in a world
+ *   that is not loaded gives {@link TeleportResult#FAILED}; no wait teleports at once
+ *   ({@link TeleportResult#TELEPORTED}); otherwise the wait starts with its message. Without
+ *   options (or with null) the request is {@link TeleportOptions#instant()}.</li>
  *   <li>The wait is cancelled, with the "moved" message, when the player walks into another
  *   block, is teleported by anything else (another plugin, a pearl, a portal) or changes world;
  *   with the "damage" message when they take damage or die. Turning the head or moving inside
@@ -83,18 +85,17 @@ public final class Teleports {
         return LISTENER;
     }
 
-    /** {@link #request(Player, Location, TeleportOptions)} with {@code TeleportOptions.builder().build()}. */
+    /** {@link #request(Player, Location, TeleportOptions)} with {@link TeleportOptions#instant()}. */
     public TeleportResult request(Player player, Location destination) {
-        return request(player, destination, TeleportOptions.builder().build());
+        return request(player, destination, TeleportOptions.instant());
     }
 
     /** Asks for a teleport; see the class notes for the order of the checks. */
     public TeleportResult request(Player player, Location destination, TeleportOptions options) {
-        if (player == null || destination == null || !host.worldLoaded(destination)
-                || stopped || host.shuttingDown() || !player.isOnline()) {
+        if (player == null || destination == null || stopped || host.shuttingDown() || !player.isOnline()) {
             return TeleportResult.FAILED;
         }
-        TeleportOptions opts = options == null ? TeleportOptions.builder().build() : options;
+        TeleportOptions opts = options == null ? TeleportOptions.instant() : options;
         UUID id = player.getUniqueId();
         if (pending.containsKey(id)) {
             return TeleportResult.ALREADY_PENDING;
@@ -102,6 +103,9 @@ public final class Teleports {
         String category = opts.cooldownCategory();
         if (category != null && host.cooldownLeft(id, category) > 0) {
             return TeleportResult.ON_COOLDOWN;
+        }
+        if (!host.worldLoaded(destination)) {
+            return TeleportResult.FAILED;
         }
         Location target = destination.clone();
         if (opts.warmupSeconds() <= 0) {

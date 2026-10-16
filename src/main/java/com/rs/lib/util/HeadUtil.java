@@ -66,6 +66,11 @@ public final class HeadUtil {
         return head;
     }
 
+    /** Same as {@link #fromBase64(String)}, named after the texture "value" sites hand out. */
+    public static ItemStack fromValue(String texture) {
+        return fromBase64(texture);
+    }
+
     /** A player head showing {@code owner}'s skin; a plain head for null. */
     public static ItemStack fromPlayer(OfflinePlayer owner) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
