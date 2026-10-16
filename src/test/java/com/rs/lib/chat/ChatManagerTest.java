@@ -18,9 +18,7 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.EventExecutor;
 import org.junit.jupiter.api.AfterEach;
@@ -33,16 +31,9 @@ import net.kyori.adventure.text.Component;
 /** Interceptors and audience rules on the server's one chat event, without a server. */
 class ChatManagerTest {
 
-    private static final Listener OWNER = new Listener() {
-    };
-
     private final List<String> warnings = new ArrayList<>();
     private final ChatManager first = new ChatManager("First", logger());
     private final ChatManager second = new ChatManager("Second", logger());
-
-    private record Registered(Class<? extends Event> type, EventPriority priority, boolean ignoreCancelled,
-                              EventExecutor executor) {
-    }
 
     @AfterEach
     void reset() {
@@ -89,49 +80,119 @@ class ChatManagerTest {
         return new AsyncChatEvent(true, speaker, viewers, null, Component.text(text), Component.text(text), null);
     }
 
-    private static List<Registered> registered() {
-        List<Registered> list = new ArrayList<>();
-        ChatManager.listen((type, priority, ignoreCancelled, executor) ->
-                list.add(new Registered(type, priority, ignoreCancelled, executor)));
-        return list;
-    }
-
-    private static Registered at(List<Registered> list, EventPriority priority) {
-        return list.stream().filter(r -> r.priority() == priority).findFirst().orElseThrow();
+    private PaperChatSim sim(boolean paper) {
+        PaperChatSim sim = new PaperChatSim(paper);
+        ChatManager.registerShared(sim.events, logger());
+        sim.start();
+        return sim;
     }
 
     @Test
-    void onlyPapersChatEventIsHeardWhenItExists() {
-        assertTrue(ChatEvents.paperChat(), "the test server API has AsyncChatEvent");
-        List<Registered> list = registered();
-        assertEquals(2, list.size());
-        for (Registered each : list) {
+    void withoutLegacyListenersOnlyPapersEventIsHeard() {
+        PaperChatSim sim = sim(true);
+        assertEquals(2, sim.permanent.size());
+        for (PaperChatSim.Registered each : sim.permanent) {
             assertEquals(AsyncChatEvent.class, each.type(), "never the legacy event: it turns on Paper's legacy path");
-            assertTrue(each.ignoreCancelled());
         }
-        assertEquals(List.of(EventPriority.LOWEST, EventPriority.HIGHEST), list.stream().map(Registered::priority).toList());
+        assertEquals(List.of(EventPriority.LOWEST, EventPriority.HIGHEST),
+                sim.permanent.stream().map(PaperChatSim.Registered::priority).toList());
+        assertFalse(sim.permanent.get(0).ignoreCancelled(), "it must see every message to skip those handled on the legacy event");
+        assertTrue(sim.permanent.get(1).ignoreCancelled());
+        assertEquals(null, sim.legacy);
+        assertFalse(sim.events.legacyOn());
     }
 
     @Test
-    @SuppressWarnings("deprecation")
-    void withoutPapersEventTheLegacyOneIsUsed() throws Exception {
-        List<Registered> list = new ArrayList<>();
-        ChatEvents.listen((type, priority, ignoreCancelled, executor) ->
-                list.add(new Registered(type, priority, ignoreCancelled, executor)), false, EventPriority.LOWEST, true,
-                ChatManager::takeOut);
-        assertEquals(1, list.size());
-        assertEquals(AsyncPlayerChatEvent.class, list.get(0).type());
+    void theLegacyHandlerFollowsTheOtherPluginsListeners() {
+        PaperChatSim sim = sim(true);
+        sim.events.refresh(true);
+        assertTrue(sim.events.legacyOn());
+        EventExecutor first = sim.legacy;
+        sim.events.refresh(true);
+        assertTrue(first == sim.legacy, "added once");
+        sim.events.refresh(false);
+        assertEquals(null, sim.legacy);
+        assertEquals(1, sim.legacyOffs);
+        sim.events.refresh(false);
+        assertEquals(1, sim.legacyOffs);
+    }
 
+    @Test
+    void aTakenMessageIsHandledOnceAndNoOtherPluginSeesItOnBothPaths() throws Exception {
+        PaperChatSim sim = sim(true);
+        List<String> seen = new ArrayList<>();
+        first.intercept((player, text) -> {
+            seen.add(text);
+            return text.startsWith("#");
+        });
         Player alex = player("Alex");
-        first.intercept((player, text) -> text.equals("staff"));
-        AsyncPlayerChatEvent legacy = new AsyncPlayerChatEvent(true, alex, "staff", new HashSet<>());
-        list.get(0).executor().execute(OWNER, legacy);
-        assertTrue(legacy.isCancelled());
+        Player sam = player("Sam");
+        Set<Player> online = Set.of(alex, sam);
+
+        PaperChatSim.Outcome modern = sim.paper(alex, "#staff", online, false);
+        assertTrue(modern.cancelled);
+        assertFalse(modern.otherSaw);
+        assertEquals(List.of("#staff"), seen);
+
+        sim.events.refresh(true);
+        seen.clear();
+        PaperChatSim.Outcome legacy = sim.paper(alex, "#staff", online, true);
+        assertTrue(legacy.cancelled);
+        assertFalse(legacy.otherLegacySaw, "taken before the legacy listener of another plugin");
+        assertFalse(legacy.otherSaw);
+        assertEquals(List.of("#staff"), seen, "once, not again on Paper's event");
+
+        seen.clear();
+        PaperChatSim.Outcome open = sim.paper(alex, "hello", online, true);
+        assertEquals(List.of("hello"), seen, "a message nobody takes is offered once too");
+        assertTrue(open.otherLegacySaw);
+        assertTrue(open.otherSaw);
+        assertEquals(online, open.delivered);
+
+        sim.events.refresh(false);
+        seen.clear();
+        sim.paper(alex, "#again", online, false);
+        assertEquals(List.of("#again"), seen, "nothing is left over from the legacy path");
+    }
+
+    @Test
+    void rulesApplyToTheDeliveredAudienceOnBothPaths() throws Exception {
+        PaperChatSim sim = sim(true);
+        Player speaker = player("Speaker");
+        Player friend = player("Friend");
+        Player stranger = player("Stranger");
+        first.rule((reader, from) -> reader != stranger);
+        Set<Player> online = new LinkedHashSet<>(List.of(speaker, friend, stranger));
+        assertEquals(Set.of(speaker, friend), sim.paper(speaker, "hi", online, false).delivered);
+        sim.events.refresh(true);
+        assertEquals(Set.of(speaker, friend), sim.paper(speaker, "hi", online, true).delivered);
+    }
+
+    @Test
+    void withoutPapersEventEverythingRunsOnTheLegacyOne() throws Exception {
+        PaperChatSim sim = sim(false);
+        for (PaperChatSim.Registered each : sim.permanent) {
+            assertEquals(AsyncPlayerChatEvent.class, each.type());
+        }
+        sim.events.refresh(true);
+        assertEquals(null, sim.legacy, "no switching without Paper's event");
+
+        List<String> seen = new ArrayList<>();
+        first.intercept((player, text) -> seen.add(text) && text.equals("staff"));
+        Player speaker = player("Speaker");
+        Player stranger = player("Stranger");
+        first.rule((reader, from) -> reader != stranger);
+        PaperChatSim.Outcome taken = sim.legacyOnly(speaker, "staff", Set.of(speaker, stranger));
+        assertTrue(taken.cancelled);
+        assertFalse(taken.otherSaw);
+        PaperChatSim.Outcome open = sim.legacyOnly(speaker, "hi", Set.of(speaker, stranger));
+        assertEquals(Set.of(speaker), open.delivered);
+        assertEquals(List.of("staff", "hi"), seen);
     }
 
     @Test
     void anInterceptorTakesAMessageOnceAndTheRestAreNotAsked() throws Exception {
-        Registered lowest = at(registered(), EventPriority.LOWEST);
+        PaperChatSim sim = sim(true);
         List<String> seen = new ArrayList<>();
         first.intercept((player, text) -> {
             seen.add("first:" + player.getName() + ":" + text);
@@ -143,16 +204,12 @@ class ChatManagerTest {
         });
         Player alex = player("Alex");
 
-        AsyncChatEvent staff = paper(alex, "# <red>&chi {player}", new HashSet<>());
-        lowest.executor().execute(OWNER, staff);
-        assertTrue(staff.isCancelled());
+        assertTrue(sim.paper(alex, "# <red>&chi {player}", Set.of(alex), false).cancelled);
         assertEquals(List.of("first:Alex:# <red>&chi {player}"), seen, "the literal text, to one interceptor only");
 
         seen.clear();
-        AsyncChatEvent other = paper(alex, "hello", new HashSet<>());
-        lowest.executor().execute(OWNER, other);
+        assertTrue(sim.paper(alex, "hello", Set.of(alex), false).cancelled);
         assertEquals(List.of("first:Alex:hello", "second:hello"), seen, "in registration order");
-        assertTrue(other.isCancelled());
 
         seen.clear();
         AsyncChatEvent muted = paper(alex, "#muted", new HashSet<>());
@@ -202,7 +259,6 @@ class ChatManagerTest {
 
     @Test
     void rulesCombineWithAndAndKeepTheSpeakerAndTheConsole() throws Exception {
-        Registered highest = at(registered(), EventPriority.HIGHEST);
         Player speaker = player("Speaker");
         Player friend = player("Friend");
         Player stranger = player("Stranger");
@@ -215,7 +271,7 @@ class ChatManagerTest {
 
         Set<Audience> viewers = new LinkedHashSet<>(List.of(speaker, friend, stranger, enemy, console));
         AsyncChatEvent event = paper(speaker, "hi", viewers);
-        highest.executor().execute(OWNER, event);
+        ChatManager.trim(new PaperLine(event));
 
         assertEquals(Set.of(speaker, friend, console), event.viewers(), "one refusal from any plugin removes a reader");
         assertFalse(event.isCancelled(), "nothing is cancelled");

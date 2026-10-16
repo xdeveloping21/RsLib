@@ -11,22 +11,18 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.plugin.EventExecutor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.text.Component;
+import com.rs.lib.chat.PaperChatSim;
 
 /** Chat questions and the notes' traps, without a server. */
 class InputsTest {
@@ -59,66 +55,65 @@ class InputsTest {
         return future.join();
     }
 
-    /** An executor RsLib registered for the chat, with what it was registered for. */
-    private record Registered(Class<? extends Event> type, EventPriority priority, boolean ignoreCancelled,
-                              EventExecutor executor) {
-    }
-
-    private static List<Registered> chatRegistrations() {
-        List<Registered> list = new ArrayList<>();
-        Inputs.listenChat((type, priority, ignoreCancelled, executor) ->
-                list.add(new Registered(type, priority, ignoreCancelled, executor)));
-        return list;
-    }
-
-    private AsyncChatEvent chat(String text) {
-        return new AsyncChatEvent(true, alex, new HashSet<>(), null, Component.text(text), Component.text(text), null);
+    /** A Paper server whose chat router has the chat questions on it. */
+    private static PaperChatSim chatServer() {
+        PaperChatSim sim = new PaperChatSim(true);
+        Inputs.registerChat(sim.events);
+        sim.start();
+        return sim;
     }
 
     /**
-     * Trap 1: answers are taken at LOWEST on the server's one chat event (Paper's, which every
-     * supported server has), never on the legacy one too, and cancelled.
+     * Trap 1: an answer is taken on the first chat event of the message (Paper's alone, or the
+     * legacy one while another plugin listens to it), before any other plugin sees it, and cancelled.
      */
     @Test
     void chatIsTakenAtLowestAndCancelled() throws Exception {
-        List<Registered> registered = chatRegistrations();
-        assertEquals(1, registered.size(), "one chat event, never both");
-        Registered chat = registered.get(0);
-        assertEquals(AsyncChatEvent.class, chat.type());
-        assertEquals(EventPriority.LOWEST, chat.priority());
-        assertFalse(chat.ignoreCancelled(), "an answer is taken even when a mute cancelled the message");
-        Listener listener = Inputs.chatListener();
+        PaperChatSim server = chatServer();
+        List<PaperChatSim.Registered> lowest = server.permanent.stream()
+                .filter(each -> each.priority() == EventPriority.LOWEST).toList();
+        assertEquals(1, lowest.size(), "one handler takes answers");
+        assertTrue(server.permanent.stream().allMatch(each ->
+                each.type() == io.papermc.paper.event.player.AsyncChatEvent.class), "on Paper's event only");
+        assertEquals(null, server.legacy, "no legacy listener while no other plugin has one");
 
-        AsyncChatEvent chatter = chat("hello all");
-        chat.executor().execute(listener, chatter);
-        assertFalse(chatter.isCancelled(), "chat without a question must pass");
+        PaperChatSim.Outcome chatter = server.paper(alex, "hello all", Set.of(alex), false);
+        assertFalse(chatter.cancelled, "chat without a question must pass");
 
         CompletableFuture<InputResult<String>> future = inputs.text(alex).open();
-        AsyncChatEvent answer = chat("  my answer ");
-        chat.executor().execute(listener, answer);
-        assertTrue(answer.isCancelled(), "the answer must never reach the public chat");
+        PaperChatSim.Outcome answer = server.paper(alex, "  my answer ", Set.of(alex), false);
+        assertTrue(answer.cancelled, "the answer must never reach the public chat");
+        assertFalse(answer.otherSaw);
         host.tick();
         assertEquals("my answer", done(future).value());
+
+        server.events.refresh(true);
+        CompletableFuture<InputResult<String>> second = inputs.text(alex).open();
+        PaperChatSim.Outcome viaLegacy = server.paper(alex, "other", Set.of(alex), true);
+        assertTrue(viaLegacy.cancelled);
+        assertFalse(viaLegacy.otherLegacySaw, "taken before another plugin's legacy listener");
+        assertFalse(viaLegacy.otherSaw);
+        host.tick();
+        assertEquals("other", done(second).value());
     }
 
-    /** Trap 1b: an answer is read once, even if the server also fired the legacy event. */
+    /** Trap 1b: an answer is read once on both paths, never again on Paper's event. */
     @Test
-    @SuppressWarnings("deprecation")
     void anAnswerIsReadOnce() throws Exception {
-        Registered chat = chatRegistrations().get(0);
-        Listener listener = Inputs.chatListener();
+        PaperChatSim server = chatServer();
         List<String> parsed = new ArrayList<>();
         CompletableFuture<InputResult<String>> future = inputs.<String>custom(alex, typed -> {
             parsed.add(typed);
             throw new InputRejected("rslib.invalid-value", com.rs.lib.Ph.literal("value", typed));
         }).maxAttempts(5).open();
 
-        AsyncPlayerChatEvent legacy = new AsyncPlayerChatEvent(true, alex, "42", new HashSet<>());
-        chat.executor().execute(listener, legacy);
-        assertFalse(legacy.isCancelled(), "the legacy event is not heard on a Paper server");
-        chat.executor().execute(listener, chat("42"));
+        server.paper(alex, "42", Set.of(alex), false);
         host.tick();
         assertEquals(List.of("42"), parsed, "one message, one attempt");
+        server.events.refresh(true);
+        server.paper(alex, "43", Set.of(alex), true);
+        host.tick();
+        assertEquals(List.of("42", "43"), parsed, "the legacy path also reads it once");
         assertFalse(future.isDone());
     }
 

@@ -12,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
+import com.rs.lib.chat.ChatEvents;
 import com.rs.lib.chat.ChatManager;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.db.PlayerDataCache;
@@ -43,9 +44,11 @@ public final class ListenerHub {
         pm.registerEvents(new Shared(rslib), rslib);
         pm.registerEvents(RsCommands.priorityListener(), rslib);
         pm.registerEvents(PlayerDataCache.joinListener(), rslib);
-        // Chat questions first: at the same priority, handlers run in registration order.
-        Inputs.registerChat(rslib);
-        ChatManager.registerShared(rslib);
+        // Chat questions first, then the interceptors of every plugin.
+        ChatEvents chat = ChatEvents.server();
+        Inputs.registerChat(chat);
+        ChatManager.registerShared(chat, rslib.getLogger());
+        chat.install(rslib);
         pm.registerEvents(SettingsManager.sharedListener(), rslib);
         pm.registerEvents(ItemRegistry.sharedListener(), rslib);
         pm.registerEvents(GuiManager.sharedListener(), rslib);

@@ -10,9 +10,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.plugin.Plugin;
 
 import com.rs.lib.Rs;
 
@@ -32,10 +29,10 @@ import com.rs.lib.Rs;
  * </pre>
  *
  * <ul>
- *   <li>Both listen to the one chat event of the server ({@link ChatEvents}): Paper's
- *   {@code AsyncChatEvent}, or the legacy event only on a server without it. On Paper, a plugin
- *   that still listens to the legacy {@code AsyncPlayerChatEvent} is run before it, so it may
- *   read a message before an interceptor takes it.</li>
+ *   <li>Both run where {@link ChatEvents} routes them: interceptors on the first chat event of
+ *   each message (the legacy one while another plugin listens to it, Paper's otherwise), so a
+ *   taken message is cancelled before any other plugin's chat listener and handled once; rules
+ *   on Paper's event, whose audience is the one delivered.</li>
  *   <li><b>Interceptors</b> run at LOWEST, before other plugins, in the order they were
  *   registered (RsLib's chat questions go first). The first one that takes a message cancels it
  *   and the rest are not asked; a message already cancelled is not offered.</li>
@@ -56,8 +53,6 @@ public final class ChatManager {
     private static final List<Entry<ChatInterceptor>> INTERCEPTORS = new CopyOnWriteArrayList<>();
     private static final List<Entry<AudienceRule>> RULES = new CopyOnWriteArrayList<>();
     private static final Set<String> WARNED = ConcurrentHashMap.newKeySet();
-    private static final Listener SHARED = new Listener() {
-    };
     private static volatile Logger libLog = Logger.getLogger("RsLib");
 
     private final String owner;
@@ -119,15 +114,11 @@ public final class ChatManager {
         }
     }
 
-    /** Registers RsLib's chat handlers on the server's chat event; RsLib calls it once. */
-    public static void registerShared(Plugin rslib) {
-        libLog = rslib.getLogger();
-        listen(ChatEvents.registrar(rslib, SHARED));
-    }
-
-    static void listen(ChatEvents.Registrar registrar) {
-        ChatEvents.listen(registrar, EventPriority.LOWEST, true, ChatManager::takeOut);
-        ChatEvents.listen(registrar, EventPriority.HIGHEST, true, ChatManager::trim);
+    /** Adds the interceptors and rules of every plugin to {@code events}; RsLib calls it once, after the chat questions. */
+    public static void registerShared(ChatEvents events, Logger rslibLog) {
+        libLog = Objects.requireNonNull(rslibLog, "rslibLog");
+        events.take(ChatManager::takeOut, false);
+        events.rule(ChatManager::trim);
     }
 
     // ------------------------------------------------------------------ handlers

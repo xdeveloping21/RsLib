@@ -12,9 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.plugin.Plugin;
 
 import com.rs.lib.Ph;
 import com.rs.lib.Rs;
@@ -71,24 +69,19 @@ public final class Inputs {
         this.host = host;
     }
 
-    /** The listener that owns the chat handler every plugin shares ({@link #registerChat}). */
+    /** Kept for plugins built against RsLib 1.2.0; RsLib no longer registers it (see {@link #registerChat}). */
     public static Listener chatListener() {
         return CHAT;
     }
 
     /**
-     * Takes answers out of the chat; RsLib calls it once. The handler runs at LOWEST on the one
-     * chat event of the server ({@link ChatEvents}), so an answer is read once and is gone before
-     * the other listeners of that event (chat formatters) see it. A plugin that still listens to
-     * the legacy event gets it first on Paper, so it may read the answer before it is cancelled.
-     * It also takes answers another plugin already cancelled (a mute).
+     * Takes answers out of the chat; RsLib calls it once, before the chat interceptors are added.
+     * {@link ChatEvents} runs it on the first chat event of each message, before any other
+     * plugin's chat listener, and exactly once per message. It also takes answers another plugin
+     * already cancelled (a mute).
      */
-    public static void registerChat(Plugin rslib) {
-        listenChat(ChatEvents.registrar(rslib, CHAT));
-    }
-
-    static void listenChat(ChatEvents.Registrar registrar) {
-        ChatEvents.listen(registrar, EventPriority.LOWEST, false, Inputs::onChat);
+    public static void registerChat(ChatEvents events) {
+        events.take(Inputs::onChat, true);
     }
 
     static void onChat(ChatLine line) {
