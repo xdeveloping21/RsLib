@@ -219,15 +219,24 @@ class GuiParserTest {
                     material: STONE
                     slots: [1]
                     middle-click-actions: ['[close]']
+                    left-click-actions: ['[close]']
+                    drop-click-actions: ['[close]']
+                  gated:
+                    material: STONE
+                    slots: [2]
+                    middle-click-requirements: ['%a% == 1']
                     left-click-requirements: ['%a% == 1']
+                    left-click-deny-actions: ['[close]']
                     drop-click-deny-actions: ['[close]']
                 """);
         assertTrue(def.strictClicks());
         GuiItemDef plain = def.items().get(0);
         GuiItemDef rich = def.items().get(1);
+        GuiItemDef gated = def.items().get(2);
         for (ClickType always : new ClickType[] {ClickType.LEFT, ClickType.RIGHT, ClickType.SHIFT_LEFT,
                 ClickType.SHIFT_RIGHT}) {
             assertTrue(plain.strictAllows(always));
+            assertTrue(gated.strictAllows(always));
         }
         for (ClickType never : new ClickType[] {ClickType.NUMBER_KEY, ClickType.SWAP_OFFHAND, ClickType.UNKNOWN}) {
             assertFalse(rich.strictAllows(never));
@@ -238,7 +247,13 @@ class GuiParserTest {
         assertTrue(rich.strictAllows(ClickType.DOUBLE_CLICK));
         assertTrue(rich.strictAllows(ClickType.CREATIVE));
         assertFalse(plain.strictAllows(ClickType.DROP));
+        assertTrue(rich.strictAllows(ClickType.DROP));
         assertTrue(rich.strictAllows(ClickType.CONTROL_DROP));
+        // Only an action list enables a click: requirements and deny lists alone do not.
+        for (ClickType extra : new ClickType[] {ClickType.MIDDLE, ClickType.DOUBLE_CLICK, ClickType.CREATIVE,
+                ClickType.DROP, ClickType.CONTROL_DROP}) {
+            assertFalse(gated.strictAllows(extra), extra.name());
+        }
     }
 
     @Test
@@ -268,6 +283,47 @@ class GuiParserTest {
         assertNoWarnings();
         assertTrue(open.declaredInput(0));
         assertFalse(open.declaredInput(1));
+    }
+
+    @Test
+    void inputTemplatesNeedAnOpenPlayerInventoryToo() {
+        parse("templates:\n  in: {material: HOPPER, input: true}\n");
+        assertTrue(warned("templates.in: 'input: true' needs 'player-inventory: open'"), kit.allWarnings().toString());
+        kit.warnings.clear();
+        parse("player-inventory: open\ntemplates:\n  in: {material: HOPPER, input: true}\n");
+        assertNoWarnings();
+    }
+
+    /** A space is always an empty cell: as a key, a paged-key or a region it selects nothing. */
+    @Test
+    void aSpaceIsNeverAKey() {
+        assertArrayEquals(new int[0], GuiMask.slots(' ', "a a", "   "));
+        GuiDef def = parse("""
+                pagination: true
+                layout:
+                  - 'a   a    '
+                paged-key: ' '
+                regions:
+                  r: ' '
+                  s: {key: ' '}
+                items:
+                  blank: {material: STONE, key: ' '}
+                  border: {material: GLASS_PANE, key: a}
+                templates:
+                  t: {material: PAPER, key: ' '}
+                """);
+        assertArrayEquals(new int[0], def.pagedSlots());
+        assertArrayEquals(new int[0], def.regionSlots("r"));
+        assertArrayEquals(new int[0], def.regionSlots("s"));
+        assertArrayEquals(new int[0], def.items().get(0).slots());
+        assertArrayEquals(new int[] {0, 4}, def.items().get(1).slots());
+        assertArrayEquals(new int[0], def.templates().get("t").item().slots());
+        for (String path : List.of("'paged-key' ' '", "regions.r: key ' '", "regions.s: key ' '",
+                "items.blank: key ' '", "templates.t: key ' '")) {
+            assertEquals(1, kit.warnings.stream()
+                    .filter(w -> w.startsWith(path) && w.contains("a space is always an empty cell")).count(),
+                    path + " in " + kit.warnings);
+        }
     }
 
     @Test

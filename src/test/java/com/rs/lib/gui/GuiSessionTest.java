@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -451,6 +452,57 @@ class GuiSessionTest {
         session.bindPaged("e", List.of(1), new int[] {0}, (value, phs) -> { });
         assertNull(kit.at(steve, 0));
         assertTrue(kit.logged.stream().anyMatch(w -> w.contains("'pagination: true'")), kit.logged.toString());
+    }
+
+    @Test
+    void setTotalPagesNeedsPagination() {
+        Gui gui = kit.gui("shop", "items:\n  a: {material: STONE, slots: [0]}\n");
+        GuiSession session = open(gui, steve);
+        session.setTotalPages(4);
+        assertEquals(0, session.totalPages(), "without 'pagination: true' the total is not kept");
+        Gui paged = kit.gui("warps", "pagination: true\nitems:\n  a: {material: STONE, slots: [0]}\n");
+        GuiSession pagedSession = open(paged, alex);
+        pagedSession.setTotalPages(4);
+        assertEquals(4, pagedSession.totalPages());
+    }
+
+    // ------------------------------------------------------------------ namespaces
+
+    /** Unloading or reloading one extra folder closes only the open menus of its namespace. */
+    @Test
+    void foldersCloseOnlyTheirOwnNamespace() {
+        String yaml = "items:\n  a: {material: STONE, slots: [0]}\n";
+        Gui main = kit.gui("main", yaml);
+        Gui shop = kit.gui("party:shop", yaml);
+        Gui other = kit.gui("partyx:shop", yaml);
+        TestPlayer bob = kit.player("Bob");
+        GuiSession inMain = open(main, steve);
+        GuiSession inShop = open(shop, alex);
+        GuiSession inOther = open(other, bob);
+        kit.manager.loadFolder("modules/party/guis", "party");
+        assertTrue(inShop.closed(), "loading the folder again closes its own menus");
+        assertFalse(inMain.closed());
+        assertFalse(inOther.closed(), "only ids that start with 'party:'");
+        inShop = open(shop, alex);
+        kit.manager.unloadFolder("modules/party/guis/");
+        assertTrue(inShop.closed());
+        assertFalse(inMain.closed());
+        assertFalse(inOther.closed());
+        assertNull(kit.manager.get("party:shop"), "its menus stop resolving");
+        assertNotNull(kit.manager.get("main"));
+        assertNotNull(kit.manager.get("partyx:shop"));
+        assertEquals(2, kit.manager.openSessions().size());
+    }
+
+    @Test
+    void eachFolderNeedsItsOwnNamespace() {
+        kit.manager.loadFolder("modules/party/guis", "party");
+        kit.manager.loadFolder("modules/party/guis", "party");
+        IllegalArgumentException taken = assertThrows(IllegalArgumentException.class,
+                () -> kit.manager.loadFolder("modules/clan/guis", "party"));
+        assertTrue(taken.getMessage().contains("already used by modules/party/guis"), taken.getMessage());
+        kit.manager.unloadFolder("modules/party/guis");
+        kit.manager.loadFolder("modules/clan/guis", "party");
     }
 
     // ------------------------------------------------------------------ inputs and offers

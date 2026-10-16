@@ -40,6 +40,11 @@ final class GuiWarnings {
         seen.clear();
     }
 
+    /** {@link #forget()} for the files whose path starts with {@code filePrefix} only. */
+    void forget(String filePrefix) {
+        seen.removeIf(message -> message.startsWith("[" + filePrefix));
+    }
+
     /** Once per server run, for problems that do not belong to one plugin's files. */
     static void once(Logger logger, String message) {
         if (GLOBAL.size() >= MAX_REMEMBERED) {

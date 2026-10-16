@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -38,6 +39,16 @@ class GuiFilesTest {
             }
         }
         assertEquals(List.of("admin", "shop"), GuiFiles.shipped(jar, "guis", LOG));
+    }
+
+    /** guis/ and every extra folder: shipped names are managed (seeded and merged), disk-only ones plain. */
+    @Test
+    void shippedFilesAreManagedAndTheRestPlain() {
+        Map<String, Boolean> mounts = GuiFiles.mounts(List.of("main", "shop"), List.of("custom", "main", "shop"));
+        assertEquals(List.of("main", "shop", "custom"), List.copyOf(mounts.keySet()));
+        assertEquals(Boolean.TRUE, mounts.get("main"));
+        assertEquals(Boolean.TRUE, mounts.get("shop"));
+        assertEquals(Boolean.FALSE, mounts.get("custom"));
     }
 
     @Test

@@ -73,10 +73,6 @@ public final class GuiItemDef {
         boolean hasDeny() {
             return !deny.lines().isEmpty();
         }
-
-        boolean declaresAny() {
-            return hasActions() || hasRequirement() || hasDeny();
-        }
     }
 
     /** Most cells a cached stamped stack is kept for (a double chest). */
@@ -247,9 +243,9 @@ public final class GuiItemDef {
 
     /**
      * Whether {@code strict-clicks: true} lets {@code click} through: LEFT, RIGHT, SHIFT_LEFT
-     * and SHIFT_RIGHT always; MIDDLE when {@code middle-click-*} is declared; DOUBLE_CLICK and
-     * CREATIVE when {@code left-click-*} is; DROP and CONTROL_DROP when {@code drop-click-*} is;
-     * nothing else.
+     * and SHIFT_RIGHT always; MIDDLE when {@code middle-click-actions} is declared; DOUBLE_CLICK
+     * and CREATIVE when {@code left-click-actions} is; DROP and CONTROL_DROP when
+     * {@code drop-click-actions} is; nothing else. A requirement or deny list alone enables nothing.
      */
     boolean strictAllows(ClickType click) {
         if (click == null) {
@@ -266,7 +262,7 @@ public final class GuiItemDef {
 
     private boolean declares(Prefix prefix) {
         Clicks clicks = byPrefix[prefix.ordinal()];
-        return clicks != null && clicks.declaresAny();
+        return clicks != null && clicks.hasActions();
     }
 
     /** The lists that field {@code field} of {@code click} comes from. */

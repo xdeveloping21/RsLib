@@ -36,6 +36,8 @@ final class GuiParser {
     static final int DEFAULT_ROWS = 3;
     static final String NAV_PREVIOUS = "[previous-page]";
     static final String NAV_NEXT = "[next-page]";
+    /** Why a key, paged-key or region written as a space selects nothing. */
+    static final String SPACE = "a space is always an empty cell";
 
     private static final Set<String> ROOT_LISTS = Set.of("layout", "paged-flow");
     private static final Set<String> ROOT_INTS = Set.of("rows", "update-interval");
@@ -152,6 +154,10 @@ final class GuiParser {
                 GuiItemDef item = entry(templateSection, key, "templates." + key, true);
                 if (item != null) {
                     templates.put(key, new GuiTemplate(item));
+                    if (item.input() && policy != PlayerInventoryPolicy.OPEN) {
+                        warn.at("templates." + key, "'input: true' needs 'player-inventory: open' in this menu;"
+                                + " nothing can be offered to it");
+                    }
                 }
             }
         }
@@ -190,6 +196,8 @@ final class GuiParser {
             String raw = String.valueOf(root.get("paged-key"));
             if (raw.length() != 1) {
                 top.accept("'paged-key' must be one character, got '" + raw + "'; ignored");
+            } else if (raw.charAt(0) == GuiMask.EMPTY) {
+                top.accept("'paged-key' ' ': " + SPACE + "; nothing is paged");
             } else if (layout == null) {
                 top.accept("'paged-key' needs a layout; ignored");
             } else if (!layout.contains(raw.charAt(0))) {
@@ -256,7 +264,7 @@ final class GuiParser {
         Object value = section.get(regionId);
         if (!(value instanceof ConfigurationSection region)) {
             String text = value == null ? "" : String.valueOf(value);
-            return text.isBlank() ? new int[0] : keyCells(text, w);
+            return text.isBlank() && !text.equals(" ") ? new int[0] : keyCells(text, w);
         }
         boolean hasSlots = region.contains("slots");
         boolean hasKey = region.contains("key");
@@ -269,7 +277,7 @@ final class GuiParser {
         } else if (hasKey) {
             Object key = region.get("key");
             String text = key == null ? "" : String.valueOf(key);
-            cells = text.isBlank() ? new int[0] : keyCells(text, w);
+            cells = text.isBlank() && !text.equals(" ") ? new int[0] : keyCells(text, w);
         } else {
             if (!region.getKeys(false).isEmpty()) {
                 w.accept("needs 'key:' or 'slots:'; the region has no cells");
@@ -290,6 +298,10 @@ final class GuiParser {
     private int[] keyCells(String text, Consumer<String> w) {
         if (text.length() != 1) {
             w.accept("key '" + text + "' must be one character; nothing is shown");
+            return new int[0];
+        }
+        if (text.charAt(0) == GuiMask.EMPTY) {
+            w.accept("key ' ': " + SPACE + "; the region has no cells");
             return new int[0];
         }
         if (layout == null) {
@@ -333,6 +345,8 @@ final class GuiParser {
             String text = raw == null ? "" : String.valueOf(raw);
             if (text.length() != 1) {
                 w.accept("key '" + text + "' must be one character; it is not shown");
+            } else if (text.charAt(0) == GuiMask.EMPTY) {
+                w.accept("key ' ': " + SPACE + "; it is not shown");
             } else if (layout == null) {
                 w.accept("key '" + text + "' needs a layout; it is not shown");
             } else {
