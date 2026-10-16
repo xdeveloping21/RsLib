@@ -34,6 +34,7 @@ import org.yaml.snakeyaml.nodes.Tag;
 import com.rs.lib.Ph;
 import com.rs.lib.text.RsText;
 import com.rs.lib.util.Formats;
+import com.rs.lib.text.SharedPlaceholders;
 import com.rs.lib.yml.internal.YamlText;
 
 /**
@@ -226,7 +227,11 @@ public final class RsYml {
         hooks.add(Objects.requireNonNull(hook, "hook"));
     }
 
-    /** Registers a placeholder resolved in every text read from this file, as {@code {key}} or {@code %key%}. */
+    /**
+     * Registers a placeholder resolved in every text read from this file, as {@code {key}} or
+     * {@code %key%}. It has no viewer: during a menu's timed refresh it is computed once per tick
+     * and shared by every viewer (see {@link SharedPlaceholders}).
+     */
     public RsYml placeholder(String key, Supplier<String> value) {
         locals.put(Objects.requireNonNull(key, "key"), Objects.requireNonNull(value, "value"));
         return this;
@@ -474,11 +479,19 @@ public final class RsYml {
         return out;
     }
 
+    /** A file placeholder's value; computed once per tick while placeholders are shared (menu refreshes). */
     private String local(String key) {
         Supplier<String> supplier = locals.get(key);
         if (supplier == null) {
             return null;
         }
+        if (SharedPlaceholders.active()) {
+            return SharedPlaceholders.value(supplier, key, () -> compute(key, supplier));
+        }
+        return compute(key, supplier);
+    }
+
+    private String compute(String key, Supplier<String> supplier) {
         try {
             return supplier.get();
         } catch (RuntimeException e) {

@@ -43,6 +43,13 @@ final class FakeHologramHost implements HologramHost {
     UnaryOperator<String> papi = UnaryOperator.identity();
     boolean owns = true;
     boolean cancelSpawns;
+    /** Where players stand, for {@link #anyoneNear}; null means "someone is always near". */
+    List<Standing> standing;
+    /** How many proximity checks were made, and the radius of the last one. */
+    int nearChecks;
+    int lastRadius;
+    /** False plays a server older than 1.20.2, which cannot glide displays. */
+    boolean canGlide = true;
     private final Logger logger = Logger.getAnonymousLogger();
     private final String pluginName;
 
@@ -155,6 +162,62 @@ final class FakeHologramHost implements HologramHost {
         return display.entity;
     }
 
+    /** A player standing in {@code world}, chunk {@code chunkX}, {@code chunkZ}. */
+    record Standing(UUID id, String world, int chunkX, int chunkZ) {
+    }
+
+    /** Puts a player at chunk {@code chunkX}, {@code chunkZ} of {@code world}; returns its id. */
+    UUID stand(String world, int chunkX, int chunkZ) {
+        if (standing == null) {
+            standing = new ArrayList<>();
+        }
+        UUID id = UUID.randomUUID();
+        standing.add(new Standing(id, world, chunkX, chunkZ));
+        return id;
+    }
+
+    @Override
+    public boolean anyoneNear(String world, int chunkX, int chunkZ, int radiusChunks, Set<UUID> except) {
+        nearChecks++;
+        lastRadius = radiusChunks;
+        if (standing == null) {
+            return true;
+        }
+        for (Standing player : standing) {
+            if (player.world().equals(world) && HologramUtil.within(player.chunkX() - chunkX, player.chunkZ() - chunkZ,
+                    radiusChunks) && !except.contains(player.id())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void teleport(TextDisplay display, Location to) {
+        for (FakeDisplay fake : spawned) {
+            if (fake.entity == display) {
+                fake.calls.add("teleport");
+                fake.at = to;
+                fake.chunkX = to.getBlockX() >> 4;
+                fake.chunkZ = to.getBlockZ() >> 4;
+            }
+        }
+    }
+
+    @Override
+    public boolean teleportDuration(TextDisplay display, int ticks) {
+        if (!canGlide) {
+            return false;
+        }
+        for (FakeDisplay fake : spawned) {
+            if (fake.entity == display) {
+                fake.calls.add("teleportDuration " + ticks);
+                fake.teleportTicks = ticks;
+            }
+        }
+        return true;
+    }
+
     /** A repeating task the test fires by hand. */
     static final class Timer implements TaskHandle {
 
@@ -227,8 +290,11 @@ final class FakeHologramHost implements HologramHost {
         final Map<String, Object> data = new HashMap<>();
         final List<String> calls = new ArrayList<>();
         final TextDisplay entity;
-        final int chunkX;
-        final int chunkZ;
+        int chunkX;
+        int chunkZ;
+        Location at;
+        int teleportTicks = -1;
+        float viewRange = 1f;
         boolean valid = true;
         boolean persistent = true;
         boolean removed;
@@ -237,6 +303,7 @@ final class FakeHologramHost implements HologramHost {
 
         FakeDisplay(Location at) {
             this(at.getBlockX() >> 4, at.getBlockZ() >> 4);
+            this.at = at;
         }
 
         FakeDisplay(int chunkX, int chunkZ) {
@@ -281,6 +348,11 @@ final class FakeHologramHost implements HologramHost {
                             yield null;
                         }
                         case "getBillboard" -> billboard;
+                        case "setViewRange" -> {
+                            calls.add("setViewRange " + args[0]);
+                            viewRange = (Float) args[0];
+                            yield null;
+                        }
                         case "text" -> {
                             if (args == null || args.length == 0) {
                                 yield text;
