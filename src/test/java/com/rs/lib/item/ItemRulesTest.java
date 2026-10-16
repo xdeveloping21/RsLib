@@ -42,7 +42,7 @@ class ItemRulesTest {
         // Nothing is refused for the main hand or no slot.
         assertFalse(ItemListener.equipRefused(EquipmentSlot.HAND, EquipmentSlot.HEAD, true));
         assertFalse(ItemListener.equipRefused(null, EquipmentSlot.HEAD, true));
-        // no-manual-equip and locked refuse every equipment slot.
+        // no-manual-equip, locked and COMMAND_ONLY refuse every equipment slot.
         assertTrue(ItemListener.equipRefused(EquipmentSlot.HEAD, null, true));
         assertTrue(ItemListener.equipRefused(EquipmentSlot.OFF_HAND, EquipmentSlot.OFF_HAND, true));
         // A declared slot only takes that slot.

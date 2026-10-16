@@ -374,6 +374,33 @@ class GuiParserTest {
         assertEquals(List.of("first", "second", "third", "empty", "broken"), List.copyOf(def.regionIds()));
     }
 
+    /** A region over the paged cells is reported once, naming the first shared slot. */
+    @Test
+    void regionOverThePagedKeyNamesTheSlot() {
+        GuiDef def = parse("""
+                pagination: true
+                layout:
+                  - 'ppprr    '
+                paged-key: p
+                regions:
+                  late:
+                    slots: [4, 2, 1]
+                """);
+        assertArrayEquals(new int[] {4, 2, 1}, def.regionSlots("late"));
+        assertEquals(1, kit.allWarnings().size(), kit.allWarnings().toString());
+        assertTrue(warned("regions.late: shares cells with 'paged-key', first at slot 2"), kit.allWarnings().toString());
+    }
+
+    /** An empty (or unreadable) file is reported and loads as a default menu without items. */
+    @Test
+    void emptyFileWarnsAndLoadsADefaultMenu() {
+        GuiDef def = parse("");
+        assertEquals("Menu", def.title());
+        assertEquals(27, def.size());
+        assertTrue(def.items().isEmpty());
+        assertTrue(warned("the file is empty or could not be read"), kit.allWarnings().toString());
+    }
+
     @Test
     void oneBrokenEntryDoesNotHideTheOthers() {
         GuiDef def = parse("""

@@ -216,8 +216,8 @@ public final class GuiSession implements PageTarget {
     /**
      * Binds {@code template} in cell {@code slot}. With a {@code stack} (copied), the stack gives
      * the look and the template only adds its {@code display-name} (replacing the name when not
-     * empty) and its {@code lore} lines (after the stack's own) on top; requirements, actions and
-     * {@code update-interval} still come from the template.
+     * empty) and its {@code lore} lines (after the stack's own) on top; requirements and actions
+     * still come from the template.
      */
     public void bind(int slot, GuiTemplate template, ItemStack stack, Ph... phs) {
         if (hop(() -> bind(slot, template, stack, phs))) {
@@ -638,12 +638,6 @@ public final class GuiSession implements PageTarget {
                     timers.add(host.timer(viewer, item.updateInterval(), () -> itemTick(item)));
                 }
             }
-            for (GuiTemplate template : def.templates().values()) {
-                GuiItemDef item = template.item();
-                if (item.updateInterval() > 0) {
-                    timers.add(host.timer(viewer, item.updateInterval(), () -> itemTick(item)));
-                }
-            }
         } catch (RuntimeException disabled) {
             host.debug(() -> "Timers of menu " + def.id() + " not started: the plugin is being disabled.");
         }
@@ -660,12 +654,16 @@ public final class GuiSession implements PageTarget {
         refreshMenu();
     }
 
-    /** Renders again the cells {@code item} paints or may paint. */
+    /**
+     * Renders again the cells the declared {@code item} paints or may paint. A template's own
+     * {@code update-interval} is never scheduled: only the menu's timer refreshes the cells
+     * templates paint.
+     */
     private void itemTick(GuiItemDef item) {
         if (closed) {
             return;
         }
-        int index = item.isTemplate() ? -1 : def.items().indexOf(item);
+        int index = def.items().indexOf(item);
         beginPass();
         boolean force = takeExternal();
         int count = cellCount();

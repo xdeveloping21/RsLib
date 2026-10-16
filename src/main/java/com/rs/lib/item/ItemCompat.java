@@ -193,12 +193,12 @@ final class ItemCompat {
     // ------------------------------------------------------------------ meta
 
     /** The enchantment glint without an enchantment; on 1.20.4 and older a hidden enchantment. */
-    static void glow(ItemMeta meta, Material material) {
+    static void glow(ItemMeta meta, Material material, Consumer<String> warn) {
         if (GLINT) {
             meta.setEnchantmentGlintOverride(true);
             return;
         }
-        if (meta.hasEnchants()) {
+        if (!needsHiddenGlow(meta, false, warn)) {
             return;
         }
         Enchantment hidden = enchantment(material == Material.BOW || material == Material.CROSSBOW ? "lure" : "infinity");
@@ -206,6 +206,20 @@ final class ItemCompat {
             meta.addEnchant(hidden, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
+    }
+
+    /**
+     * Whether a glint must come from a hidden enchantment: not when the server has the glint
+     * override ({@code glint}) nor when the item already has a real enchantment. When it must,
+     * that degradation is reported (once, like every item warning).
+     */
+    static boolean needsHiddenGlow(ItemMeta meta, boolean glint, Consumer<String> warn) {
+        if (glint || meta.hasEnchants()) {
+            return false;
+        }
+        warn.accept("glow needs Minecraft 1.20.5 or newer for a glint without an enchantment; this server runs "
+                + RsVersion.describe() + ", so a hidden enchantment and HIDE_ENCHANTS give the glint.");
+        return true;
     }
 
     static void hideTooltip(ItemMeta meta, Consumer<String> warn) {

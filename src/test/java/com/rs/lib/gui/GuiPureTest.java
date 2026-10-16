@@ -124,6 +124,17 @@ class GuiPureTest {
         assertTrue(warnings.isEmpty(), warnings.toString());
     }
 
+    /** Letters copied from the layout around the ordered cells are fine; only an arrow there is reported. */
+    @Test
+    void flowIgnoresFrameLettersButReportsStrayArrows() {
+        assertArrayEquals(new int[] {0, 1, 2, 11, 10, 9, 18, 19, 20}, flow(">>vfff", "v<<f", ">> f", "fffffffff"));
+        assertTrue(warnings.isEmpty(), warnings.toString());
+        assertArrayEquals(new int[] {0, 1, 2, 11, 10, 9, 18, 19, 20}, flow(">>v>", "v<<", ">> "),
+                "the rest of the flow still applies");
+        assertEquals(1, warnings.size(), warnings.toString());
+        assertTrue(warnings.get(0).contains("slot 3"), warnings.toString());
+    }
+
     /** Trampa 13: a broken flow is reported and the default order kept; the menu still loads. */
     @Test
     void brokenFlowsKeepTheDefaultOrder() {

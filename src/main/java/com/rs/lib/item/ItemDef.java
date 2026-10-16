@@ -38,7 +38,7 @@ import com.rs.lib.action.Requirement;
  *   locked: false                       # fixed in its slot: no click, drag, equip, swap, drop, death, hopper
  *   no-drop: false                      # cannot be dropped, whatever droppable says
  *   no-manual-equip: false              # cannot be worn by hand
- *   obtain-via: ""                      # "" or COMMAND_ONLY (given by command or API only: no recipe)
+ *   obtain-via: ""                      # "" or COMMAND_ONLY (only worn through apply)
  *   custom-durability:
  *     max: 0                            # 0 = off
  *     damage-per-use: 1
@@ -207,9 +207,9 @@ public final class ItemDef {
         return noDrop;
     }
 
-    /** Whether the item may not be worn by hand. */
+    /** Whether the item may not be worn by hand; true for {@link ObtainMode#COMMAND_ONLY} too. */
     public boolean noManualEquip() {
-        return noManualEquip;
+        return noManualEquip || obtainVia == ObtainMode.COMMAND_ONLY;
     }
 
     public ObtainMode obtainVia() {
