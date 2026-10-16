@@ -52,6 +52,7 @@ interface GuiHost {
 
     TaskHandle later(Player player, long delayTicks, Runnable task);
 
+    /** Repeats {@code task} on {@code player}'s thread every {@code periodTicks}, first after one period. */
     TaskHandle timer(Player player, long periodTicks, Runnable task);
 
     /** Runs {@code task} on the next tick, on the global thread; throws when it cannot be scheduled. */
@@ -131,7 +132,8 @@ interface GuiHost {
 
         @Override
         public TaskHandle timer(Player player, long periodTicks, Runnable task) {
-            return rs.scheduler().entityTimer(player, periodTicks, periodTicks, task);
+            // One shared ticker for every open menu on Paper; the player's own task on Folia.
+            return rs.scheduler().sharedEntityTimer(player, periodTicks, task);
         }
 
         @Override

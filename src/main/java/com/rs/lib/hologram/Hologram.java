@@ -17,49 +17,67 @@ import net.kyori.adventure.text.Component;
 /**
  * One hologram: where it stands, what it says and the entity that shows it while its chunk is
  * loaded. The place is kept as a world name and coordinates, so a world that is unloaded and
- * loaded again is found by name. Entity work is done while holding this object's lock, on the
- * thread that owns the chunk.
+ * loaded again is found by name; a move replaces it whole. Entity work is done while holding
+ * this object's lock, on the thread that owns the chunk.
  */
 final class Hologram {
 
     final HologramUtil owner;
     final String id;
-    final String world;
-    final double x;
-    final double y;
-    final double z;
-    final float yaw;
-    final float pitch;
-    final int chunkX;
-    final int chunkZ;
     /** Players this hologram is hidden from; applied again to every new entity. */
     final Set<UUID> hiddenFrom = ConcurrentHashMap.newKeySet();
 
+    /** Where it stands; replaced whole by a move. */
+    volatile Place place;
     volatile List<String> lines;
     volatile Display.Billboard billboard = Display.Billboard.CENTER;
+    /** The view range given with {@code setViewRange}; 0 is the entity's own default (1). */
+    volatile float viewRange;
+    /** The teleport duration last given to the entity, or -1 when it was never set. */
+    volatile int teleportTicks = -1;
     /** The entity while it exists; null before the first spawn and after delete. */
     volatile TextDisplay entity;
     /** The text last given to {@link #entity}. */
     volatile Component shown;
+    /** True when a refresh was skipped because nobody was near: {@link #shown} may be old. */
+    volatile boolean stale;
     volatile TaskHandle refresh;
     volatile boolean deleted;
 
     Hologram(HologramUtil owner, String id, Location at, List<String> lines) {
         this.owner = owner;
         this.id = id;
-        this.world = at.getWorld().getName();
-        this.x = at.getX();
-        this.y = at.getY();
-        this.z = at.getZ();
-        this.yaw = at.getYaw();
-        this.pitch = at.getPitch();
-        this.chunkX = at.getBlockX() >> 4;
-        this.chunkZ = at.getBlockZ() >> 4;
+        this.place = Place.of(at);
         this.lines = lines;
     }
 
+    /** A world name, coordinates and the chunk they fall in. */
+    record Place(String world, double x, double y, double z, float yaw, float pitch, int chunkX, int chunkZ) {
+
+        static Place of(Location at) {
+            return new Place(at.getWorld().getName(), at.getX(), at.getY(), at.getZ(), at.getYaw(), at.getPitch(),
+                    at.getBlockX() >> 4, at.getBlockZ() >> 4);
+        }
+
+        Location location(World in) {
+            return new Location(in, x, y, z, yaw, pitch);
+        }
+
+        long chunkKey() {
+            return Hologram.chunkKey(chunkX, chunkZ);
+        }
+
+        boolean sameChunk(Place other) {
+            return world.equals(other.world) && chunkX == other.chunkX && chunkZ == other.chunkZ;
+        }
+    }
+
+    String world() {
+        return place.world();
+    }
+
     Location location(World in) {
-        return new Location(in, x, y, z, yaw, pitch);
+        return place.location(in);
     }
 
     /** {@code <Plugin>:<id>}, the value of the mark on the entity. */
@@ -70,10 +88,6 @@ final class Hologram {
     /** Chunk coordinates packed into one long (x low, z high). */
     static long chunkKey(int chunkX, int chunkZ) {
         return (chunkX & 0xFFFFFFFFL) | ((chunkZ & 0xFFFFFFFFL) << 32);
-    }
-
-    long chunkKey() {
-        return chunkKey(chunkX, chunkZ);
     }
 
     static boolean alive(TextDisplay display) {

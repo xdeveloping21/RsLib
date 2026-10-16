@@ -44,6 +44,8 @@ public final class RsScheduler {
     private final String owner;
     private final BooleanSupplier enabled;
     private final Backend backend;
+    private final boolean regionized;
+    private final SharedTicker ticker;
 
     public RsScheduler(JavaPlugin plugin) {
         this(Objects.requireNonNull(plugin, "plugin").getLogger(), plugin.getName(), plugin::isEnabled,
@@ -51,10 +53,16 @@ public final class RsScheduler {
     }
 
     RsScheduler(Logger logger, String owner, BooleanSupplier enabled, Backend backend) {
+        this(logger, owner, enabled, backend, backend instanceof FoliaBackend);
+    }
+
+    RsScheduler(Logger logger, String owner, BooleanSupplier enabled, Backend backend, boolean regionized) {
         this.logger = logger;
         this.owner = owner;
         this.enabled = enabled;
         this.backend = backend;
+        this.regionized = regionized;
+        this.ticker = new SharedTicker(logger, owner, runner -> backend.timer(1L, 1L, runner));
     }
 
     /** Runs on the main thread (global region on Folia) on the next tick. */
@@ -83,6 +91,37 @@ public final class RsScheduler {
     public TaskHandle timerAsync(long delayTicks, long periodTicks, Runnable task) {
         Guarded guarded = repeating(task);
         return guarded.bind(backend.timerAsync(atLeastOne(delayTicks), atLeastOne(periodTicks), guarded));
+    }
+
+    /**
+     * Repeats {@code task} on the main thread (global region on Folia) every {@code periodTicks}
+     * (at least one), first after {@code periodTicks}: the timing of
+     * {@code timer(periodTicks, periodTicks, task)}, but run by this plugin's one shared ticker
+     * instead of a task of its own. Jobs due in the same tick run in the order they were added;
+     * one that throws is logged and cancelled like any repeating task. The ticker runs only
+     * while it has jobs. For many small jobs with few distinct periods (refreshes, animations).
+     */
+    public TaskHandle sharedTimer(long periodTicks, Runnable task) {
+        return ticker.add(atLeastOne(periodTicks), Objects.requireNonNull(task, "task"));
+    }
+
+    /**
+     * Same as {@code entityTimer(entity, periodTicks, periodTicks, task)}. On Paper, where every
+     * entity belongs to the main thread, it goes to the shared ticker of {@link #sharedTimer};
+     * on Folia each entity keeps its own task on its own scheduler, since one ticker would cross
+     * regions.
+     */
+    public TaskHandle sharedEntityTimer(Entity entity, long periodTicks, Runnable task) {
+        Objects.requireNonNull(entity, "entity");
+        if (regionized) {
+            return entityTimer(entity, periodTicks, periodTicks, task);
+        }
+        return sharedTimer(periodTicks, task);
+    }
+
+    /** The shared ticker; for tests. */
+    SharedTicker ticker() {
+        return ticker;
     }
 
     /**
@@ -191,6 +230,7 @@ public final class RsScheduler {
 
     /** Cancels every task of this plugin, on both schedulers on Folia. */
     public void cancelAll() {
+        ticker.cancelAll();
         backend.cancelAll();
     }
 
@@ -253,7 +293,7 @@ public final class RsScheduler {
         return Math.max(1L, ticks);
     }
 
-    private static String describe(Throwable t) {
+    static String describe(Throwable t) {
         Throwable root = t;
         while ((root instanceof java.util.concurrent.CompletionException
                 || root instanceof java.util.concurrent.ExecutionException) && root.getCause() != null) {

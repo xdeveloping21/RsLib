@@ -7,6 +7,8 @@ import java.util.logging.Logger;
 
 import org.bukkit.OfflinePlayer;
 
+import com.rs.lib.text.SharedPlaceholders;
+
 /**
  * One expansion as {@link ExpansionBuilder#register()} left it: identifier, author, version and
  * the placeholders, frozen. No PlaceholderAPI type is referenced here; the expansion PAPI sees
@@ -16,7 +18,8 @@ import org.bukkit.OfflinePlayer;
  * not allocate unless the parameter has capital letters or a prefix matches: exact names are
  * looked up first, ignoring case; then prefixes, in the order they were declared, also ignoring
  * case. The text after a prefix keeps its capitals. Player placeholders stay unresolved when
- * there is no player; global ones answer anyway.</p>
+ * there is no player; global ones answer anyway, and while {@link SharedPlaceholders} is on
+ * (a menu's timed refresh) each global value is computed once per tick for every viewer.</p>
  */
 final class PapiHolder {
 
@@ -129,6 +132,16 @@ final class PapiHolder {
         if (entry.needsPlayer && player == null) {
             return null;
         }
+        if (!entry.needsPlayer && SharedPlaceholders.active()) {
+            // Global: the same for every viewer, so computed once per tick while menus share values.
+            Entry global = entry;
+            String after = rest;
+            return SharedPlaceholders.value(global, after, () -> compute(global, player, after, params));
+        }
+        return compute(entry, player, rest, params);
+    }
+
+    private String compute(Entry entry, OfflinePlayer player, String rest, String params) {
         try {
             return entry.resolver.resolve(player, rest);
         } catch (RuntimeException | LinkageError e) {

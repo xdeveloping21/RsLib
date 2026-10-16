@@ -20,6 +20,7 @@ import com.rs.lib.action.PageTarget;
 import com.rs.lib.action.Requirement;
 import com.rs.lib.item.ItemAppearance;
 import com.rs.lib.scheduler.TaskHandle;
+import com.rs.lib.text.SharedPlaceholders;
 
 import net.kyori.adventure.text.Component;
 
@@ -44,6 +45,11 @@ import net.kyori.adventure.text.Component;
  * everyone are built once per menu file and reused by every session, and a refresh with
  * nothing changed builds and writes nothing for them. A plugin that took the inventory through
  * {@link RsGuiHolder#getInventory()} gets every cell rewritten on the next render.</p>
+ *
+ * <p>The {@code update-interval} timers of every open menu share one ticker of the plugin (on
+ * Folia each player keeps their own). During a timed refresh RsLib's viewer-free placeholders
+ * (the file's own and the global ones of RsLib expansions) are computed once per tick and
+ * shared by every viewer refreshed in that tick; see {@link SharedPlaceholders}.</p>
  *
  * <h2>Threads</h2>
  * <p>A session belongs to its player's thread (the main thread on Paper, the player's region on
@@ -654,11 +660,12 @@ public final class GuiSession implements PageTarget {
     private void startTimers() {
         try {
             if (def.updateInterval() > 0) {
-                timers.add(host.timer(viewer, def.updateInterval(), this::menuTick));
+                timers.add(host.timer(viewer, def.updateInterval(), () -> SharedPlaceholders.during(this::menuTick)));
             }
             for (GuiItemDef item : def.items()) {
                 if (item.updateInterval() > 0) {
-                    timers.add(host.timer(viewer, item.updateInterval(), () -> itemTick(item)));
+                    timers.add(host.timer(viewer, item.updateInterval(),
+                            () -> SharedPlaceholders.during(() -> itemTick(item))));
                 }
             }
         } catch (RuntimeException disabled) {

@@ -76,6 +76,8 @@ final class GuiKit {
     int windowsOpened;
     boolean owns = true;
     boolean shuttingDown;
+    /** How the menus parsed from now on resolve placeholders; null is "locals only". */
+    ItemAppearance.TextResolver resolver;
     /** When set, the next window does not open (another plugin cancelled the open event). */
     boolean refuseNextOpen;
 
@@ -107,7 +109,7 @@ final class GuiKit {
             throw new IllegalStateException(e);
         }
         GuiDef def = GuiParser.parse(id, "guis/" + id + ".yml", config,
-                ItemAppearance.TextResolver.of((RsPapi) null), engine.engine(),
+                resolver != null ? resolver : ItemAppearance.TextResolver.of((RsPapi) null), engine.engine(),
                 (path, message) -> warnings.add((path.isEmpty() ? "" : path + ": ") + message), logger, TYPES);
         for (GuiItemDef item : def.items()) {
             label(item);

@@ -1,5 +1,6 @@
 package com.rs.lib.hologram;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 
 import com.rs.lib.Rs;
+import com.rs.lib.compat.RsVersion;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
 
@@ -43,7 +45,10 @@ interface HologramHost {
     /** Runs {@code task} on the thread that owns {@code entity}; throws when it cannot be scheduled. */
     void onEntity(Entity entity, Runnable task);
 
-    /** Repeats {@code task} on the main thread (global region on Folia); throws when it cannot be scheduled. */
+    /**
+     * Repeats {@code task} on the main thread (global region on Folia), through the plugin's
+     * shared ticker; throws when it cannot be scheduled.
+     */
     TaskHandle every(long periodTicks, Runnable task);
 
     /** PlaceholderAPI with no viewer; the same instance when nothing was resolved. */
@@ -54,6 +59,19 @@ interface HologramHost {
 
     /** Spawns a bare text display at {@code location}; called on the thread that owns that chunk. */
     TextDisplay spawn(Location location);
+
+    /**
+     * True when a player of world {@code world}, other than those in {@code except}, stands
+     * within {@code radiusChunks} chunks (a square) of chunk {@code chunkX}, {@code chunkZ}. True
+     * as well when it cannot tell, so a hologram is never left unrefreshed by mistake.
+     */
+    boolean anyoneNear(String world, int chunkX, int chunkZ, int radiusChunks, Set<UUID> except);
+
+    /** Moves {@code display} to {@code to}; called on the thread that owns it. */
+    void teleport(TextDisplay display, Location to);
+
+    /** Sets how many ticks the client takes to glide {@code display} to a new place; false when the server cannot. */
+    boolean teleportDuration(TextDisplay display, int ticks);
 
     static HologramHost of(Rs rs) {
         return new Server(rs);
@@ -109,7 +127,7 @@ interface HologramHost {
 
         @Override
         public TaskHandle every(long periodTicks, Runnable task) {
-            return rs.scheduler().timer(periodTicks, periodTicks, task);
+            return rs.scheduler().sharedTimer(periodTicks, task);
         }
 
         @Override
@@ -131,6 +149,43 @@ interface HologramHost {
         @Override
         public TextDisplay spawn(Location location) {
             return location.getWorld().spawn(location, TextDisplay.class);
+        }
+
+        /** Reads each player's position into one scratch location; the first one near answers. */
+        @Override
+        public boolean anyoneNear(String world, int chunkX, int chunkZ, int radiusChunks, Set<UUID> except) {
+            try {
+                World in = Bukkit.getWorld(world);
+                if (in == null) {
+                    return true;
+                }
+                Location scratch = new Location(in, 0, 0, 0);
+                for (Player player : in.getPlayers()) {
+                    player.getLocation(scratch);
+                    if (HologramUtil.within((scratch.getBlockX() >> 4) - chunkX, (scratch.getBlockZ() >> 4) - chunkZ,
+                            radiusChunks) && !except.contains(player.getUniqueId())) {
+                        return true;
+                    }
+                }
+                return false;
+            } catch (RuntimeException cannotTell) {
+                return true;
+            }
+        }
+
+        /** Folia only teleports asynchronously; Paper moves the entity now, in this tick. */
+        @Override
+        public void teleport(TextDisplay display, Location to) {
+            if (RsVersion.isFolia()) {
+                display.teleportAsync(to);
+            } else {
+                display.teleport(to);
+            }
+        }
+
+        @Override
+        public boolean teleportDuration(TextDisplay display, int ticks) {
+            return DisplayMoves.setTeleportDuration(display, ticks);
         }
     }
 }

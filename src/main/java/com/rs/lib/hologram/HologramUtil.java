@@ -47,6 +47,10 @@ import net.kyori.adventure.text.JoinConfiguration;
  *   adopted, changed or removed.</li>
  *   <li>Each line goes through PlaceholderAPI with no viewer and then the full text pipeline;
  *   the lines are joined with line breaks. The billboard is {@code CENTER} unless set.</li>
+ *   <li>A refresh ({@link #refreshEvery}) does no placeholder work while no player is near
+ *   enough to see the hologram; it renders again the moment a player starts receiving the
+ *   entity, or at the next refresh once one is near.</li>
+ *   <li>{@link #moveTo} glides the entity to its new place on Paper 1.20.2 and later.</li>
  *   <li>{@link #hideFrom}/{@link #showTo} use Paper's per-plugin entity visibility and are
  *   applied again to every new entity, until the player leaves.</li>
  *   <li>An id that does not exist is reported once per id, as a warning.</li>
@@ -59,6 +63,13 @@ public final class HologramUtil {
 
     /** RsLib's mark on its hologram entities; the value is {@code <Plugin>:<id>}. */
     public static final NamespacedKey MARK = Objects.requireNonNull(NamespacedKey.fromString("rslib:rslib_hologram"));
+
+    /** The teleport duration {@link #moveTo(String, Location)} uses, in ticks. */
+    public static final int DEFAULT_MOVE_TICKS = 3;
+    /** The longest teleport duration the client interpolates, in ticks. */
+    public static final int MAX_MOVE_TICKS = 59;
+    /** Blocks a display is seen from at view range 1, before the client's entity distance setting. */
+    static final int BLOCKS_PER_VIEW_RANGE = 64;
 
     /** Live hologram sets by plugin name, for {@link #adopt}. */
     private static final Map<String, HologramUtil> LIVE = new ConcurrentHashMap<>();
@@ -102,7 +113,7 @@ public final class HologramUtil {
         if (previous != null) {
             destroy(previous);
         }
-        HologramChunkListener.INSTANCE.add(hologram);
+        HologramChunkListener.INSTANCE.add(hologram, hologram.place);
         place(hologram, world);
     }
 
@@ -113,7 +124,7 @@ public final class HologramUtil {
             return;
         }
         hologram.lines = copy(lines);
-        update(hologram, true);
+        update(hologram, true, false);
     }
 
     /** How the hologram turns to face players; null is {@code CENTER}. */
@@ -137,7 +148,10 @@ public final class HologramUtil {
     /**
      * Renders the lines again (placeholders included) every {@code intervalTicks}, replacing
      * an earlier refresh; zero or less stops refreshing. Nothing is rendered while the chunk is
-     * not loaded.
+     * not loaded, nor while no player who may see it is in the same world within its view
+     * range (see {@link #setViewRange}) plus one chunk, counted in chunks; it renders as soon as
+     * a player starts receiving the entity, or on the next refresh once one is near. Every
+     * refresh of the plugin runs on one shared ticker.
      */
     public void refreshEvery(String id, long intervalTicks) {
         Hologram hologram = known(id);
@@ -150,7 +164,7 @@ public final class HologramUtil {
                 return;
             }
             try {
-                hologram.refresh = host.every(intervalTicks, () -> update(hologram, false));
+                hologram.refresh = host.every(intervalTicks, () -> update(hologram, false, true));
             } catch (RuntimeException notScheduled) {
                 host.logger().log(Level.WARNING, "Could not schedule the refresh of hologram '" + id + "'", notScheduled);
             }
@@ -166,8 +180,104 @@ public final class HologramUtil {
         hologram.hiddenFrom.remove(player.getUniqueId());
         TextDisplay display = hologram.entity;
         if (Hologram.alive(display)) {
+            wake(hologram);
             onEntityThread(display, () -> host.show(player, display));
         }
+    }
+
+    /**
+     * Moves the hologram to {@code to}, gliding over {@link #DEFAULT_MOVE_TICKS} ticks; see
+     * {@link #moveTo(String, Location, int)}.
+     */
+    public void moveTo(String id, Location to) {
+        moveTo(id, to, DEFAULT_MOVE_TICKS);
+    }
+
+    /**
+     * Moves the hologram to {@code to}. When its entity exists and {@code to} is in a loaded chunk
+     * of the same world, the entity is teleported there and players see it glide over
+     * {@code teleportTicks} ticks (0 to {@value #MAX_MOVE_TICKS}; 0 jumps) on Paper 1.20.2 and
+     * later; older servers jump. Otherwise the entity is removed and the hologram appears at
+     * {@code to} once that chunk is loaded. A location without a loaded world is reported and
+     * ignored.
+     */
+    public void moveTo(String id, Location to, int teleportTicks) {
+        Hologram hologram = known(id);
+        if (hologram == null) {
+            return;
+        }
+        World world = worldOf(to);
+        if (world == null) {
+            host.logger().warning("Hologram '" + id + "' cannot move to a location without a loaded world; not moved.");
+            return;
+        }
+        int ticks = Math.max(0, Math.min(MAX_MOVE_TICKS, teleportTicks));
+        Hologram.Place target = Hologram.Place.of(to);
+        Hologram.Place from;
+        TextDisplay display;
+        synchronized (hologram) {
+            if (hologram.deleted) {
+                return;
+            }
+            from = hologram.place;
+            hologram.place = target;
+            if (!from.sameChunk(target)) {
+                HologramChunkListener.INSTANCE.remove(hologram, from);
+                HologramChunkListener.INSTANCE.add(hologram, target);
+            }
+            display = hologram.entity;
+        }
+        if (Hologram.alive(display) && from.world().equals(target.world())
+                && world.isChunkLoaded(target.chunkX(), target.chunkZ())) {
+            Location at = target.location(world);
+            onEntityThread(display, () -> {
+                synchronized (hologram) {
+                    if (hologram.entity != display || hologram.place != target || !Hologram.alive(display)) {
+                        return;
+                    }
+                    if (hologram.teleportTicks != ticks && host.teleportDuration(display, ticks)) {
+                        hologram.teleportTicks = ticks;
+                    }
+                    host.teleport(display, at);
+                }
+            });
+            return;
+        }
+        if (Hologram.alive(display)) {
+            synchronized (hologram) {
+                if (hologram.entity == display) {
+                    hologram.entity = null;
+                }
+            }
+            HologramChunkListener.INSTANCE.fresh(display.getUniqueId());
+            onEntityThread(display, display::remove);
+        }
+        place(hologram, world);
+    }
+
+    /**
+     * How far away the hologram can be seen, as a multiple of {@value #BLOCKS_PER_VIEW_RANGE}
+     * blocks (the client's entity distance setting applies on top); refreshes run while a player
+     * is within it. Zero, a negative or a non-finite value restores the default, 1.
+     */
+    public void setViewRange(String id, float range) {
+        Hologram hologram = known(id);
+        if (hologram == null) {
+            return;
+        }
+        boolean valid = range > 0 && Float.isFinite(range);
+        hologram.viewRange = valid ? range : 0f;
+        float value = valid ? range : 1f;
+        TextDisplay display = hologram.entity;
+        if (Hologram.alive(display)) {
+            onEntityThread(display, () -> {
+                if (hologram.entity == display) {
+                    display.setViewRange(value);
+                }
+            });
+        }
+        // A wider range may bring players in: their text must not wait for the next refresh.
+        wake(hologram);
     }
 
     /** Hides the hologram from one player, until {@link #showTo} or until they leave. */
@@ -251,18 +361,29 @@ public final class HologramUtil {
         if (hologram.deleted || Hologram.alive(hologram.entity)) {
             return;
         }
-        World world = host.world(hologram.world);
+        World world = host.world(hologram.world());
         if (world != null) {
             schedule(hologram, hologram.location(world));
         }
     }
 
+    /**
+     * Renders a hologram that skipped refreshes while nobody was near, on the calling thread
+     * when it owns the entity; called when a player starts receiving it or it is shown again.
+     */
+    void wake(Hologram hologram) {
+        if (hologram.stale && !hologram.deleted) {
+            update(hologram, false, false);
+        }
+    }
+
     /** Spawns now when this thread owns the chunk, later when not; nothing while it is unloaded. */
     private void place(Hologram hologram, World world) {
-        if (!world.isChunkLoaded(hologram.chunkX, hologram.chunkZ)) {
+        Hologram.Place where = hologram.place;
+        if (!world.isChunkLoaded(where.chunkX(), where.chunkZ())) {
             return;
         }
-        Location at = hologram.location(world);
+        Location at = where.location(world);
         if (host.ownsHere(at)) {
             materialize(hologram);
         } else {
@@ -284,13 +405,14 @@ public final class HologramUtil {
             if (hologram.deleted || Hologram.alive(hologram.entity)) {
                 return;
             }
-            World world = host.world(hologram.world);
-            if (world == null || !world.isChunkLoaded(hologram.chunkX, hologram.chunkZ)) {
+            Hologram.Place at = hologram.place;
+            World world = host.world(at.world());
+            if (world == null || !world.isChunkLoaded(at.chunkX(), at.chunkZ())) {
                 return;
             }
             TextDisplay display;
             try {
-                display = host.spawn(hologram.location(world));
+                display = host.spawn(at.location(world));
             } catch (RuntimeException failed) {
                 warnOnce("spawn:" + hologram.id, "Could not spawn hologram '" + hologram.id + "': " + failed);
                 return;
@@ -308,9 +430,20 @@ public final class HologramUtil {
         display.setPersistent(false);
         display.getPersistentDataContainer().set(MARK, PersistentDataType.STRING, hologram.mark());
         display.setBillboard(hologram.billboard);
+        if (hologram.viewRange > 0) {
+            display.setViewRange(hologram.viewRange);
+        }
+        if (hologram.teleportTicks >= 0 && !host.teleportDuration(display, hologram.teleportTicks)) {
+            hologram.teleportTicks = -1;
+        }
         Component text = render(hologram.lines);
         display.text(text);
+        TextDisplay previous = hologram.entity;
+        if (previous != null && previous != display) {
+            HologramChunkListener.INSTANCE.fresh(previous.getUniqueId());
+        }
         hologram.shown = text;
+        hologram.stale = false;
         hologram.entity = display;
         for (UUID id : hologram.hiddenFrom) {
             Player player = host.player(id);
@@ -336,18 +469,30 @@ public final class HologramUtil {
     /**
      * Shows the current lines: renders and applies them when the entity exists (only if they
      * changed, unless {@code force}); otherwise spawns it if the chunk is loaded, which renders.
+     * With {@code onlyIfSeen}, an existing entity no player is near is only marked stale.
      */
-    private void update(Hologram hologram, boolean force) {
+    private void update(Hologram hologram, boolean force, boolean onlyIfSeen) {
         if (hologram.deleted) {
             return;
         }
         TextDisplay display = hologram.entity;
         if (!Hologram.alive(display)) {
-            World world = host.world(hologram.world);
+            World world = host.world(hologram.world());
             if (world != null) {
                 place(hologram, world);
             }
             return;
+        }
+        if (onlyIfSeen && !anyoneNear(hologram)) {
+            if (!hologram.stale) {
+                hologram.stale = true;
+                HologramChunkListener.INSTANCE.stale(display.getUniqueId(), hologram);
+            }
+            return;
+        }
+        if (hologram.stale) {
+            hologram.stale = false;
+            HologramChunkListener.INSTANCE.fresh(display.getUniqueId());
         }
         Component text = render(hologram.lines);
         if (!force && text.equals(hologram.shown)) {
@@ -371,7 +516,10 @@ public final class HologramUtil {
             display = hologram.entity;
             hologram.entity = null;
         }
-        HologramChunkListener.INSTANCE.remove(hologram);
+        HologramChunkListener.INSTANCE.remove(hologram, hologram.place);
+        if (display != null) {
+            HologramChunkListener.INSTANCE.fresh(display.getUniqueId());
+        }
         if (Hologram.alive(display)) {
             // Not persistent: if it cannot be removed now, it goes with its chunk.
             onEntityThread(display, display::remove);
@@ -403,6 +551,27 @@ public final class HologramUtil {
         for (Hologram hologram : holograms.values()) {
             hologram.hiddenFrom.remove(player);
         }
+    }
+
+    /** True when a player who may see the hologram is near it; see {@link #refreshEvery}. */
+    private boolean anyoneNear(Hologram hologram) {
+        Hologram.Place at = hologram.place;
+        return host.anyoneNear(at.world(), at.chunkX(), at.chunkZ(), radiusChunks(hologram.viewRange),
+                hologram.hiddenFrom);
+    }
+
+    /**
+     * The chunk distance within which a player keeps a hologram refreshing: its view range in
+     * chunks, rounded up, plus one chunk so a player walking in finds fresh text.
+     */
+    static int radiusChunks(float viewRange) {
+        double blocks = (viewRange > 0 ? viewRange : 1f) * (double) BLOCKS_PER_VIEW_RANGE;
+        return (int) Math.min(1 << 20, Math.ceil(blocks / 16.0) + 1);
+    }
+
+    /** True when chunk offsets {@code dx}, {@code dz} are within {@code radius} chunks (a square). */
+    static boolean within(int dx, int dz, int radius) {
+        return Math.abs(dx) <= radius && Math.abs(dz) <= radius;
     }
 
     private Component render(List<String> lines) {
