@@ -159,7 +159,8 @@ public final class RsLang {
     /**
      * The first line in the action bar, kept visible for {@code hold}: rendered once, sent
      * again every two seconds and cleared at the end. A new held bar from this plugin replaces
-     * the previous one; leaving the server cancels it.
+     * the previous one; a plain bar does not (it is covered by the next refresh). Leaving the
+     * server cancels it.
      */
     public void actionbar(Player target, String key, Duration hold, Ph... phs) {
         if (target == null) {
@@ -171,11 +172,12 @@ public final class RsLang {
         }
         Component bar = lines.get(0);
         UUID id = target.getUniqueId();
-        cancelBar(id);
         target.sendActionBar(bar);
-        if (hold == null || hold.isZero() || hold.isNegative()) {
+        if (!held(hold)) {
+            // A plain bar leaves a held one running: the next refresh shows the held bar again.
             return;
         }
+        cancelBar(id);
         long until = System.nanoTime() + hold.toNanos();
         TaskHandle[] self = new TaskHandle[1];
         self[0] = rs.scheduler().timer(ACTIONBAR_REFRESH_TICKS, ACTIONBAR_REFRESH_TICKS, () -> {
@@ -198,6 +200,11 @@ public final class RsLang {
         if (previous != null) {
             previous.cancel();
         }
+    }
+
+    /** True when {@code hold} keeps the bar up (and so replaces a held one); null, zero and negative do not. */
+    static boolean held(Duration hold) {
+        return hold != null && !hold.isZero() && !hold.isNegative();
     }
 
     /**

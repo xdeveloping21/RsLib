@@ -1,19 +1,31 @@
 package com.rs.lib.lang;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.rs.lib.lang.RsLang.Entry;
+import com.rs.lib.lang.RsLang.Line;
 import com.rs.lib.text.RsText;
+import com.rs.lib.yml.YmlTestSupport.Captured;
 
 class RsLangStaticTest {
 
@@ -59,5 +71,69 @@ class RsLangStaticTest {
         String error = LangLoader.parseError(bad.toFile());
         assertNotNull(error);
         assertEquals(-1, error.indexOf('\n'));
+    }
+
+    @Test
+    void heldOnlyForAPositiveDuration() {
+        assertFalse(RsLang.held(null));
+        assertFalse(RsLang.held(Duration.ZERO));
+        assertFalse(RsLang.held(Duration.ofSeconds(-1)));
+        assertTrue(RsLang.held(Duration.ofMillis(1)));
+    }
+
+    private static Map<String, Entry> live(String... pairs) {
+        Map<String, Entry> out = new HashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            out.put(pairs[i], new Entry(false, List.of(Line.of(pairs[i + 1], null))));
+        }
+        return out;
+    }
+
+    private static Function<String, InputStream> jar(Map<String, String> files) {
+        return path -> files.containsKey(path)
+                ? new ByteArrayInputStream(files.get(path).getBytes(StandardCharsets.UTF_8)) : null;
+    }
+
+    @Test
+    void lostClickAndHoverAreWarnedOnceNamingEveryKey() {
+        String en = """
+                plain: "Hi"
+                shop:
+                  buy: "<click:run_command:/buy>[Buy]</click>"
+                  info: "<hover:show_text:'x'>[?]</hover>"
+                  both: "<click:run_command:/a><hover:show_text:'y'>[A]</hover></click>"
+                  kept: "<click:run_command:/k>[K]</click>"
+                body:
+                  - "line"
+                  - "<click:open_url:'https://x'>[Site]</click>"
+                gone: "<click:run_command:/g>[G]</click>"
+                """;
+        Captured log = new Captured();
+        Map<String, Entry> active = live("plain", "Hi", "shop.buy", "[Buy]", "shop.info", "[?]",
+                "shop.both", "<click:run_command:/a>[A]</click>", "shop.kept", "<CLICK:run_command:/k>[K]</click>");
+        active.put("body", new Entry(true, List.of(Line.of("line", null), Line.of("[Site]", null))));
+        LangLoader.warnLostTags(log.logger, jar(Map.of("lang/messages_en.yml", en)), "en", active, Map.of());
+        assertEquals(List.of("Messages that lost a <click> or <hover> their default has: "
+                + "shop.buy, shop.info, shop.both, body"), log.warnings());
+    }
+
+    @Test
+    void lostTagsUseTheJarCopyOfTheLanguageOrElseEnglish() {
+        Captured log = new Captured();
+        Map<String, String> files = Map.of("lang/messages_en.yml", "a: \"<click:run_command:/a>A</click>\"\n",
+                "lang/messages_es.yml", "b: \"<hover:show_text:'b'>B</hover>\"\n");
+        LangLoader.warnLostTags(log.logger, jar(files), "es", live("a", "A", "b", "B"), Map.of());
+        assertEquals(List.of("Messages that lost a <click> or <hover> their default has: b"), log.warnings());
+
+        log.clear();
+        LangLoader.warnLostTags(log.logger, jar(files), "fr", Map.of(), live("a", "A"));
+        assertEquals(List.of("Messages that lost a <click> or <hover> their default has: a"), log.warnings());
+
+        log.clear();
+        LangLoader.warnLostTags(log.logger, jar(files), "en", live("a", "<click:run_command:/a>A</click>"), Map.of());
+        LangLoader.warnLostTags(log.logger, jar(Map.of()), "en", live("a", "A"), Map.of());
+        LangLoader.warnLostTags(log.logger, jar(Map.of("lang/messages_en.yml", "a: [broken")), "en",
+                live("a", "A"), Map.of());
+        assertTrue(log.warnings().isEmpty(), log.warnings().toString());
     }
 }

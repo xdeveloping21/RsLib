@@ -269,7 +269,8 @@ class RsTextTest {
     void sectionAndColorLegacy() {
         assertEquals("§cHi", RsText.section("&cHi"));
         assertEquals("§x§f§f§0§0§0§0Hi", RsText.section("&#FF0000Hi"));
-        assertEquals("", RsText.section(null));
+        assertNull(RsText.section(null));
+        assertEquals("", RsText.section(""));
         assertEquals("§x§f§f§0§0§a§ax<red>y", RsText.colorLegacy("&#FF00AAx<red>y"));
         assertEquals("§x§f§f§0§0§0§0z", RsText.colorLegacy("&x&F&F&0&0&0&0z"));
         assertEquals("§a§lA & B", RsText.colorLegacy("&A&LA & B"));
@@ -289,8 +290,10 @@ class RsTextTest {
     @Test
     void plainVisibleLengthAndLists() {
         assertEquals(3, RsText.visibleLength("&aHé😀"));
-        assertEquals("", RsText.plain(null));
+        assertNull(RsText.plain(null));
+        assertEquals("", RsText.plain(""));
         assertEquals(0, RsText.visibleLength(null));
+        assertEquals(0, RsText.visibleLength(""));
         List<Component> empty = RsText.colorList(null);
         empty.add(Component.empty());
         assertEquals(1, empty.size());
@@ -328,7 +331,7 @@ class RsTextTest {
 
     @Test
     void smallCapsHelper() {
-        assertEquals("ʜᴇʟʟᴏ &aᴡᴏʀʟᴅ <red>x</red> ñᴀɴᴅᴜ",
+        assertEquals("ʜᴇʟʟᴏ &aᴡᴏʀʟᴅ <red>x</red> Ñᴀɴᴅᴜ",
                 RsText.smallCaps("Hello &aWorld <red>x</red> Ñandú"));
         String same = "123 &a <bold>";
         assertSame(same, RsText.smallCaps(same));

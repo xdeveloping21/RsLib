@@ -2,6 +2,7 @@ package com.rs.lib.text;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -103,7 +104,9 @@ class StylePolicyTest {
         assertEquals(OnDisallowed.REJECT, reject.onDisallowed());
         assertEquals("Hi there", reject.apply("&c&lHi <red>there"));
         assertEquals("&cok", reject.apply("&cok"));
-        assertEquals("", reject.apply(null));
+        assertNull(reject.apply(null));
+        assertNull(reject.strip(null));
+        assertEquals("", reject.apply(""));
     }
 
     @Test

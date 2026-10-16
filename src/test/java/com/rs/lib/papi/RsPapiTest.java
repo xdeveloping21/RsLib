@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 
 import org.junit.jupiter.api.Test;
 
@@ -228,5 +229,22 @@ class RsPapiTest {
         papi.shutdown();
         host.runTasks();
         assertTrue(host.papi.isEmpty());
+    }
+
+    @Test
+    void withoutPlaceholderApiEachExpansionSaysOnceItWaits() {
+        host.enabled = false;
+        assertFalse(papi.expansion("rs").global("a", () -> "1").register());
+        assertFalse(papi.expansion("RS").global("a", () -> "1").register());
+        assertFalse(papi.expansion("top").register());
+        assertEquals(List.of("PlaceholderAPI not installed; 'rs' will be registered when it is enabled.",
+                "PlaceholderAPI not installed; 'top' will be registered when it is enabled."),
+                host.log.messages(Level.INFO));
+        assertTrue(host.log.warnings().isEmpty());
+        host.enabled = true;
+        papi.invalidate();
+        host.runTasks();
+        assertEquals("1", host.papi.get("rs").resolve(null, "a"));
+        assertEquals(2, host.log.messages(Level.INFO).size());
     }
 }

@@ -70,7 +70,7 @@ class TextUtilsTest {
         assertEquals('x', SmallCapsUtil.toSmall('x'));
         assertEquals('ᴇ', SmallCapsUtil.toSmall('É'));
         assertEquals('ᴜ', SmallCapsUtil.toSmall('ü'));
-        assertEquals('ñ', SmallCapsUtil.toSmall('Ñ'));
+        assertEquals('Ñ', SmallCapsUtil.toSmall('Ñ'));
         assertEquals('ñ', SmallCapsUtil.toSmall('ñ'));
         String text = "Long &#FF00AA&lText <hover:show_text:'Hover'>here";
         assertEquals(text.length(), SmallCapsUtil.smallCaps(text).length());

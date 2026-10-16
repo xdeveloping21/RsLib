@@ -174,11 +174,11 @@ public final class StylePolicy {
 
     /**
      * The text to keep: unchanged when it has no violation; otherwise {@link #strip} in STRIP
-     * mode, or the visible plain text in REJECT mode.
+     * mode, or the visible plain text in REJECT mode. Null in, null out.
      */
     public String apply(String text) {
         if (text == null) {
-            return "";
+            return null;
         }
         if (violations(text).isEmpty()) {
             return text;
@@ -189,11 +189,11 @@ public final class StylePolicy {
     /**
      * Removes only what is not allowed: disallowed codes and tags and every non-cosmetic tag.
      * Resets ({@code &r}, {@code <reset>}), {@code [center]}, {@code [small]} and escaped
-     * {@code \<} are kept. Codes come back in {@code &} form.
+     * {@code \<} are kept. Codes come back in {@code &} form. Null in, null out.
      */
     public String strip(String text) {
         if (text == null) {
-            return "";
+            return null;
         }
         StringBuilder out = new StringBuilder(text.length());
         scan(LegacyConverter.normalizeSections(text), (piece, capability, cosmetic) -> {
