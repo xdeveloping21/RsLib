@@ -162,7 +162,13 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
   libre, avisos con el prefijo `[update-configs]`), arranque del plugin (aviso de nivel de API y
   errores al habilitar con los textos de SnLib), menús (`update-interval` de una plantilla no se
   programa, aviso de menú vacío), apariencia de ítems (textura rota = cabeza normal, avisos de
-  `damage` y `glow`) y base de datos (`socket-timeout-seconds` de 0 a 3600).
+  `damage` y `glow`) y base de datos (`socket-timeout-seconds` de 0 a 3600). Por último, revisado
+  contra las páginas de texto, comandos, formatos de valores, solución de problemas, archivos de
+  idioma y acciones: los avisos de la consola usan los textos de SnLib, el actualizador no toca
+  nada si hay dos jars de RsLib en `plugins/`, las opciones de `[particle]` avisan cuando están
+  mal escritas y las duraciones de los comandos se leen como en los archivos (palabras
+  desconocidas se saltan y un número solo son segundos). Los requisitos mal escritos siguen
+  fallando siempre (decisión de Raul) y no hay semanas ni meses en las duraciones, como SnLib.
 - **1.1.0:** regiones con varita de selección (`rs().selections()`, textos y valores como
   SnLib), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib
