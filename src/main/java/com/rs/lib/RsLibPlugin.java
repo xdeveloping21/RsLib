@@ -20,12 +20,16 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.account.Accounts;
 import com.rs.lib.compat.RsVersion;
 import com.rs.lib.debug.RsDebug;
 import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.internal.AdminInfo;
+import com.rs.lib.internal.AltsAdmin;
+import com.rs.lib.internal.DbAdmin;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
+import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
@@ -81,7 +85,8 @@ public final class RsLibPlugin extends JavaPlugin {
         try {
             // updates(): "RsLib has a new version" one minute after start and every six hours,
             // even with auto-update off; the self-updater's pass comes after it.
-            own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).updates().build());
+            // db(): RsLib's own database (alt-account records), SQLite in plugins/RsLib/database.db.
+            own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).updates().db().build());
             RsYml config = own.yml().config();
             applyMergeSwitch(config);
             config.onReload(() -> {
@@ -114,6 +119,11 @@ public final class RsLibPlugin extends JavaPlugin {
         }
         if (own != null) {
             own.armUpdates();
+            try {
+                Accounts.start(this, own);
+            } catch (RuntimeException e) {
+                getLogger().log(Level.WARNING, "Alt-account detection could not start", e);
+            }
         }
         getLogger().info("RsLib " + getPluginMeta().getVersion() + " enabled (API level " + RsApi.LEVEL + ").");
     }
@@ -137,6 +147,7 @@ public final class RsLibPlugin extends JavaPlugin {
         ItemRegistry.shutdownShared();
         PlayerNames.shutdown();
         UpdateHub.shutdown();
+        Accounts.stop();
         if (own != null) {
             own.beginTeardown();
             own.shutdown();
@@ -156,6 +167,8 @@ public final class RsLibPlugin extends JavaPlugin {
         UPDATE(SelfUpdater.PERMISSION, "the self-updater state, and a check now"),
         RELOAD("rslib.admin.reload", "reload RsLib's config.yml, or one plugin's files"),
         DEBUG("rslib.admin.debug", "turn RsLib's debug output on or off"),
+        DB("rslib.admin.db", "export a plugin's database to a file, or import one"),
+        ALTS("rslib.admin.alts", "the accounts that joined from the same address as a player"),
         HELP(null, "the subcommands you can use");
 
         final String permission;
@@ -168,6 +181,16 @@ public final class RsLibPlugin extends JavaPlugin {
 
         String label() {
             return name().toLowerCase(Locale.ROOT);
+        }
+
+        /** What help shows after the label. */
+        String arguments() {
+            return switch (this) {
+                case RELOAD -> " [plugin]";
+                case DB -> " <export|import> <plugin> [file] [--force]";
+                case ALTS -> " <player>";
+                default -> "";
+            };
         }
 
         boolean allowed(CommandSender sender) {
@@ -184,9 +207,12 @@ public final class RsLibPlugin extends JavaPlugin {
         }
     }
 
-    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|debug|help>";
+    private static final String USAGE = "<version|plugins|integrations|iteminfo|update|reload|debug|db|alts|help>";
 
     private final class AdminCommand implements TabExecutor {
+
+        private final RsScheduler scheduler = new RsScheduler(RsLibPlugin.this);
+        private final DbAdmin db = new DbAdmin(scheduler, () -> own);
 
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -240,12 +266,20 @@ public final class RsLibPlugin extends JavaPlugin {
                     }
                     sender.sendMessage("Debug: " + (debug.toggle() ? "ON" : "OFF"));
                 }
+                case DB -> db.run(sender, label, args);
+                case ALTS -> {
+                    if (args.length != 2) {
+                        sender.sendMessage("Usage: /" + label + " alts <player>");
+                        return true;
+                    }
+                    AltsAdmin.run(sender, args[1], scheduler);
+                }
                 case HELP -> {
                     sender.sendMessage("RsLib commands:");
                     for (Sub each : Sub.values()) {
                         if (each.allowed(sender)) {
                             sender.sendMessage("- /" + label + " " + each.label()
-                                    + (each == Sub.RELOAD ? " [plugin]" : "") + ": " + each.what);
+                                    + each.arguments() + ": " + each.what);
                         }
                     }
                 }
@@ -284,6 +318,12 @@ public final class RsLibPlugin extends JavaPlugin {
             if (args.length == 1) {
                 return filter(Arrays.stream(Sub.values()).filter(s -> s.allowed(sender)).map(Sub::label).toList(),
                         args[0]);
+            }
+            if (args.length >= 2 && args[0].equalsIgnoreCase("db") && Sub.DB.allowed(sender)) {
+                return filter(db.complete(args), args[args.length - 1]);
+            }
+            if (args.length == 2 && args[0].equalsIgnoreCase("alts") && Sub.ALTS.allowed(sender)) {
+                return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
             }
             if (args.length == 2 && args[0].equalsIgnoreCase("reload") && Sub.RELOAD.allowed(sender)) {
                 List<String> names = new ArrayList<>();
