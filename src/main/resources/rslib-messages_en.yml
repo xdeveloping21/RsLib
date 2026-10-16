@@ -34,6 +34,9 @@ rslib:
     warmup: "&7Teleporting in &e{time}&7. Do not move."
     cancelled-move: "&cTeleport cancelled - you moved."
     cancelled-damage: "&cTeleport cancelled - you took damage."
+  rewards:
+    claimed: "&aYou received &f{count}&a rewards that were waiting for you."
+    waiting: "&f{count}&e rewards did not fit in your inventory and are kept for you."
   selection:
     pos1-set: "&aPos1 set: &f{x}, {y}, {z} &7({world})"
     pos2-set: "&aPos2 set: &f{x}, {y}, {z} &7({world})"

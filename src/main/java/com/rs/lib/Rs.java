@@ -38,6 +38,7 @@ import com.rs.lib.price.Prices;
 import com.rs.lib.region.RegionRegistry;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.reload.ReloadManager;
+import com.rs.lib.reward.Rewards;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.snapshot.Snapshots;
 import com.rs.lib.teleport.Teleports;
@@ -84,6 +85,7 @@ public final class Rs {
     private final GuiManager guis;
     private final Notices notices;
     private final AuditLog audit;
+    private final Rewards rewards;
     private final List<Consumer<Player>> quitCallbacks = new CopyOnWriteArrayList<>();
 
     private volatile boolean shuttingDown;
@@ -128,6 +130,7 @@ public final class Rs {
         this.teleports = spec.teleports() ? new Teleports(this) : null;
         this.snapshots = new Snapshots(this);
         this.inputs = new Inputs(this);
+        this.rewards = new Rewards(this);
         this.guis = spec.guis() ? new GuiManager(this) : null;
         if (guis != null) {
             guis.load();
@@ -314,6 +317,15 @@ public final class Rs {
         return audit;
     }
 
+    /**
+     * Rewards with a per-reward result and guaranteed delivery. Keeping rewards for later
+     * (overflow {@code QUEUE}, players who are not online, claims on join) needs
+     * {@code RsSpec.builder().db().rewards()}.
+     */
+    public Rewards rewards() {
+        return rewards;
+    }
+
     /** Reloads config, messages, items, menus, commands and every registered {@code Reloadable}. */
     public void reloadAll() {
         reload.reloadPlugin();
@@ -391,6 +403,7 @@ public final class Rs {
         if (guis != null) {
             step("menus", guis::shutdown);
         }
+        step("rewards", rewards::shutdown);
         step("update checks", updates::shutdown);
         step("commands", commands::unregisterAll);
         step("items", items::shutdown);

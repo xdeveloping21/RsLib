@@ -34,6 +34,9 @@ rslib:
     warmup: "&7Teletransportando en &e{time}&7. No te muevas."
     cancelled-move: "&cTeletransporte cancelado: te moviste."
     cancelled-damage: "&cTeletransporte cancelado: recibiste daño."
+  rewards:
+    claimed: "&aRecibiste &f{count}&a recompensas que te estaban esperando."
+    waiting: "&f{count}&e recompensas no cupieron en tu inventario y se guardan para ti."
   selection:
     pos1-set: "&aPos1 marcada: &f{x}, {y}, {z} &7({world})"
     pos2-set: "&aPos2 marcada: &f{x}, {y}, {z} &7({world})"
