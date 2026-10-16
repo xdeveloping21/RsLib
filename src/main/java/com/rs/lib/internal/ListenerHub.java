@@ -12,15 +12,19 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
+import com.rs.lib.block.RsBlocks;
 import com.rs.lib.command.RsCommands;
+import com.rs.lib.cooldown.HotbarCooldowns;
 import com.rs.lib.db.PlayerDataCache;
 import com.rs.lib.event.internal.ArmourEquipListener;
 import com.rs.lib.event.internal.ChunkMoveListener;
 import com.rs.lib.gui.GuiManager;
 import com.rs.lib.hologram.HologramUtil;
 import com.rs.lib.hook.HookListener;
+import com.rs.lib.hook.WorldGuardBridge;
 import com.rs.lib.input.Inputs;
 import com.rs.lib.item.ItemRegistry;
+import com.rs.lib.region.RegionRegistry;
 import com.rs.lib.region.SelectionManager;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.teleport.Teleports;
@@ -50,6 +54,10 @@ public final class ListenerHub {
         pm.registerEvents(ArmourEquipListener.shared(), rslib);
         pm.registerEvents(ChunkMoveListener.shared(), rslib);
         pm.registerEvents(SelectionManager.wandListener(), rslib);
+        pm.registerEvents(RegionRegistry.sharedListener(), rslib);
+        pm.registerEvents(RsBlocks.sharedListener(), rslib);
+        pm.registerEvents(WorldGuardBridge.listener(), rslib);
+        pm.registerEvents(HotbarCooldowns.joinListener(), rslib);
     }
 
     private static final class Shared implements Listener {

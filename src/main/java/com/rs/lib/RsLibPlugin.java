@@ -26,6 +26,7 @@ import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.internal.AdminInfo;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
+import com.rs.lib.region.RegionRegistry;
 import com.rs.lib.text.RsText;
 import com.rs.lib.update.internal.SelfUpdater;
 import com.rs.lib.update.internal.UpdateHub;
@@ -86,6 +87,7 @@ public final class RsLibPlugin extends JavaPlugin {
             applyMergeSwitch(config);
             config.onReload(() -> {
                 applyMergeSwitch(config);
+                RegionRegistry.checkInterval(regionCheckInterval());
                 if (selfUpdater != null) {
                     selfUpdater.reload();
                 }
@@ -96,6 +98,7 @@ public final class RsLibPlugin extends JavaPlugin {
         getLogger().info("Server " + RsVersion.describe() + (RsVersion.isFolia() ? " (Folia)" : ""));
         ListenerHub.registerAll(this);
         ItemRegistry.startShared(this);
+        RegionRegistry.startShared(this, regionCheckInterval());
         try {
             PlayerNames.start(this);
         } catch (RuntimeException e) {
@@ -118,6 +121,11 @@ public final class RsLibPlugin extends JavaPlugin {
         getLogger().info("RsLib " + getPluginMeta().getVersion() + " enabled (API level " + RsApi.LEVEL + ").");
     }
 
+    /** {@code regions.check-interval-ticks} (5 by default): ticks between the periodic region checks. */
+    private long regionCheckInterval() {
+        return own == null ? 5L : own.yml().config().getInt("regions.check-interval-ticks", 5);
+    }
+
     /** {@code update-configs} (true by default): whether every plugin's YAML files get the keys they lack. */
     private void applyMergeSwitch(RsYml config) {
         boolean enabled = config.getBoolean("update-configs", true);
@@ -135,6 +143,7 @@ public final class RsLibPlugin extends JavaPlugin {
         }
         RsLib.shutdownAll();
         ItemRegistry.shutdownShared();
+        RegionRegistry.stopShared();
         PlayerNames.shutdown();
         UpdateHub.shutdown();
         if (own != null) {
