@@ -25,3 +25,23 @@ auto-update:
   # Only install versions within the installed major version. A version that crosses a
   # major (2.x when 1.x is installed) is only reported in the console, never installed on its own.
   same-major-only: true
+
+# Messages the Rs plugins leave for players (a sale, an expired auction...). A player who is
+# online sees them at once; the rest are kept in each plugin's database and shown on join.
+notices:
+  # Days an unread message is kept before it is deleted unread. At least 1.
+  keep-days: 30
+  # Most unread messages one player can have from one plugin; newer ones are refused (the
+  # console says so).
+  max-per-player: 500
+  # Seconds after joining before the waiting messages are shown, so they are not buried
+  # under the join messages. 0 to 600.
+  join-delay-seconds: 3
+
+# Staff audit log of the Rs plugins (who did what to whom), read with /rslib logs. Each
+# plugin keeps its entries in its own database.
+audit:
+  # Days an entry is kept before it is deleted. 0 keeps them for ever.
+  keep-days: 30
+  # Seconds between writes of what was recorded (1 to 300). Reading always writes first.
+  flush-seconds: 10
