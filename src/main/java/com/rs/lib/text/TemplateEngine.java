@@ -16,8 +16,11 @@ import net.kyori.adventure.text.TextComponent;
  * parsing a skeleton once and only putting the values in.
  *
  * <p>The skeleton is the line after placeholder substitution with each value replaced by a
- * sentinel noncharacter (U+FDD6 onward). The fast path is used only when all of this holds,
- * otherwise the slow path runs:</p>
+ * sentinel noncharacter (U+FDD6 onward); fallback tokens left in it are replaced by their
+ * fallback before it is parsed, as the full render does. A value in the key of such a token
+ * would decide whether it is one ({@code %x{v}|y%} with a space in the value): the token takes
+ * that sentinel away, so the "exactly once" check below sends it to the slow path. The fast
+ * path is used only when all of this holds, otherwise the slow path runs:</p>
  * <ul>
  *   <li>The line has no {@code [rgb]}, {@code [small]} or {@code [center]} tag (they depend on
  *       the visible characters and the width) and no MiniMessage gradient, rainbow or pride
@@ -123,7 +126,7 @@ final class TemplateEngine {
     // ------------------------------------------------------------------ analysis
 
     private static Object analyze(String skeleton, int slots) {
-        String norm = LegacyConverter.normalizeSections(skeleton);
+        String norm = LegacyConverter.normalizeSections(Fallbacks.sweep(skeleton));
         for (int j = 0; j < norm.length(); j++) {
             if (Markup.isSentinel(norm.charAt(j)) && !safeContext(norm, j)) {
                 return UNSAFE;

@@ -38,6 +38,8 @@ class TemplateTest {
         "{unknown}", "%player_name%", "{empty}", "{space}", "{lit}", "{weird}", "{fmt}", "{name}{name}",
         "%name%%amount%", "{}", "%%", "{name:short}", "\uFDD0", "\uE001", "\u00E9", "\uD83D\uDE00",
         "<bo", "<color:", "<c:", "<hover:show_text:'", "'>", "<click:run_command:\"/x ", "\">", "<!", "</",
+        "|", "{name|none}", "{empty|-}", "%empty|&c-%", "{amount:short|0}", "{unknown|?}", "%x|y%", "{x|}",
+        "{space|_}", "|z}", "|z%", "{a",
     };
 
     private static final String[][] VALUE_SETS = {

@@ -1,0 +1,33 @@
+# How every Rs plugin writes money and dates for players. Reloaded with /rslib reload.
+# Only what players read changes: stored and typed amounts are not affected.
+
+money:
+  # The symbol, with any space it needs: '$', ' €', 'CLP '.
+  symbol: '$'
+  # Where the symbol goes: before ($1,250.00) or after (1,250.00$).
+  symbol-position: before
+  # Decimals of a full amount (0 to 8), rounded half up: 2 writes 1250 as $1,250.00.
+  decimals: 2
+  # Between groups of three digits; '' writes 1250 as $1250.00.
+  thousands-separator: ','
+  # Before the decimals.
+  decimal-separator: '.'
+  # From this amount on money is abbreviated with the suffixes below, with at most two decimals
+  # rounded down: 1500000 is $1.5M. Smaller amounts are written in full, so a price to approve
+  # is exact. 0 never abbreviates.
+  abbreviate-from: 1000000
+  # Thousands, millions, billions, ... in that order.
+  suffixes: ['K', 'M', 'B', 'T', 'Qa', 'Qi']
+
+date:
+  # The language of month and day names (en, es, pt, ...). Times use the server's time zone.
+  locale: en
+  # The style used when none is named.
+  style: date
+  # Each style is a Java date pattern: dd day, MM month (MMM short name, MMMM full name),
+  # yyyy year, HH hour (0-23), mm minutes, ss seconds.
+  styles:
+    date: 'dd/MM/yyyy'
+    time: 'HH:mm'
+    date-time: 'dd/MM/yyyy HH:mm'
+    long: 'd MMMM yyyy'

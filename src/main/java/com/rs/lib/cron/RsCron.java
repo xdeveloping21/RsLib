@@ -3,16 +3,24 @@ package com.rs.lib.cron;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.bukkit.Bukkit;
+
 import com.rs.lib.Rs;
+import com.rs.lib.action.Requirement;
+import com.rs.lib.action.RequirementEngine;
 import com.rs.lib.scheduler.TaskHandle;
+import com.rs.lib.text.RsText;
 import com.rs.lib.yml.RsYml;
 
 /**
@@ -41,7 +49,22 @@ import com.rs.lib.yml.RsYml;
  *   runs anything late; it only stores the current time. Without {@code config(...)} in the
  *   spec there is nowhere to keep the mark: a warning, and the job runs without catching up.</li>
  *   <li>Jobs stop when the plugin is disabled.</li>
+ *   <li>Conditions, checked each time the job is due: {@code minPlayers(n)} and
+ *   {@code maxPlayers(n)} (players online), {@code requirements(lines)} (a requirement list as
+ *   {@link RequirementEngine} reads it, with PlaceholderAPI resolved for the server:
+ *   {@code "%server_tps% >= 18"}; a line written wrong never holds) and {@code condition(test)}
+ *   (the plugin's own test; one that throws is reported and does not hold). When one does not
+ *   hold the run is skipped, noted in the debug output, and the job waits for its next time; a
+ *   skipped run is not retried and counts as done for {@code catchUp}.</li>
  * </ul>
+ *
+ * <pre>
+ * rs().cron().create("envoy", "0 20 * * 5,6")
+ *         .minPlayers(5)
+ *         .requirements(List.of("%server_tps% &gt;= 18"))
+ *         .condition(() -&gt; !envoys.isRunning())
+ *         .schedule(envoys::start);
+ * </pre>
  */
 public final class RsCron {
 
@@ -66,6 +89,12 @@ public final class RsCron {
 
         /** The store of last runs, or null when the plugin has no config. */
         LastRuns lastRuns();
+
+        /** How many players are online. */
+        int onlinePlayers();
+
+        /** PlaceholderAPI for the server (no player); the text unchanged when it cannot resolve. */
+        String papi(String text);
     }
 
     /** Where catch-up jobs keep their last run. */
@@ -162,6 +191,10 @@ public final class RsCron {
         /** Null when the expression was invalid: nothing is scheduled. */
         private final CronExpr expr;
         private boolean catchUp;
+        private int minPlayers;
+        private int maxPlayers = Integer.MAX_VALUE;
+        private Requirement requirement = Requirement.ALWAYS;
+        private final List<BooleanSupplier> tests = new ArrayList<>(1);
 
         private Builder(String id, CronExpr expr) {
             this.id = id;
@@ -174,13 +207,43 @@ public final class RsCron {
             return this;
         }
 
+        /** Runs only with at least {@code players} online (0, the default, always). */
+        public Builder minPlayers(int players) {
+            this.minPlayers = Math.max(0, players);
+            return this;
+        }
+
+        /** Runs only with at most {@code players} online (no limit by default; a negative one means none). */
+        public Builder maxPlayers(int players) {
+            this.maxPlayers = players < 0 ? Integer.MAX_VALUE : players;
+            return this;
+        }
+
+        /**
+         * Runs only when every line holds, as {@link RequirementEngine} reads them, with
+         * PlaceholderAPI resolved for the server. A line written wrong is reported now and never
+         * holds. Null or empty: no requirement. Replaces earlier requirements of this builder.
+         */
+        public Builder requirements(List<String> lines) {
+            this.requirement = RequirementEngine.parse(lines,
+                    message -> host.logger().warning("Cron job '" + id + "': " + message));
+            return this;
+        }
+
+        /** Runs only when {@code test} answers true, asked on the main thread each time; adds to earlier tests. */
+        public Builder condition(BooleanSupplier test) {
+            tests.add(Objects.requireNonNull(test, "test"));
+            return this;
+        }
+
         /** Schedules the job, replacing one with the same id; does nothing for an invalid expression. */
         public void schedule(Runnable task) {
             Objects.requireNonNull(task, "task");
             if (expr == null) {
                 return;
             }
-            start(new Job(id, expr, task, catchUp));
+            start(new Job(id, expr, task, catchUp,
+                    new Conditions(minPlayers, maxPlayers, requirement, List.copyOf(tests))));
         }
     }
 
@@ -258,14 +321,50 @@ public final class RsCron {
                 store.put(job.id, now);
             }
         }
-        try {
-            job.run.run();
-        } catch (RuntimeException | LinkageError e) {
-            host.logger().log(Level.WARNING, "Cron job '" + job.id + "' failed", e);
+        String blocked = blocked(job);
+        if (blocked != null) {
+            host.debug(() -> "Cron job '" + job.id + "' skipped: " + blocked + ".");
+        } else {
+            try {
+                job.run.run();
+            } catch (RuntimeException | LinkageError e) {
+                host.logger().log(Level.WARNING, "Cron job '" + job.id + "' failed", e);
+            }
         }
         if (!job.stopped && jobs.get(job.id) == job) {
             plan(job, clock.getAsLong());
         }
+    }
+
+    /** Why {@code job} must not run now, or null when every condition holds. */
+    private String blocked(Job job) {
+        Conditions when = job.conditions;
+        if (when.minPlayers > 0 || when.maxPlayers < Integer.MAX_VALUE) {
+            int online = host.onlinePlayers();
+            if (online < when.minPlayers) {
+                return online + " players online, it needs at least " + when.minPlayers;
+            }
+            if (online > when.maxPlayers) {
+                return online + " players online, it allows at most " + when.maxPlayers;
+            }
+        }
+        if (when.requirement != Requirement.ALWAYS
+                && !when.requirement.test(null, operand -> RsText.applyFallbacks(host.papi(operand)))) {
+            return "its requirements do not hold (" + when.requirement + ")";
+        }
+        for (BooleanSupplier test : when.tests) {
+            boolean holds;
+            try {
+                holds = test.getAsBoolean();
+            } catch (RuntimeException | LinkageError e) {
+                host.logger().log(Level.WARNING, "A condition of cron job '" + job.id + "' failed; the run is skipped", e);
+                holds = false;
+            }
+            if (!holds) {
+                return "a condition of the plugin does not hold";
+            }
+        }
+        return null;
     }
 
     private LastRuns store() {
@@ -289,16 +388,18 @@ public final class RsCron {
         final CronExpr expr;
         final Runnable run;
         final boolean catchUp;
+        final Conditions conditions;
         /** When it runs next, in epoch milliseconds. */
         volatile long target;
         volatile TaskHandle task;
         volatile boolean stopped;
 
-        Job(String id, CronExpr expr, Runnable run, boolean catchUp) {
+        Job(String id, CronExpr expr, Runnable run, boolean catchUp, Conditions conditions) {
             this.id = id;
             this.expr = expr;
             this.run = run;
             this.catchUp = catchUp;
+            this.conditions = conditions;
         }
 
         void stop() {
@@ -308,6 +409,10 @@ public final class RsCron {
                 current.cancel();
             }
         }
+    }
+
+    /** What must hold when a job is due; the defaults always hold. */
+    record Conditions(int minPlayers, int maxPlayers, Requirement requirement, List<BooleanSupplier> tests) {
     }
 
     /** The real server. */
@@ -333,6 +438,16 @@ public final class RsCron {
         @Override
         public void debug(Supplier<String> message) {
             rs.debug().log("cron", message);
+        }
+
+        @Override
+        public int onlinePlayers() {
+            return Bukkit.getOnlinePlayers().size();
+        }
+
+        @Override
+        public String papi(String text) {
+            return rs.papi().apply(null, text);
         }
 
         @Override

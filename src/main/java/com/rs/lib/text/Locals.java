@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import com.rs.lib.Ph;
+import com.rs.lib.util.Formats;
 import com.rs.lib.util.NumberFormatter;
 
 /**
@@ -21,9 +22,16 @@ import com.rs.lib.util.NumberFormatter;
  * hides a later token.</p>
  *
  * <p>Format suggestions: when the whole token does not resolve and ends with {@code :raw},
- * {@code :short} or {@code :grouped} (any case), the key without the suffix is resolved and,
- * when its value is a number (an abbreviated {@code 1.5M} too), formatted again. A value that
- * is not a number, or whose number is not finite, is returned unchanged.</p>
+ * {@code :short}, {@code :grouped}, {@code :money} or {@code :date} (any case), the key
+ * without the suffix is resolved and, when its value is a number (an abbreviated {@code 1.5M}
+ * too), formatted again: {@code :money} and {@code :date} (epoch milliseconds) as RsLib's
+ * {@code formats.yml} says ({@link Formats}). A value that is not a number, or whose number is
+ * not finite, is returned unchanged.</p>
+ *
+ * <p>Fallbacks: when the whole token does not resolve and is {@code key|text} (see
+ * {@link Fallbacks}), the key, format included ({@code {amount:short|-}}), is resolved as
+ * above: an empty value gives {@code text}, a null one leaves the token intact for the next
+ * stage (PlaceholderAPI, or the render, which then shows {@code text}).</p>
  */
 final class Locals {
 
@@ -36,7 +44,7 @@ final class Locals {
         void value(String value);
     }
 
-    private static final String[] SUGGESTIONS = {":raw", ":short", ":grouped"};
+    private static final String[] SUGGESTIONS = {":raw", ":short", ":grouped", ":money", ":date"};
 
     private Locals() {
     }
@@ -120,6 +128,25 @@ final class Locals {
         if (value != null) {
             return value;
         }
+        int bar = Fallbacks.split(key);
+        if (bar > 0) {
+            String found = formatted(key.substring(0, bar), resolver);
+            if (found == null) {
+                return null;
+            }
+            return found.isEmpty() ? key.substring(bar + 1) : found;
+        }
+        return suggested(key, resolver);
+    }
+
+    /** The value of {@code key}, through its format suggestion when it has one; null when missing. */
+    private static String formatted(String key, Function<String, String> resolver) {
+        String value = resolver.apply(key);
+        return value != null ? value : suggested(key, resolver);
+    }
+
+    /** The value of {@code key} without its format suffix, formatted again; null when missing. */
+    private static String suggested(String key, Function<String, String> resolver) {
         for (String suffix : SUGGESTIONS) {
             int base = key.length() - suffix.length();
             if (base > 0 && key.regionMatches(true, base, suffix, 0, suffix.length())) {
@@ -143,6 +170,8 @@ final class Locals {
         return switch (suffix.toLowerCase(Locale.ROOT)) {
             case ":raw" -> BigDecimal.valueOf(number).stripTrailingZeros().toPlainString();
             case ":short" -> NumberFormatter.format(number);
+            case ":money" -> Formats.money(BigDecimal.valueOf(number));
+            case ":date" -> Formats.date((long) number);
             default -> NumberFormatter.formatComma(number);
         };
     }

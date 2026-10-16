@@ -76,6 +76,8 @@ final class Builtins {
         into.put("particle", new ParticleAction(engine::warnOnce, engine::noticeOnce));
         into.put("potion", new PotionAction(engine::warnOnce));
         into.put("remove-item", new RemoveItemAction(host, engine::warnOnce));
+        into.put("delay", new DelayAction());
+        into.put("firework", new FireworkAction(engine::warnOnce));
     }
 
     /** Releases the BungeeCord channel if {@code [connect]} opened it. */

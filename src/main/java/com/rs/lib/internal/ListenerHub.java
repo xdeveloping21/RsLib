@@ -13,6 +13,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.block.RsBlocks;
+import com.rs.lib.action.ActionEngine;
 import com.rs.lib.command.RsCommands;
 import com.rs.lib.cooldown.HotbarCooldowns;
 import com.rs.lib.db.PlayerDataCache;
@@ -60,6 +61,7 @@ public final class ListenerHub {
         pm.registerEvents(WorldGuardBridge.listener(), rslib);
         pm.registerEvents(HotbarCooldowns.joinListener(), rslib);
         pm.registerEvents(Rewards.sharedListener(), rslib);
+        pm.registerEvents(ActionEngine.sharedListener(), rslib);
     }
 
     private static final class Shared implements Listener {

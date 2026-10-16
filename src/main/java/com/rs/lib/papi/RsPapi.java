@@ -14,6 +14,8 @@ import java.util.logging.Level;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.text.RsText;
+
 /**
  * PlaceholderAPI for one plugin, safe when PlaceholderAPI is not installed.
  *
@@ -97,13 +99,26 @@ public final class RsPapi {
         return applyHere(viewer, lines);
     }
 
-    /** Resolves on the current thread. If an expansion throws, the text comes back unchanged. */
+    /**
+     * Resolves on the current thread. If an expansion throws, the text comes back unchanged.
+     *
+     * <p>{@code %name|text%} asks PlaceholderAPI for {@code %name%} alone and writes
+     * {@code text} when the answer is empty or the token itself (nobody resolved it); the rest of
+     * the line is resolved as usual. Without PlaceholderAPI such a token is left as written and
+     * the render shows {@code text} ({@link RsText#applyFallbacks}).</p>
+     */
     public String applyHere(Player viewer, String text) {
         if (text == null || text.indexOf('%') < 0 || !available()) {
             return text;
         }
         try {
-            return host.setPlaceholders(viewer, text);
+            String withFallbacks = RsText.resolveFallbacks(text, part -> part.indexOf('%') < 0 ? part
+                    : host.setPlaceholders(viewer, part), key -> {
+                        String token = '%' + key + '%';
+                        String value = host.setPlaceholders(viewer, token);
+                        return token.equals(value) ? null : value;
+                    });
+            return withFallbacks != null ? withFallbacks : host.setPlaceholders(viewer, text);
         } catch (LinkageError incompatible) {
             markBroken(incompatible);
             return text;
