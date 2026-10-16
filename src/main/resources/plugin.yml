@@ -56,9 +56,10 @@ permissions:
   rslib.admin.alts:
     description: Allows /rslib alts (accounts that joined from the same address).
     default: op
+  # Not given to players by default: grant it (to the default group, say) to let them open it.
   rslib.settings:
     description: Allows /rslib settings, the menu with your preferences in every plugin.
-    default: true
+    default: op
   rslib.chat.bypass:
     description: Reads every chat message and is read by everyone, whatever the plugins' chat rules say.
     default: false

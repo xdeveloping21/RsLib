@@ -214,9 +214,10 @@ public final class RsSpec {
 
         /**
          * Rewards kept for later ({@code rs().rewards()}): what does not fit with
-         * {@code OverflowPolicy.QUEUE} and rewards owed to players who are not online wait in
+         * {@code OverflowPolicy.QUEUE} (the default) and rewards owed to players who are not online wait in
          * the table {@code rslib_pending_rewards} and are handed over on join. Needs
-         * {@link #db()}. Giving rewards to online players works without it.
+         * {@link #db()}. Giving rewards to online players works without it: what does not fit
+         * is then dropped at their feet, with one warning in the console.
          */
         public Builder rewards() {
             this.rewards = true;

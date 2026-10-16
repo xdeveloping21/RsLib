@@ -237,8 +237,9 @@ public final class RsText {
      * Replaces local placeholders {@code %key%} and {@code {key}} in one pass. The last pair
      * with a key wins; literal pairs are encoded with {@link #literal}. Unresolved tokens stay
      * intact and values are not scanned again. {@code :raw}, {@code :short}, {@code :grouped},
-     * {@code :money} and {@code :date} reformat a numeric value when the whole token does not
-     * resolve. {@code {key|text}} gives {@code text} when the value of {@code key} is empty
+     * {@code :money}, {@code :date} and {@code :relative} reformat a numeric value when the whole
+     * token does not resolve ({@code :relative}: epoch milliseconds from now, {@code 3d ago}, in
+     * the language of the plugin rendering it). {@code {key|text}} gives {@code text} when the value of {@code key} is empty
      * (formats first: {@code {amount:short|-}}); a key without value leaves the token for the
      * next stage, see {@link #applyFallbacks}.
      */

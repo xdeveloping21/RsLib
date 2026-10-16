@@ -15,8 +15,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.rs.lib.Ph;
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
+import com.rs.lib.internal.LibMessages;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.util.PlayerNames;
 
@@ -30,7 +32,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
  * {@code /rslib logs <player|*> [plugin|*] [page]}: the audit log of every plugin, newest first,
  * {@value #PAGE_SIZE} entries a page, in chat or in the console. {@code *} as the player reads
  * everybody's entries; as the plugin, every plugin's. Everything an entry holds is shown as
- * plain text.
+ * plain text. The texts around it are in RsLib's language ({@link LibMessages}).
  */
 public final class AuditCommand {
 
@@ -46,7 +48,7 @@ public final class AuditCommand {
     /** Runs the subcommand; {@code args} are the words after {@code logs}. */
     public static void run(JavaPlugin rslib, CommandSender sender, String label, String[] args) {
         if (args.length < 1 || args.length > 3) {
-            sender.sendMessage("Usage: /" + label + " logs " + USAGE);
+            LibMessages.send(sender, "rslib.admin.logs.usage", Ph.literal("label", label));
             return;
         }
         String who = args[0];
@@ -55,7 +57,7 @@ public final class AuditCommand {
             Player online = Bukkit.getPlayerExact(who);
             Optional<UUID> id = online != null ? Optional.of(online.getUniqueId()) : PlayerNames.uuid(who);
             if (id.isEmpty()) {
-                sender.sendMessage("Player not found: " + who);
+                LibMessages.send(sender, "rslib.admin.logs.player-not-found", Ph.literal("player", who));
                 return;
             }
             player = id.get();
@@ -73,7 +75,7 @@ public final class AuditCommand {
             } else if (!second.equals(EVERYBODY) && !second.equalsIgnoreCase("all")) {
                 plugin = pluginNamed(second);
                 if (plugin == null) {
-                    sender.sendMessage("No plugin with an audit log is called " + second + ".");
+                    LibMessages.send(sender, "rslib.admin.logs.plugin-not-found", Ph.literal("plugin", second));
                     return;
                 }
             }
@@ -81,13 +83,13 @@ public final class AuditCommand {
         if (args.length == 3) {
             Integer number = pageNumber(args[2]);
             if (number == null) {
-                sender.sendMessage("The page must be a number from 1: " + args[2]);
+                LibMessages.send(sender, "rslib.admin.logs.bad-page", Ph.literal("page", args[2]));
                 return;
             }
             page = number;
         }
         AuditQuery query = AuditQuery.builder().player(player).plugin(plugin).page(page).pageSize(PAGE_SIZE).build();
-        String subject = player == null ? "everybody" : who;
+        String subject = player == null ? null : who;
         String next = "/" + label + " logs " + (player == null ? EVERYBODY : who) + " "
                 + (plugin == null ? EVERYBODY : plugin) + " " + (page + 1);
         String finalPlugin = plugin;
@@ -96,7 +98,7 @@ public final class AuditCommand {
             List<Component> lines;
             if (error != null) {
                 rslib.getLogger().log(Level.WARNING, "Could not read the audit logs", error);
-                lines = List.of(Component.text("Could not read the audit logs; see the console.", NamedTextColor.RED));
+                lines = List.of(LibMessages.render("rslib.admin.logs.read-failed"));
             } else {
                 lines = lines(result, subject, finalPlugin, next, ZoneId.systemDefault());
             }
@@ -126,29 +128,32 @@ public final class AuditCommand {
         return options.stream().filter(option -> option.toLowerCase(Locale.ROOT).startsWith(typed)).toList();
     }
 
-    /** The chat lines of {@code page}: a header, one line per entry and the next-page hint. */
+    /**
+     * The chat lines of {@code page}: a header, one line per entry and the next-page hint.
+     * {@code subject} is the player's name, null for everybody; {@code plugin} null is every plugin.
+     */
     static List<Component> lines(AuditPage page, String subject, String plugin, String nextCommand, ZoneId zone) {
         List<Component> lines = new ArrayList<>();
-        String where = plugin == null ? "every plugin" : plugin;
+        Ph who = Ph.literal("player", subject == null ? LibMessages.text("rslib.admin.logs.everybody") : subject);
+        Ph where = Ph.literal("plugin", plugin == null ? LibMessages.text("rslib.admin.logs.every-plugin") : plugin);
         if (page.total() == 0) {
-            lines.add(Component.text("No audit log entries for " + subject + " in " + where + ".", NamedTextColor.YELLOW));
+            lines.add(LibMessages.render("rslib.admin.logs.none", who, where));
             return lines;
         }
         if (page.entries().isEmpty()) {
-            lines.add(Component.text("Page " + page.page() + " is empty: there are " + page.pages() + " page(s).",
-                    NamedTextColor.YELLOW));
+            lines.add(LibMessages.render("rslib.admin.logs.empty-page", Ph.of("page", page.page()),
+                    Ph.of("pages", page.pages())));
             return lines;
         }
-        lines.add(Component.text("Audit log of " + subject + " in " + where + ": " + page.total() + " entries, page "
-                + page.page() + " of " + page.pages(), NamedTextColor.GOLD));
+        lines.add(LibMessages.render("rslib.admin.logs.header", who, where, Ph.of("total", page.total()),
+                Ph.of("page", page.page()), Ph.of("pages", page.pages())));
         for (AuditEntry entry : page.entries()) {
             lines.add(line(entry, zone));
         }
         if (page.page() < page.pages()) {
-            lines.add(Component.text("Next page: ", NamedTextColor.GRAY)
-                    .append(Component.text(nextCommand, NamedTextColor.YELLOW)
-                            .clickEvent(ClickEvent.runCommand(nextCommand))
-                            .hoverEvent(HoverEvent.showText(Component.text("Click to open")))));
+            lines.add(LibMessages.render("rslib.admin.logs.next-page", Ph.literal("command", nextCommand))
+                    .clickEvent(ClickEvent.runCommand(nextCommand))
+                    .hoverEvent(HoverEvent.showText(LibMessages.render("rslib.admin.logs.click-to-open"))));
         }
         return lines;
     }

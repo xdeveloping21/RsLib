@@ -98,7 +98,7 @@ interface SettingsHost {
         }
     }
 
-    /** RsLib's English messages, for plugins without a language module and for {@code /rslib settings}. */
+    /** RsLib's English messages, for plugins without a language module. */
     final class Defaults {
 
         private static final YamlConfiguration MESSAGES = load();

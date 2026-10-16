@@ -9,8 +9,14 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.BlockFadeEvent;
+import org.bukkit.event.block.BlockFormEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.block.BlockSpreadEvent;
+import org.bukkit.event.block.LeavesDecayEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -86,6 +92,59 @@ final class BlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBurn(BlockBurnEvent event) {
+        if (index.at(event.getBlock()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * An entity changing the block: an enderman taking it, a falling block landing on it (or the
+     * block itself starting to fall), a silverfish, a sheep eating it, a ravager or a wither.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEntityChange(EntityChangeBlockEvent event) {
+        if (index.at(event.getBlock()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    /** Water or lava flowing into the block (which would wash a torch or a button away). */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onFlow(BlockFromToEvent event) {
+        if (index.at(event.getToBlock()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    /** Ice or snow melting, coral dying, farmland drying, fire going out. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onFade(BlockFadeEvent event) {
+        if (index.at(event.getBlock()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * The block turning into another: water freezing, concrete powder setting, lava meeting water,
+     * frost walker or a snow golem's trail.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onForm(BlockFormEvent event) {
+        if (index.at(event.getBlock()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    /** Grass, mycelium, vines, fire or sculk spreading onto the block. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onSpread(BlockSpreadEvent event) {
+        if (index.at(event.getBlock()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onLeavesDecay(LeavesDecayEvent event) {
         if (index.at(event.getBlock()) != null) {
             event.setCancelled(true);
         }

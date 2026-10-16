@@ -33,6 +33,7 @@ import org.yaml.snakeyaml.nodes.Tag;
 
 import com.rs.lib.Ph;
 import com.rs.lib.text.RsText;
+import com.rs.lib.util.Formats;
 import com.rs.lib.yml.internal.YamlText;
 
 /**
@@ -428,11 +429,16 @@ public final class RsYml {
             return null;
         }
         String out = text;
-        if (!this.locals.isEmpty() && (out.indexOf('{') >= 0 || out.indexOf('%') >= 0)) {
-            out = RsText.applyLocals(out, this::local);
-        }
-        if (locals != null) {
-            out = RsText.applyLocals(out, locals);
+        Object previous = Formats.enterPlaceholderTexts(host.relativeTexts());
+        try {
+            if (!this.locals.isEmpty() && (out.indexOf('{') >= 0 || out.indexOf('%') >= 0)) {
+                out = RsText.applyLocals(out, this::local);
+            }
+            if (locals != null) {
+                out = RsText.applyLocals(out, locals);
+            }
+        } finally {
+            Formats.exitPlaceholderTexts(previous);
         }
         if (out.indexOf('%') >= 0 && host.isPrimaryThread()) {
             out = host.papi(viewer, out);
@@ -442,11 +448,21 @@ public final class RsYml {
 
     private String resolve(String key, String text, Player viewer, Ph[] phs) {
         String out = text;
-        if (!locals.isEmpty() && (out.indexOf('{') >= 0 || out.indexOf('%') >= 0)) {
-            out = RsText.applyLocals(out, this::local);
-        }
-        if (phs != null && phs.length > 0) {
-            out = RsText.applyLocals(out, phs);
+        boolean fileLocals = !locals.isEmpty() && (out.indexOf('{') >= 0 || out.indexOf('%') >= 0);
+        boolean given = phs != null && phs.length > 0;
+        if (fileLocals || given) {
+            // {key:relative} is written in the plugin's language.
+            Object previous = Formats.enterPlaceholderTexts(host.relativeTexts());
+            try {
+                if (fileLocals) {
+                    out = RsText.applyLocals(out, this::local);
+                }
+                if (given) {
+                    out = RsText.applyLocals(out, phs);
+                }
+            } finally {
+                Formats.exitPlaceholderTexts(previous);
+            }
         }
         if (out.indexOf('%') >= 0) {
             if (host.isPrimaryThread()) {

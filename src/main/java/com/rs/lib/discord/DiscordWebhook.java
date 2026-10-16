@@ -34,7 +34,9 @@ import com.rs.lib.Rs;
  *   text (a player's chat line, say) stay plain text. A plugin that wants a ping says so with
  *   {@link Message#allowUserPing}, {@link Message#allowRolePing} or
  *   {@link Message#allowEveryonePing}.</li>
- *   <li>Rate limits are respected: see {@link WebhookQueue}. Failures are reported once per
+ *   <li>Rate limits are respected, and a message that meets a Discord error (HTTP 5xx) or a
+ *   network failure is tried again 2, 4 and 8 seconds later, keeping the order of the messages
+ *   to that webhook: see {@link WebhookQueue}. Failures are reported once per
  *   webhook, and logs never show a webhook's token. A webhook that Discord says no longer
  *   exists (HTTP 404) or refuses the token of (HTTP 401) gets nothing more until the plugin is
  *   reloaded or {@link #resetDeadWebhooks()} is called.</li>

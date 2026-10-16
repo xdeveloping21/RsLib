@@ -36,6 +36,9 @@ import com.rs.lib.yml.internal.YamlText;
 final class LangLoader {
 
     private static final String SHARED_RESOURCE = "/rslib-messages_%s.yml";
+    /** The block of the shared messages that stays in RsLib ({@code rslib.admin}). */
+    private static final String OWN_BLOCK = "admin:";
+    private static final int OWN_BLOCK_INDENT = 2;
     private static final String LEGACY_BLOCK = "snlib:";
     private static final String SHARED_BLOCK = "rslib:";
 
@@ -271,13 +274,41 @@ final class LangLoader {
         }
     }
 
-    private static List<String> sharedLines(String code, Logger log) {
+    static List<String> sharedLines(String code, Logger log) {
         try (InputStream in = RsLang.class.getResourceAsStream(String.format(SHARED_RESOURCE, code))) {
-            return in == null ? null : YamlText.lines(YamlText.read(in));
+            return in == null ? null : withoutOwnBlock(YamlText.lines(YamlText.read(in)));
         } catch (IOException e) {
             log.log(Level.WARNING, "Could not read RsLib's shared messages (" + code + ")", e);
             return null;
         }
+    }
+
+    /**
+     * The shared lines without {@code rslib.admin} (and the comment right above it): RsLib's own
+     * answers to {@code /rslib}, which no plugin uses, so they are not copied into its files.
+     */
+    static List<String> withoutOwnBlock(List<String> lines) {
+        List<String> out = new ArrayList<>(lines.size());
+        boolean skipping = false;
+        for (String line : lines) {
+            String trimmed = line.strip();
+            int indent = line.length() - line.stripLeading().length();
+            if (skipping) {
+                if (trimmed.isEmpty() || indent > OWN_BLOCK_INDENT) {
+                    continue;
+                }
+                skipping = false;
+            }
+            if (indent == OWN_BLOCK_INDENT && trimmed.equals(OWN_BLOCK)) {
+                while (!out.isEmpty() && out.get(out.size() - 1).startsWith("  #")) {
+                    out.remove(out.size() - 1);
+                }
+                skipping = true;
+                continue;
+            }
+            out.add(line);
+        }
+        return out;
     }
 
     static YamlConfiguration parse(File file, Logger log) {

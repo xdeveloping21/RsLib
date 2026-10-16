@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -31,9 +33,14 @@ import java.util.logging.Logger;
  *   <li>HTTP 404 (the webhook was deleted) or 401 (its token is wrong): the address is dead.
  *   Its waiting messages are dropped, and so is everything sent to it later, with one warning;
  *   {@link #resetDead()} (called on every plugin reload) lets it be tried again.</li>
- *   <li>Any other failure (a status that is not 2xx, the network, a bad address) drops the
- *   message with one warning per webhook, then silence. Logs never show a webhook's token:
- *   its last path segment is replaced by {@code ***}.</li>
+ *   <li>HTTP 5xx, or the network (no connection, a timeout): Discord or the way to it is
+ *   having a bad moment, so the message is tried again up to {@value #MAX_RETRIES} more times,
+ *   {@code 2 s}, {@code 4 s} and {@code 8 s} later. While it waits, later messages to the same
+ *   webhook wait behind it (their order is kept) and the other webhooks go on. A message that
+ *   still fails is dropped with one warning per webhook.</li>
+ *   <li>Any other failure (another status that is not 2xx, a bad address) drops the message
+ *   with one warning per webhook, then silence. Logs never show a webhook's token: its last
+ *   path segment is replaced by {@code ***}.</li>
  *   <li>At most {@value #MAX_QUEUED} messages wait; more are dropped with one warning.</li>
  * </ul>
  */
@@ -47,17 +54,31 @@ final class WebhookQueue {
     private static final long IDLE_SECONDS = 30L;
     /** How long before the end of {@link #drain}'s budget the worker stops starting new sends. */
     private static final long DRAIN_GRACE_MILLIS = 250L;
+    /** Times a message that met a 5xx or a network failure is tried again before it is dropped. */
+    static final int MAX_RETRIES = 3;
+    /** The wait before the first of those tries; each next one waits twice as long (2, 4, 8 s). */
+    static final long RETRY_BASE_NANOS = TimeUnit.SECONDS.toNanos(2);
 
-    /** One message waiting to be sent. */
-    record Pending(String url, String json) {
+    /** One message waiting to be sent, and how many times it already failed (5xx, network). */
+    record Pending(String url, String json, int failures) {
+
+        Pending(String url, String json) {
+            this(url, json, 0);
+        }
+
+        Pending failedOnce() {
+            return new Pending(url, json, failures + 1);
+        }
     }
 
-    enum Outcome { SENT, RETRY, DROPPED, INTERRUPTED }
+    /** RETRY: back in front after a 429. BACKOFF: back in front, its webhook waits (5xx, network). */
+    enum Outcome { SENT, RETRY, BACKOFF, DROPPED, INTERRUPTED }
 
     private final Logger logger;
     private final String owner;
     private final Supplier<WebhookTransport> transports;
     private final LongSupplier clock;
+    private final long retryBaseNanos;
     private final Object lock = new Object();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
     /** Webhook addresses that answered 404 or 401, exactly as the plugin gave them. */
@@ -77,16 +98,32 @@ final class WebhookQueue {
     private boolean overflowWarned;
     /** Guarded by {@link #lock}: the message being sent, out of the queue. */
     private Pending inFlight;
+    /**
+     * Guarded by {@link #lock}: webhooks waiting after a 5xx or a network failure, with the clock
+     * value before which nothing more is sent to them.
+     */
+    private final Map<String, Long> backoff = new HashMap<>();
+    /** Guarded by {@link #lock}: the pump is parked until a webhook's backoff ends. */
+    private boolean parkedOnBackoff;
+    /** Guarded by {@link #lock}: bumped on every schedule, so a superseded pump does nothing. */
+    private long pumpEpoch;
     /** Clock value before which nothing is sent (rate limit). */
     private volatile long notBefore;
     /** Created on the worker thread, closed by {@link #drain}. */
     private volatile WebhookTransport transport;
 
     WebhookQueue(Logger logger, String owner, Supplier<WebhookTransport> transports, LongSupplier clock) {
+        this(logger, owner, transports, clock, RETRY_BASE_NANOS);
+    }
+
+    /** {@code retryBaseNanos}: the first wait after a 5xx or a network failure (tests shorten it). */
+    WebhookQueue(Logger logger, String owner, Supplier<WebhookTransport> transports, LongSupplier clock,
+            long retryBaseNanos) {
         this.logger = logger;
         this.owner = owner;
         this.transports = transports;
         this.clock = clock;
+        this.retryBaseNanos = retryBaseNanos;
         this.notBefore = clock.getAsLong();
     }
 
@@ -114,9 +151,13 @@ final class WebhookQueue {
             }
             overflowWarned = false;
             queue.addLast(new Pending(url, json));
+            long now = clock.getAsLong();
             if (!pumping) {
                 pumping = true;
-                schedulePump(Math.max(0L, notBefore - clock.getAsLong()));
+                schedulePump(Math.max(0L, notBefore - now));
+            } else if (parkedOnBackoff && backoffLeft(url, now) <= 0) {
+                // The pump sleeps for another webhook's backoff; this one need not wait for it.
+                schedulePump(Math.max(0L, notBefore - now));
             }
         }
     }
@@ -134,7 +175,8 @@ final class WebhookQueue {
     }
 
     /**
-     * Sends what is still queued within {@code budget}, waiting a rate limit only when it fits,
+     * Sends what is still queued within {@code budget}, waiting a rate limit or a webhook's
+     * backoff only when it fits,
      * then stops the worker and the HTTP client. What is left is counted in one warning. The
      * sending itself stays on the worker thread; the caller only waits. Later messages are
      * dropped.
@@ -192,51 +234,125 @@ final class WebhookQueue {
 
     // ------------------------------------------------------------------ worker
 
-    /** Caller holds the lock. */
+    /**
+     * Schedules the pump; one scheduled earlier and not started yet does nothing when it runs (the
+     * worker has one thread, so two pumps never overlap). Caller holds the lock.
+     */
     private void schedulePump(long delayNanos) {
         if (executor == null) {
             executor = newWorker(owner);
         }
-        scheduled = executor.schedule(this::pump, delayNanos, TimeUnit.NANOSECONDS);
+        if (scheduled != null) {
+            scheduled.cancel(false);
+        }
+        long epoch = ++pumpEpoch;
+        parkedOnBackoff = false;
+        scheduled = executor.schedule(() -> pump(epoch), delayNanos, TimeUnit.NANOSECONDS);
     }
 
-    /** Sends in order until the queue is empty or a rate limit says wait; on the worker. */
-    private void pump() {
+    /** Sends in order until the queue is empty or a wait is due; on the worker. */
+    private void pump(long epoch) {
         while (true) {
             Pending next;
             synchronized (lock) {
-                next = closed ? null : queue.peekFirst();
-                if (next == null) {
+                if (epoch != pumpEpoch) {
+                    return;
+                }
+                if (closed || queue.isEmpty()) {
                     pumping = false;
                     return;
                 }
-                long wait = notBefore - clock.getAsLong();
+                long now = clock.getAsLong();
+                long wait = readyIn(now);
                 if (wait > 0) {
-                    scheduled = executor.schedule(this::pump, wait, TimeUnit.NANOSECONDS);
+                    boolean onBackoff = notBefore - now < wait;
+                    schedulePump(wait);
+                    parkedOnBackoff = onBackoff;
                     return;
                 }
-                take();
+                next = take(now);
             }
             if (!settle(next, deliver(next, REQUEST_TIMEOUT))) {
                 synchronized (lock) {
-                    pumping = false;
+                    if (epoch == pumpEpoch) {
+                        pumping = false;
+                    }
                 }
                 return;
             }
         }
     }
 
-    /** Takes the head as the message in flight. Caller holds the lock. */
-    private void take() {
-        inFlight = queue.pollFirst();
+    /**
+     * 0 when a queued message may be sent now, otherwise the wait until one may: the rate limit
+     * holds them all, a webhook's backoff only its own. Caller holds the lock; the queue is not empty.
+     */
+    private long readyIn(long now) {
+        long global = notBefore - now;
+        if (global > 0) {
+            return global;
+        }
+        if (backoff.isEmpty()) {
+            return 0L;
+        }
+        long soonest = Long.MAX_VALUE;
+        for (Pending each : queue) {
+            long left = backoffLeft(each.url(), now);
+            if (left <= 0) {
+                return 0L;
+            }
+            soonest = Math.min(soonest, left);
+        }
+        return soonest;
     }
 
-    /** Ends the message in flight: back to the front unless sent or dropped. False when interrupted. */
+    /** Nanoseconds left of {@code url}'s backoff (0 or less: none); an ended one is forgotten. Caller holds the lock. */
+    private long backoffLeft(String url, long now) {
+        Long until = backoff.get(url);
+        if (until == null) {
+            return 0L;
+        }
+        long left = until - now;
+        if (left <= 0) {
+            backoff.remove(url);
+        }
+        return left;
+    }
+
+    /**
+     * Takes the first message whose webhook is not backing off as the message in flight. It is
+     * the oldest one of its webhook, so each webhook's order is kept. Caller holds the lock and
+     * {@link #readyIn} said 0.
+     */
+    private Pending take(long now) {
+        if (backoff.isEmpty()) {
+            inFlight = queue.pollFirst();
+            return inFlight;
+        }
+        for (var it = queue.iterator(); it.hasNext(); ) {
+            Pending each = it.next();
+            if (backoffLeft(each.url(), now) <= 0) {
+                it.remove();
+                inFlight = each;
+                return each;
+            }
+        }
+        inFlight = null;
+        return null;
+    }
+
+    /**
+     * Ends the message in flight: back to the front unless sent or dropped (after a 5xx or a
+     * network failure, counting that failure). False when interrupted.
+     */
     private boolean settle(Pending message, Outcome outcome) {
         synchronized (lock) {
             inFlight = null;
-            if (outcome == Outcome.RETRY || outcome == Outcome.INTERRUPTED) {
-                queue.addFirst(message);
+            switch (outcome) {
+                case RETRY, INTERRUPTED -> queue.addFirst(message);
+                case BACKOFF -> queue.addFirst(message.failedOnce());
+                default -> {
+                }
             }
         }
         return outcome != Outcome.INTERRUPTED;
@@ -246,14 +362,16 @@ final class WebhookQueue {
     private void drainUntil(long deadline) {
         while (true) {
             Pending next;
+            long now;
+            long wait;
             synchronized (lock) {
-                next = queue.peekFirst();
+                if (queue.isEmpty()) {
+                    return;
+                }
+                now = clock.getAsLong();
+                wait = readyIn(now);
+                next = wait > 0 || deadline - now <= 0 ? null : take(now);
             }
-            if (next == null) {
-                return;
-            }
-            long now = clock.getAsLong();
-            long wait = notBefore - now;
             if (wait > 0) {
                 if (now + wait >= deadline) {
                     return;
@@ -267,11 +385,8 @@ final class WebhookQueue {
                 continue;
             }
             long left = deadline - now;
-            if (left <= 0) {
+            if (next == null) {
                 return;
-            }
-            synchronized (lock) {
-                take();
             }
             if (!settle(next, deliver(next, Duration.ofNanos(Math.min(left, REQUEST_TIMEOUT.toNanos()))))) {
                 return;
@@ -290,8 +405,8 @@ final class WebhookQueue {
         } catch (IOException | RuntimeException failed) {
             String why = failed.getClass().getSimpleName()
                     + (failed.getMessage() == null ? "" : ": " + scrub(failed.getMessage(), message.url()));
-            warnEndpoint(message.url(), why);
-            return Outcome.DROPPED;
+            // A bad address (IllegalArgumentException) will not get better; the network may.
+            return failed instanceof IOException ? backOff(message, why) : dropped(message.url(), why);
         }
         long now = clock.getAsLong();
         if (reply.status() == 404 || reply.status() == 401) {
@@ -308,7 +423,32 @@ final class WebhookQueue {
             }
             return Outcome.SENT;
         }
-        warnEndpoint(message.url(), "HTTP " + reply.status());
+        if (reply.status() >= 500 && reply.status() < 600) {
+            return backOff(message, "HTTP " + reply.status());
+        }
+        return dropped(message.url(), "HTTP " + reply.status());
+    }
+
+    /**
+     * After a 5xx or a network failure: the message waits {@code 2 s, 4 s, 8 s} (with the default
+     * base) while its webhook gets nothing, or is dropped once its tries are used up.
+     */
+    private Outcome backOff(Pending message, String why) {
+        if (message.failures() >= MAX_RETRIES) {
+            String shown = redact(message.url());
+            warnOnce(shown, "Discord webhook " + shown + " failed (" + why + ") " + (MAX_RETRIES + 1)
+                    + " times in a row; the message was dropped. This is reported once.");
+            return Outcome.DROPPED;
+        }
+        long wait = retryBaseNanos << message.failures();
+        synchronized (lock) {
+            backoff.put(message.url(), clock.getAsLong() + wait);
+        }
+        return Outcome.BACKOFF;
+    }
+
+    private Outcome dropped(String url, String why) {
+        warnEndpoint(url, why);
         return Outcome.DROPPED;
     }
 
@@ -340,6 +480,7 @@ final class WebhookQueue {
         }
         int dropped = 0;
         synchronized (lock) {
+            backoff.remove(url);
             for (var it = queue.iterator(); it.hasNext(); ) {
                 if (it.next().url().equals(url)) {
                     it.remove();

@@ -21,6 +21,8 @@ import com.rs.lib.Rs;
 import com.rs.lib.papi.RsPapi;
 import com.rs.lib.scheduler.TaskHandle;
 import com.rs.lib.text.RsText;
+import com.rs.lib.util.Formats;
+import com.rs.lib.util.RsFormats;
 import com.rs.lib.yml.RsYml;
 import com.rs.lib.yml.internal.ResourceFolders;
 import com.rs.lib.yml.internal.YamlText;
@@ -63,6 +65,8 @@ public final class RsLang {
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
     private final LangLoader loader;
     private volatile Catalog catalog = Catalog.EMPTY;
+    /** The words of {@code {key:relative}} in this plugin's language, asked only when one is met. */
+    private final Supplier<Formats.RelativeTexts> relativeTexts = () -> RsFormats.texts(this::rawOrNull);
 
     public RsLang(Rs rs, RsYml config) {
         this.rs = rs;
@@ -138,7 +142,15 @@ public final class RsLang {
         if (entry == null) {
             return missing(key);
         }
-        return entry.lines.isEmpty() ? "" : RsText.colorLegacy(RsText.applyLocals(entry.lines.get(0).raw, phs));
+        if (entry.lines.isEmpty()) {
+            return "";
+        }
+        Object previous = Formats.enterPlaceholderTexts(relativeTexts);
+        try {
+            return RsText.colorLegacy(RsText.applyLocals(entry.lines.get(0).raw, phs));
+        } finally {
+            Formats.exitPlaceholderTexts(previous);
+        }
     }
 
     /** Every line, rendered, without the prefix. */
@@ -224,8 +236,15 @@ public final class RsLang {
         }
         TitleParts parts = entry.lines.get(0).title;
         UnaryOperator<String> resolver = papiFor(target, false);
-        Component title = parts.title.render(resolver, phs);
-        Component subtitle = parts.subtitle == null ? Component.empty() : parts.subtitle.render(resolver, phs);
+        Component title;
+        Component subtitle;
+        Object previous = Formats.enterPlaceholderTexts(relativeTexts);
+        try {
+            title = parts.title.render(resolver, phs);
+            subtitle = parts.subtitle == null ? Component.empty() : parts.subtitle.render(resolver, phs);
+        } finally {
+            Formats.exitPlaceholderTexts(previous);
+        }
         target.showTitle(Title.title(title, subtitle, parts.times));
     }
 
@@ -317,7 +336,17 @@ public final class RsLang {
         return null;
     }
 
+    /** The lines of {@code key}; {@code {key:relative}} placeholders are written in this plugin's language. */
     private List<Component> render(String key, Player viewer, boolean here, boolean withPrefix, Ph... phs) {
+        Object previous = Formats.enterPlaceholderTexts(relativeTexts);
+        try {
+            return renderLines(key, viewer, here, withPrefix, phs);
+        } finally {
+            Formats.exitPlaceholderTexts(previous);
+        }
+    }
+
+    private List<Component> renderLines(String key, Player viewer, boolean here, boolean withPrefix, Ph... phs) {
         Entry entry = lookup(key);
         if (entry == null) {
             return List.of(Component.text(missing(key)));

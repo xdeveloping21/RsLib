@@ -51,9 +51,10 @@ import com.rs.lib.yml.RsYml;
  *
  * <h2>Delivering</h2>
  * <p>{@link #deliver(Player, ResolvedRewards, OverflowPolicy)} hands the won rewards over on
- * the player's thread. Items that do not fit follow the {@link OverflowPolicy}: dropped at the
- * feet (the default), kept in the database, or not given at all; a reward never loses part of
- * its items. Money goes through {@code rs().economy()}, so the report is a future: it
+ * the player's thread. Items that do not fit follow the {@link OverflowPolicy}: kept in the
+ * database (the default; dropped at the feet, with one warning in the console, when the
+ * plugin keeps no rewards), dropped at the feet, or not given at all; a reward never loses
+ * part of its items. Money goes through {@code rs().economy()}, so the report is a future: it
  * completes, never exceptionally, once every outcome is known, on the player's thread.</p>
  *
  * <h2>Kept for later</h2>
@@ -291,9 +292,12 @@ public final class Rewards {
 
     // ------------------------------------------------------------------ delivering
 
-    /** Decides and delivers {@code list} for {@code player}, dropping what does not fit. */
+    /**
+     * Decides and delivers {@code list} for {@code player}, keeping what does not fit for later
+     * ({@link OverflowPolicy#QUEUE}; dropped at the feet when the plugin keeps no rewards).
+     */
     public CompletableFuture<RewardReport> give(Player player, RewardList list, Ph... phs) {
-        return give(player, list, OverflowPolicy.DROP, phs);
+        return give(player, list, OverflowPolicy.QUEUE, phs);
     }
 
     /** {@link #resolve(Player, RewardList, Ph...)} and then {@link #deliver(Player, ResolvedRewards, OverflowPolicy)}. */
@@ -302,9 +306,12 @@ public final class Rewards {
         return deliver(player, resolve(player, list, phs), overflow);
     }
 
-    /** {@link #deliver(Player, ResolvedRewards, OverflowPolicy)} dropping what does not fit. */
+    /**
+     * {@link #deliver(Player, ResolvedRewards, OverflowPolicy)} keeping what does not fit for
+     * later ({@link OverflowPolicy#QUEUE}; dropped at the feet when the plugin keeps no rewards).
+     */
     public CompletableFuture<RewardReport> deliver(Player player, ResolvedRewards resolved) {
-        return deliver(player, resolved, OverflowPolicy.DROP);
+        return deliver(player, resolved, OverflowPolicy.QUEUE);
     }
 
     /**

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -16,6 +17,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
 
+import com.rs.lib.Ph;
 import com.rs.lib.Rs;
 import com.rs.lib.RsLib;
 import com.rs.lib.db.RsDb;
@@ -24,11 +26,14 @@ import com.rs.lib.db.TransferRefused;
 import com.rs.lib.db.TransferReport;
 import com.rs.lib.scheduler.RsScheduler;
 
+import net.kyori.adventure.text.Component;
+
 /**
  * {@code /rslib db export <plugin>} and {@code /rslib db import <plugin> <file> [--force]}:
  * a plugin's database written to a file in its folder, or read back into the database it is
  * configured with now (from SQLite to MySQL, for instance). The work runs on the plugin's
- * database threads; progress and the result come back to the sender on the main thread.
+ * database threads; progress and the result come back to the sender on the main thread, in
+ * RsLib's language ({@link LibMessages}). What the sender typed is shown as it is.
  */
 public final class DbAdmin {
 
@@ -48,55 +53,56 @@ public final class DbAdmin {
 
     /** Runs {@code /<label> db ...}; {@code args[0]} is "db". */
     public void run(CommandSender sender, String label, String[] args) {
+        Ph labelPh = Ph.literal("label", label);
         if (args.length < 3) {
-            sender.sendMessage("Usage: /" + label + " " + USAGE);
+            LibMessages.send(sender, "rslib.admin.db.usage", labelPh);
             return;
         }
         String action = args[1].toLowerCase(Locale.ROOT);
         Rs rs = context(args[2]);
         RsDb db = rs == null ? null : rs.dbOrNull();
         if (db == null) {
-            sender.sendMessage("Plugin " + args[2] + " has no RsLib database.");
+            LibMessages.send(sender, "rslib.admin.db.no-database", Ph.literal("plugin", args[2]));
             return;
         }
         String plugin = rs.plugin().getName();
+        Ph pluginPh = Ph.literal("plugin", plugin);
+        Ph database = Ph.literal("database", db.config());
         Path folder = rs.plugin().getDataFolder().toPath().toAbsolutePath().normalize();
         switch (action) {
             case "export" -> {
                 if (args.length != 3) {
-                    sender.sendMessage("Usage: /" + label + " db export <plugin>");
+                    LibMessages.send(sender, "rslib.admin.db.usage-export", labelPh);
                     return;
                 }
                 if (!claim(sender, plugin)) {
                     return;
                 }
-                sender.sendMessage("Exporting the database of " + plugin + " (" + db.config() + ")...");
-                finish(sender, plugin, "Export of " + plugin, db.exportTo(folder, progress(sender)),
-                        report -> "Export of " + plugin + " done: " + summary(report) + ". File: plugins/" + plugin
-                                + "/" + report.file().getFileName());
+                LibMessages.send(sender, "rslib.admin.db.exporting", pluginPh, database);
+                finish(sender, plugin, "export", db.exportTo(folder, progress(sender)),
+                        report -> LibMessages.render("rslib.admin.db.exported", summary(report, pluginPh,
+                                Ph.literal("file", report.file().getFileName()))));
             }
             case "import" -> {
                 boolean force = args.length == 5 && args[4].equalsIgnoreCase(FORCE);
                 if (args.length < 4 || args.length > 5 || args.length == 5 && !force) {
-                    sender.sendMessage("Usage: /" + label + " db import <plugin> <file> [" + FORCE + "]");
+                    LibMessages.send(sender, "rslib.admin.db.usage-import", labelPh);
                     return;
                 }
                 Path file = folder.resolve(args[3]).normalize();
                 if (!file.startsWith(folder) || !Files.isRegularFile(file)) {
-                    sender.sendMessage("There is no file " + args[3] + " in plugins/" + plugin + "/.");
+                    LibMessages.send(sender, "rslib.admin.db.no-file", Ph.literal("file", args[3]), pluginPh);
                     return;
                 }
                 if (!claim(sender, plugin)) {
                     return;
                 }
-                sender.sendMessage("Importing " + file.getFileName() + " into the database of " + plugin + " ("
-                        + db.config() + ")" + (force ? " with " + FORCE + " (rows with the same key are overwritten)"
-                        : "") + "...");
-                finish(sender, plugin, "Import into " + plugin, db.importFrom(file, force, progress(sender)),
-                        report -> "Import into " + plugin + " done: " + summary(report) + ". Restart the server so "
-                                + plugin + " loads the imported data.");
+                LibMessages.send(sender, force ? "rslib.admin.db.importing-force" : "rslib.admin.db.importing",
+                        Ph.literal("file", file.getFileName()), pluginPh, database);
+                finish(sender, plugin, "import", db.importFrom(file, force, progress(sender)),
+                        report -> LibMessages.render("rslib.admin.db.imported", summary(report, pluginPh)));
             }
-            default -> sender.sendMessage("Usage: /" + label + " " + USAGE);
+            default -> LibMessages.send(sender, "rslib.admin.db.usage", labelPh);
         }
     }
 
@@ -150,16 +156,18 @@ public final class DbAdmin {
         if (running.add(plugin)) {
             return true;
         }
-        sender.sendMessage("A database export or import of " + plugin + " is already running.");
+        LibMessages.send(sender, "rslib.admin.db.running", Ph.literal("plugin", plugin));
         return false;
     }
 
     private TransferReport.Progress progress(CommandSender sender) {
-        return (table, rows) -> tell(sender, "- " + table + ": " + rows + " rows");
+        return (table, rows) -> tell(sender, LibMessages.render("rslib.admin.db.progress", Ph.literal("table", table),
+                Ph.of("rows", rows)));
     }
 
+    /** {@code what} is {@code export} or {@code import}: the {@code -refused} and {@code -failed} messages. */
     private void finish(CommandSender sender, String plugin, String what, RsFuture<TransferReport> future,
-                        Function<TransferReport, String> done) {
+                        Function<TransferReport, Component> done) {
         future.toCompletableFuture().whenComplete((report, error) -> {
             running.remove(plugin);
             if (error == null) {
@@ -171,15 +179,21 @@ public final class DbAdmin {
                 cause = cause.getCause();
             }
             String reason = cause.getMessage() == null ? cause.toString() : cause.getMessage();
-            tell(sender, what + (cause instanceof TransferRefused ? " refused: " : " failed: ") + reason);
+            tell(sender, LibMessages.render("rslib.admin.db." + what + (cause instanceof TransferRefused ? "-refused"
+                    : "-failed"), Ph.literal("plugin", plugin), Ph.literal("reason", reason)));
         });
     }
 
-    static String summary(TransferReport report) {
-        return report.tables().size() + " tables, " + report.rows() + " rows in " + report.millis() + " ms";
+    /** The counts of {@code report} ({@code {tables}}, {@code {rows}}, {@code {millis}}) after {@code more}. */
+    static Ph[] summary(TransferReport report, Ph... more) {
+        Ph[] out = Arrays.copyOf(more, more.length + 3);
+        out[more.length] = Ph.of("tables", report.tables().size());
+        out[more.length + 1] = Ph.of("rows", report.rows());
+        out[more.length + 2] = Ph.of("millis", report.millis());
+        return out;
     }
 
-    private void tell(CommandSender sender, String message) {
+    private void tell(CommandSender sender, Component message) {
         try {
             scheduler.sync(() -> sender.sendMessage(message));
         } catch (RuntimeException disabled) {

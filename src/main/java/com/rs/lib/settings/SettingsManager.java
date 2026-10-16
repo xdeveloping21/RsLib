@@ -23,6 +23,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 
 import com.rs.lib.Rs;
+import com.rs.lib.internal.LibMessages;
 
 /**
  * Player preferences of one plugin ({@code rs().settings()}), shown together with every other
@@ -98,9 +99,12 @@ public final class SettingsManager {
         return SHARED;
     }
 
-    /** Opens the menu with every plugin's settings, in RsLib's English texts ({@code /rslib settings}). */
+    /**
+     * Opens the menu with every plugin's settings in RsLib's own language ({@code lang} in its
+     * config.yml): {@code /rslib settings}.
+     */
     public static void openCommon(Player player) {
-        SettingsMenu.open(Objects.requireNonNull(player, "player"), SettingsHost.Defaults::get);
+        SettingsMenu.open(Objects.requireNonNull(player, "player"), LibMessages::text);
     }
 
     /** Closes every open settings menu; RsLib calls it when it stops. */

@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -35,7 +36,9 @@ import java.util.logging.Logger;
  *       configured locale and the server's time zone.</li>
  *   <li>{@link #relative}: {@code 3d ago} / {@code in 2h} with the largest whole unit (days,
  *       hours, minutes, seconds; rounded down), {@code now} under one second. The words come
- *       from a {@link RelativeTexts}; a plugin's own language is {@code rs().formats()}.</li>
+ *       from a {@link RelativeTexts}; a plugin's own language is {@code rs().formats()}. In a
+ *       text, {@code {key:relative}} writes the epoch milliseconds of {@code key} so, in the
+ *       language of the plugin rendering it ({@link #placeholderTexts}).</li>
  *   <li>{@link #progress}: a fraction as a percentage, rounded down, so 99.96% never reads 100%.</li>
  * </ul>
  *
@@ -56,6 +59,10 @@ public final class Formats {
     private static final Set<String> WARNED_STYLES = ConcurrentHashMap.newKeySet();
 
     private static volatile Compiled current = new Compiled(Settings.DEFAULTS);
+    /** The words of {@code :relative} for the render running on this thread (its plugin's language). */
+    private static final ThreadLocal<Supplier<RelativeTexts>> RENDERING = new ThreadLocal<>();
+    /** The words of {@code :relative} when no render says otherwise: RsLib's own language. */
+    private static volatile Supplier<RelativeTexts> fallbackTexts = () -> RelativeTexts.ENGLISH;
 
     private Formats() {
     }
@@ -423,6 +430,58 @@ public final class Formats {
         }
         String time = unit.replace("{amount}", Long.toString(amount));
         return (gap < 0 ? t.past() : t.future()).replace("{time}", time);
+    }
+
+    // ------------------------------------------------------------------ relative times in placeholders
+
+    /**
+     * The words a {@code {key:relative}} placeholder is written with on this thread now: those of
+     * the plugin whose text is being rendered ({@link #enterPlaceholderTexts}), else RsLib's own
+     * language ({@code lang} in its config.yml), else English.
+     */
+    public static RelativeTexts placeholderTexts() {
+        Supplier<RelativeTexts> rendering = RENDERING.get();
+        RelativeTexts texts = rendering == null ? null : rendering.get();
+        if (texts == null) {
+            texts = fallbackTexts.get();
+        }
+        return texts == null ? RelativeTexts.ENGLISH : texts;
+    }
+
+    /**
+     * Makes {@code texts} the words of {@code :relative} on this thread while a plugin renders
+     * one of its texts; it is asked only when such a placeholder is met, and may answer null
+     * (RsLib's own language then). Always give the returned value back to
+     * {@link #exitPlaceholderTexts} in a {@code finally}:
+     *
+     * <pre>
+     * Object previous = Formats.enterPlaceholderTexts(texts);
+     * try {
+     *     ... render ...
+     * } finally {
+     *     Formats.exitPlaceholderTexts(previous);
+     * }
+     * </pre>
+     */
+    public static Object enterPlaceholderTexts(Supplier<RelativeTexts> texts) {
+        Supplier<RelativeTexts> previous = RENDERING.get();
+        RENDERING.set(texts);
+        return previous;
+    }
+
+    /** Puts back what {@link #enterPlaceholderTexts} returned. */
+    @SuppressWarnings("unchecked")
+    public static void exitPlaceholderTexts(Object previous) {
+        if (previous == null) {
+            RENDERING.remove();
+        } else {
+            RENDERING.set((Supplier<RelativeTexts>) previous);
+        }
+    }
+
+    /** The words of {@code :relative} outside any plugin's render (RsLib sets its own language); null is English. */
+    public static void fallbackPlaceholderTexts(Supplier<RelativeTexts> texts) {
+        fallbackTexts = texts == null ? () -> RelativeTexts.ENGLISH : texts;
     }
 
     // ------------------------------------------------------------------ progress

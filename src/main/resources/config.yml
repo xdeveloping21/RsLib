@@ -1,5 +1,11 @@
 # RsLib settings.
 
+# Language of RsLib's own texts: en (English) or es (Spanish). It is used for the answers of
+# /rslib settings, logs, db and alts, the /rslib settings menu, and relative times
+# ({key:relative}, "3d ago" / "hace 3 d") in texts that no plugin language covers. Each plugin
+# keeps its own language. Applied again by /rslib reload.
+lang: en
+
 # Adds to the YAML files of every plugin the keys a new version brings (with their comments,
 # keeping your values). false: nothing is added, the missing keys are only reported in the
 # console. This file is always updated.
@@ -32,13 +38,14 @@ regions:
   # by packet, a vehicle). 20 ticks are one second. Clamped to 1-200.
   check-interval-ticks: 5
 
-# Alt-account detection (/rslib alts <player>, and for plugins rs().accounts()). When a player
-# joins, RsLib stores a salted SHA-256 hash of their IP address, never the address itself, with
-# their UUID, name and the time, in its own database: plugins/RsLib/database.db (SQLite). The
-# salt is created once in plugins/RsLib/accounts-salt.key: keep it private and do not delete it,
-# or the addresses recorded so far stop matching.
+# Alt-account detection (/rslib alts <player>, and for plugins rs().accounts()), on by default.
+# When a player joins, RsLib stores a salted SHA-256 hash of their IP address, never the address
+# itself, with their UUID, name and the time, in its own database: plugins/RsLib/database.db
+# (SQLite). The salt is created once in plugins/RsLib/accounts-salt.key: keep it private and do
+# not delete it, or the addresses recorded so far stop matching.
 accounts:
-  # false: nothing is recorded, and /rslib alts and plugins are told that detection is off.
+  # true (the default): every join is recorded as described above. false: nothing is recorded,
+  # and /rslib alts and plugins are told that detection is off.
   enabled: true
   # Records of an address not used for this many days are deleted (checked one minute after
   # startup and then once a day). At least 1.

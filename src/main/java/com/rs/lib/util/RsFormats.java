@@ -77,6 +77,14 @@ public final class RsFormats {
 
     /** The relative-time words of the plugin's language file, English where one is missing. */
     public Formats.RelativeTexts texts() {
+        return texts(messages);
+    }
+
+    /**
+     * The relative-time words read from the {@code rslib.format.*} messages {@code messages}
+     * gives (null for a missing one: its English word).
+     */
+    public static Formats.RelativeTexts texts(Function<String, String> messages) {
         return new Formats.RelativeTexts(messages.apply(PAST), messages.apply(FUTURE), messages.apply(NOW),
                 messages.apply(DAYS), messages.apply(HOURS), messages.apply(MINUTES), messages.apply(SECONDS));
     }

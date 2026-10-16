@@ -8,6 +8,9 @@ import org.bukkit.entity.Player;
 
 import com.rs.lib.Rs;
 import com.rs.lib.debug.RsDebug;
+import com.rs.lib.lang.RsLang;
+import com.rs.lib.util.Formats;
+import com.rs.lib.util.RsFormats;
 
 /**
  * What a YAML file needs from its plugin's context. Lets the file logic run in tests without a
@@ -30,8 +33,25 @@ interface YmlHost {
     /** A trace line for the context's debug output, when there is one. */
     void trace(Supplier<String> message);
 
+    /**
+     * The words of {@code {key:relative}} in the plugin's language; null (or a supplier giving
+     * null) for RsLib's own language.
+     */
+    default Supplier<Formats.RelativeTexts> relativeTexts() {
+        return null;
+    }
+
     static YmlHost of(Rs rs) {
+        Supplier<Formats.RelativeTexts> relative = () -> {
+            RsLang lang = rs.langOrNull();
+            return lang == null ? null : RsFormats.texts(lang::rawOrNull);
+        };
         return new YmlHost() {
+            @Override
+            public Supplier<Formats.RelativeTexts> relativeTexts() {
+                return relative;
+            }
+
             @Override
             public Logger logger() {
                 return rs.plugin().getLogger();

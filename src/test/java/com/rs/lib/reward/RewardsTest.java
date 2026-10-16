@@ -277,6 +277,23 @@ class RewardsTest {
         assertEquals(1, host.log.warnings().size());
     }
 
+    /** The default policy is QUEUE; without a store it drops at the feet, warning the console once. */
+    @Test
+    void theDefaultPolicyWithoutAStoreDropsAndWarnsOnce() {
+        steve.fill(0);
+        CompletableFuture<RewardReport>[] future = holder();
+        host.asMain(() -> future[0] = rewards.deliver(steve.player, rewards.resolve(steve.player, RewardList.of(
+                Reward.item("gem", RewardKit.stack("gem", 10)).build()))));
+        assertEquals(RewardOutcome.GIVEN, host.await(future[0]).get("gem").outcome());
+        assertEquals(10, steve.droppedCount("gem"));
+        host.asMain(() -> future[0] = rewards.give(steve.player, RewardList.of(
+                Reward.item("rod", RewardKit.stack("rod", 3)).build())));
+        assertEquals(RewardOutcome.GIVEN, host.await(future[0]).get("rod").outcome());
+        assertEquals(3, steve.droppedCount("rod"));
+        assertEquals(1, host.log.warnings().size(), host.log.warnings().toString());
+        assertTrue(host.log.warnings().get(0).contains("QUEUE"), host.log.warnings().get(0));
+    }
+
     /** Exactly once in memory: a decided result pays out a single time. */
     @Test
     void aDecidedResultIsDeliveredOnlyOnce() {

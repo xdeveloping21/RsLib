@@ -10,6 +10,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.rs.lib.internal.LibMessages;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -54,16 +56,34 @@ class AuditCommandTest {
         assertEquals("Audit log of Steve in every plugin: 5 entries, page 1 of 3", plain(lines.get(0)));
         Component next = lines.get(3);
         assertEquals("Next page: /rslib logs Steve * 2", plain(next));
-        assertEquals(ClickEvent.runCommand("/rslib logs Steve * 2"), next.children().get(0).clickEvent());
+        assertEquals(ClickEvent.runCommand("/rslib logs Steve * 2"), next.clickEvent());
 
         AuditPage last = new AuditPage(List.of(entry("e")), 5, 3, 2);
         assertEquals(2, AuditCommand.lines(last, "Steve", "Market", "/x", ZoneOffset.UTC).size(), "no next page on the last");
     }
 
     @Test
+    void inSpanishWhenRsLibIsInSpanish() {
+        LibMessages.use("es");
+        try {
+            AuditPage page = new AuditPage(List.of(entry("a"), entry("b")), 5, 1, 2);
+            List<Component> lines = AuditCommand.lines(page, null, null, "/rslib logs * * 2", ZoneOffset.UTC);
+            assertEquals("Registro de auditoría de todos en todos los plugins: 5 entradas, página 1 de 3",
+                    plain(lines.get(0)));
+            assertEquals("Página siguiente: /rslib logs * * 2", plain(lines.get(3)));
+            assertEquals("No hay entradas de auditoría de Steve en Market.", plain(AuditCommand.lines(
+                    new AuditPage(List.of(), 0, 1, 10), "Steve", "Market", "/x", ZoneOffset.UTC).get(0)));
+            assertEquals("La página 4 está vacía: hay 2 página(s).", plain(AuditCommand.lines(
+                    new AuditPage(List.of(), 15, 4, 10), "Steve", null, "/x", ZoneOffset.UTC).get(0)));
+        } finally {
+            LibMessages.reset();
+        }
+    }
+
+    @Test
     void emptyResultsSaySo() {
         assertEquals("No audit log entries for everybody in Market.", plain(AuditCommand.lines(
-                new AuditPage(List.of(), 0, 1, 10), "everybody", "Market", "/x", ZoneOffset.UTC).get(0)));
+                new AuditPage(List.of(), 0, 1, 10), null, "Market", "/x", ZoneOffset.UTC).get(0)));
         assertEquals("Page 4 is empty: there are 2 page(s).", plain(AuditCommand.lines(
                 new AuditPage(List.of(), 15, 4, 10), "Steve", null, "/x", ZoneOffset.UTC).get(0)));
     }

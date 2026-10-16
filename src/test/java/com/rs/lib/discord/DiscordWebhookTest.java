@@ -30,14 +30,18 @@ class DiscordWebhookTest {
     /** What every payload ends with when the plugin allowed no ping. */
     private static final String NO_PINGS = "\"allowed_mentions\":{\"parse\":[]}";
 
+    /** The first wait after a 5xx or a network failure in these tests (2 s on a server). */
+    private static final long BACKOFF = TimeUnit.MILLISECONDS.toNanos(40);
+
     private final List<String> warnings = Collections.synchronizedList(new ArrayList<>());
+    private Logger logger;
     private FakeTransport transport;
     private WebhookQueue queue;
     private DiscordWebhook discord;
 
     @BeforeEach
     void setUp() {
-        Logger logger = Logger.getAnonymousLogger();
+        logger = Logger.getAnonymousLogger();
         logger.setUseParentHandlers(false);
         logger.addHandler(new Handler() {
             @Override
@@ -54,7 +58,7 @@ class DiscordWebhookTest {
             }
         });
         transport = new FakeTransport();
-        queue = new WebhookQueue(logger, "TestPlugin", () -> transport, System::nanoTime);
+        queue = new WebhookQueue(logger, "TestPlugin", () -> transport, System::nanoTime, BACKOFF);
         discord = new DiscordWebhook(queue);
     }
 
@@ -235,8 +239,8 @@ class DiscordWebhookTest {
 
     @Test
     void otherFailuresDropOnlyThatMessage() throws InterruptedException {
-        transport.script.add(reply(500));
         transport.script.add(reply(400));
+        transport.script.add(reply(413));
         transport.expect(3);
         discord.send(HOOK, "a");
         discord.send(HOOK, "b");
@@ -244,6 +248,113 @@ class DiscordWebhookTest {
         transport.await();
         assertEquals(List.of(content("a"), content("b"), content("c")), transport.bodies());
         assertEquals(1, warnings.size(), warnings.toString());
+    }
+
+    // ---------------------------------------------------------------- 5xx and network failures
+
+    @Test
+    void a5xxIsTriedAgainLaterKeepingTheOrderOfItsWebhookWhileOthersGoOn() throws InterruptedException {
+        transport.script.add(reply(503));
+        transport.script.add(reply(204));
+        transport.script.add(reply(502));
+        transport.expect(5);
+        discord.send(HOOK, "a");
+        discord.send(HOOK, "b");
+        discord.send(OTHER, "c");
+        transport.await();
+
+        assertEquals(List.of(content("a"), content("c"), content("a"), content("a"), content("b")),
+                transport.bodies());
+        long first = transport.sent.get(2).at() - transport.sent.get(0).at();
+        long second = transport.sent.get(3).at() - transport.sent.get(2).at();
+        assertTrue(first >= BACKOFF, "waited " + first / 1_000_000 + " ms");
+        assertTrue(second >= 2 * BACKOFF, "the wait doubles: " + second / 1_000_000 + " ms");
+        assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
+    @Test
+    void aNetworkFailureIsTriedAgainToo() throws InterruptedException {
+        transport.script.add(new Boom(new IOException("timed out")));
+        transport.expect(3);
+        discord.send(HOOK, "a");
+        discord.send(HOOK, "b");
+        transport.await();
+
+        assertEquals(List.of(content("a"), content("a"), content("b")), transport.bodies());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
+    @Test
+    void aMessageThatKeepsFailingIsDroppedAfterThreeRetriesWithOneWarningPerWebhook() throws InterruptedException {
+        for (int i = 0; i < 2 * (WebhookQueue.MAX_RETRIES + 1); i++) {
+            transport.script.add(reply(500));
+        }
+        transport.expect(9);
+        discord.send(HOOK, "a");
+        discord.send(HOOK, "b");
+        discord.send(HOOK, "c");
+        transport.await();
+
+        List<String> expected = new ArrayList<>(Collections.nCopies(4, content("a")));
+        expected.addAll(Collections.nCopies(4, content("b")));
+        expected.add(content("c"));
+        assertEquals(expected, transport.bodies());
+        long third = transport.sent.get(3).at() - transport.sent.get(2).at();
+        assertTrue(third >= 4 * BACKOFF, "2, 4, 8: " + third / 1_000_000 + " ms");
+        assertEquals(1, warnings.size(), warnings.toString());
+        assertTrue(warnings.get(0).contains("HTTP 500") && warnings.get(0).contains("4 times"), warnings.get(0));
+        assertFalse(warnings.get(0).contains(TOKEN), warnings.get(0));
+    }
+
+    @Test
+    void anotherWebhookDoesNotWaitForABackoff() throws InterruptedException {
+        DiscordWebhook slow = new DiscordWebhook(new WebhookQueue(logger, "Slow", () -> transport, System::nanoTime,
+                TimeUnit.SECONDS.toNanos(5)));
+        try {
+            transport.script.add(reply(503));
+            CountDownLatch first = transport.expect(1);
+            slow.send(HOOK, "a");
+            assertTrue(first.await(5, TimeUnit.SECONDS));
+            Thread.sleep(50);
+            transport.expect(1);
+            slow.send(OTHER, "b");
+            transport.await();
+
+            long waited = transport.sent.get(1).at() - transport.sent.get(0).at();
+            assertTrue(waited < TimeUnit.SECONDS.toNanos(1), "waited " + waited / 1_000_000 + " ms");
+            assertEquals(List.of(HOOK, OTHER), transport.urls());
+        } finally {
+            transport.script.clear();
+            slow.drain();
+        }
+    }
+
+    @Test
+    void drainTriesAgainWhenTheBackoffFitsItsBudget() {
+        transport.script.add(reply(503));
+        discord.send(HOOK, "a");
+        discord.drain();
+
+        assertEquals(List.of(content("a"), content("a")), transport.bodies());
+        assertTrue(warnings.isEmpty(), warnings.toString());
+    }
+
+    @Test
+    void drainDoesNotWaitABackoffLongerThanItsBudget() throws InterruptedException {
+        DiscordWebhook slow = new DiscordWebhook(new WebhookQueue(logger, "Slow", () -> transport, System::nanoTime,
+                TimeUnit.SECONDS.toNanos(10)));
+        transport.script.add(reply(500));
+        CountDownLatch first = transport.expect(1);
+        slow.send(HOOK, "a");
+        slow.send(HOOK, "b");
+        assertTrue(first.await(5, TimeUnit.SECONDS));
+        long start = System.nanoTime();
+        slow.drain();
+        long took = System.nanoTime() - start;
+
+        assertTrue(took < TimeUnit.SECONDS.toNanos(2), "took " + took / 1_000_000 + " ms");
+        assertEquals(1, transport.sent.size());
+        assertTrue(warnings.stream().anyMatch(w -> w.startsWith("2 Discord messages were not sent")), warnings.toString());
     }
 
     // ---------------------------------------------------------------- tokens never logged (trap 13.6)
@@ -265,10 +376,11 @@ class DiscordWebhookTest {
     @Test
     void failuresWarnOncePerWebhookWithoutTheToken() throws InterruptedException {
         transport.script.add(reply(400));
-        transport.script.add(reply(500));
-        transport.script.add(new Boom(new IOException("connect to " + OTHER + " refused")));
-        transport.script.add(reply(400));
-        transport.expect(4);
+        transport.script.add(reply(403));
+        for (int i = 0; i <= WebhookQueue.MAX_RETRIES; i++) {
+            transport.script.add(new Boom(new IOException("connect to " + OTHER + " refused")));
+        }
+        transport.expect(7);
         discord.send(HOOK, "a");
         discord.send(HOOK, "b");
         discord.send(OTHER, "c");

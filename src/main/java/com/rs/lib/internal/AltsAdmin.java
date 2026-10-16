@@ -8,15 +8,19 @@ import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.command.CommandSender;
 
+import com.rs.lib.Ph;
 import com.rs.lib.account.AltAccount;
 import com.rs.lib.account.Accounts;
 import com.rs.lib.scheduler.RsScheduler;
 import com.rs.lib.util.PlayerNames;
 import com.rs.lib.util.TimeUtil;
 
+import net.kyori.adventure.text.Component;
+
 /**
  * {@code /rslib alts <player>}: the accounts that joined from an address the player also
- * joined from. Online or offline; the answer comes back on the main thread.
+ * joined from. Online or offline; the answer comes back on the main thread, in RsLib's
+ * language ({@link LibMessages}). Names are shown as they are.
  */
 public final class AltsAdmin {
 
@@ -35,10 +39,10 @@ public final class AltsAdmin {
         player.thenCompose(id -> id.isEmpty() ? CompletableFuture.completedFuture((List<AltAccount>) null)
                         : accounts.alts(id.get()).toCompletableFuture())
                 .whenComplete((alts, error) -> {
-                    List<String> lines;
+                    List<Component> lines;
                     if (error != null) {
-                        lines = List.of("Could not read the alt-account records: " + (error.getCause() != null
-                                ? error.getCause().getMessage() : error.getMessage()));
+                        lines = List.of(LibMessages.render("rslib.admin.alts.read-failed", Ph.literal("error",
+                                error.getCause() != null ? error.getCause().getMessage() : error.getMessage())));
                     } else {
                         lines = lines(name, alts, System.currentTimeMillis());
                     }
@@ -51,24 +55,25 @@ public final class AltsAdmin {
     }
 
     /** What the command prints; {@code alts} is null for a player with no record at all. */
-    public static List<String> lines(String name, List<AltAccount> alts, long now) {
+    public static List<Component> lines(String name, List<AltAccount> alts, long now) {
+        Ph player = Ph.literal("player", name);
         if (alts == null) {
-            return List.of("No join of " + name + " is recorded.");
+            return List.of(LibMessages.render("rslib.admin.alts.no-record", player));
         }
         if (alts.isEmpty()) {
-            return List.of(name + " shares no address with another account.");
+            return List.of(LibMessages.render("rslib.admin.alts.none", player));
         }
-        List<String> lines = new ArrayList<>(alts.size() + 1);
-        lines.add("Accounts that joined from an address of " + name + " (" + alts.size() + "):");
+        List<Component> lines = new ArrayList<>(alts.size() + 1);
+        lines.add(LibMessages.render("rslib.admin.alts.header", player, Ph.of("count", alts.size())));
         for (AltAccount alt : alts) {
-            lines.add("- " + alt.name() + " (" + alt.uuid() + "), last seen "
-                    + TimeUtil.humanizeShort(now - alt.lastSeen()) + " ago");
+            lines.add(LibMessages.render("rslib.admin.alts.entry", Ph.literal("name", alt.name()),
+                    Ph.of("uuid", alt.uuid()), Ph.of("time", TimeUtil.humanizeShort(now - alt.lastSeen()))));
         }
         return lines;
     }
 
     /** The answer while the detection is off. */
-    public static String off() {
-        return "Alt-account detection is off (accounts.enabled in RsLib's config.yml).";
+    public static Component off() {
+        return LibMessages.render("rslib.admin.alts.disabled");
     }
 }

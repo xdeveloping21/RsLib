@@ -24,8 +24,15 @@ import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFadeEvent;
+import org.bukkit.event.block.BlockFormEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.block.BlockSpreadEvent;
+import org.bukkit.event.block.EntityBlockFormEvent;
+import org.bukkit.event.block.LeavesDecayEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -227,6 +234,58 @@ class RsBlocksTest {
         BlockPistonExtendEvent pushDirt = new BlockPistonExtendEvent(piston, List.of(dirt), BlockFace.EAST);
         listener.onPistonExtend(pushDirt);
         assertFalse(pushDirt.isCancelled());
+    }
+
+    @Test
+    void theWorldCannotChangeARegisteredBlock() {
+        crates.at("world", 0, 64, 0).register();
+        Block crate = block(WORLD, 0, 64, 0);
+        Block dirt = block(WORLD, 1, 64, 0);
+
+        EntityChangeBlockEvent enderman = new EntityChangeBlockEvent(null, crate, null);
+        listener.onEntityChange(enderman);
+        assertTrue(enderman.isCancelled(), "an enderman, a falling block, a sheep...");
+        EntityChangeBlockEvent elsewhere = new EntityChangeBlockEvent(null, dirt, null);
+        listener.onEntityChange(elsewhere);
+        assertFalse(elsewhere.isCancelled());
+
+        BlockFromToEvent into = new BlockFromToEvent(dirt, crate);
+        listener.onFlow(into);
+        assertTrue(into.isCancelled(), "water flowing into it");
+        BlockFromToEvent outOf = new BlockFromToEvent(crate, dirt);
+        listener.onFlow(outOf);
+        assertFalse(outOf.isCancelled(), "only the block it flows into counts");
+
+        BlockFadeEvent melt = new BlockFadeEvent(crate, null);
+        listener.onFade(melt);
+        assertTrue(melt.isCancelled());
+        BlockFadeEvent meltDirt = new BlockFadeEvent(dirt, null);
+        listener.onFade(meltDirt);
+        assertFalse(meltDirt.isCancelled());
+
+        BlockFormEvent freeze = new BlockFormEvent(crate, null);
+        listener.onForm(freeze);
+        assertTrue(freeze.isCancelled());
+        EntityBlockFormEvent frostWalker = new EntityBlockFormEvent(null, crate, null);
+        listener.onForm(frostWalker);
+        assertTrue(frostWalker.isCancelled());
+        BlockFormEvent freezeDirt = new BlockFormEvent(dirt, null);
+        listener.onForm(freezeDirt);
+        assertFalse(freezeDirt.isCancelled());
+
+        BlockSpreadEvent grass = new BlockSpreadEvent(crate, dirt, null);
+        listener.onSpread(grass);
+        assertTrue(grass.isCancelled());
+        BlockSpreadEvent fromIt = new BlockSpreadEvent(dirt, crate, null);
+        listener.onSpread(fromIt);
+        assertFalse(fromIt.isCancelled(), "spreading from it changes another block");
+
+        LeavesDecayEvent decay = new LeavesDecayEvent(crate);
+        listener.onLeavesDecay(decay);
+        assertTrue(decay.isCancelled());
+        LeavesDecayEvent decayDirt = new LeavesDecayEvent(dirt);
+        listener.onLeavesDecay(decayDirt);
+        assertFalse(decayDirt.isCancelled());
     }
 
     @Test

@@ -30,6 +30,9 @@ import com.rs.lib.db.RsDb;
 import com.rs.lib.db.TestDbs;
 import com.rs.lib.internal.AltsAdmin;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
 /** Alt-account records: hashed addresses, the salt file, lookups and the purge. */
 class AccountsTest {
 
@@ -177,10 +180,16 @@ class AccountsTest {
 
     @Test
     void theStaffCommandLines() {
-        assertEquals(List.of("No join of Zed is recorded."), AltsAdmin.lines("Zed", null, NOW));
-        assertEquals(List.of("Zed shares no address with another account."), AltsAdmin.lines("Zed", List.of(), NOW));
+        assertEquals(List.of("No join of Zed is recorded."), plain(AltsAdmin.lines("Zed", null, NOW)));
+        assertEquals(List.of("Zed shares no address with another account."),
+                plain(AltsAdmin.lines("Zed", List.of(), NOW)));
         assertEquals(List.of("Accounts that joined from an address of Alex (1):",
                         "- Dana (00000000-0000-0000-0000-000000000004), last seen 2d 3h ago"),
-                AltsAdmin.lines("Alex", List.of(new AltAccount(DANA, "Dana", NOW - 2 * DAY - 3 * 3_600_000L)), NOW));
+                plain(AltsAdmin.lines("Alex", List.of(new AltAccount(DANA, "Dana", NOW - 2 * DAY - 3 * 3_600_000L)),
+                        NOW)));
+    }
+
+    private static List<String> plain(List<Component> lines) {
+        return lines.stream().map(PlainTextComponentSerializer.plainText()::serialize).toList();
     }
 }

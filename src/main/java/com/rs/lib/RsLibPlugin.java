@@ -29,6 +29,7 @@ import com.rs.lib.hook.SoftDependency;
 import com.rs.lib.internal.AdminInfo;
 import com.rs.lib.internal.AltsAdmin;
 import com.rs.lib.internal.DbAdmin;
+import com.rs.lib.internal.LibMessages;
 import com.rs.lib.internal.ListenerHub;
 import com.rs.lib.item.ItemRegistry;
 import com.rs.lib.region.RegionRegistry;
@@ -108,8 +109,10 @@ public final class RsLibPlugin extends JavaPlugin {
             own = new Rs(this, RsSpec.builder().config(SelfUpdater.CONFIG_FILE).updates().db().build());
             RsYml config = own.yml().config();
             applyMergeSwitch(config);
+            applyLanguage(config);
             config.onReload(() -> {
                 applyMergeSwitch(config);
+                applyLanguage(config);
                 RegionRegistry.checkInterval(regionCheckInterval());
                 if (selfUpdater != null) {
                     selfUpdater.reload();
@@ -179,6 +182,18 @@ public final class RsLibPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * {@code lang} ({@code en} by default): the language of RsLib's own texts ({@link LibMessages}).
+     * One RsLib has no texts in is reported and English is used.
+     */
+    private void applyLanguage(RsYml config) {
+        String code = config.getString("lang", "en");
+        if (!LibMessages.use(code)) {
+            getLogger().warning("lang: '" + code + "' is not a language RsLib has (" + String.join(", ",
+                    LibMessages.LANGUAGES) + "); using en.");
+        }
+    }
+
     /** {@code update-configs} (true by default): whether every plugin's YAML files get the keys they lack. */
     private void applyMergeSwitch(RsYml config) {
         boolean enabled = config.getBoolean("update-configs", true);
@@ -208,6 +223,7 @@ public final class RsLibPlugin extends JavaPlugin {
         }
         RsText.clearCache();
         Formats.apply(Formats.Settings.DEFAULTS);
+        LibMessages.reset();
         YamlUpdater.setMergeEnabled(true, null);
         instance = null;
     }
@@ -327,14 +343,14 @@ public final class RsLibPlugin extends JavaPlugin {
                 case DB -> db.run(sender, label, args);
                 case ALTS -> {
                     if (args.length != 2) {
-                        sender.sendMessage("Usage: /" + label + " alts <player>");
+                        LibMessages.send(sender, "rslib.admin.alts.usage", Ph.literal("label", label));
                         return true;
                     }
                     AltsAdmin.run(sender, args[1], scheduler);
                 }
                 case SETTINGS -> {
                     if (!(sender instanceof Player player)) {
-                        sender.sendMessage("Only a player can use this.");
+                        LibMessages.send(sender, "rslib.admin.settings.players-only");
                         return true;
                     }
                     SettingsManager.openCommon(player);

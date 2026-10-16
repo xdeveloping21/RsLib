@@ -145,6 +145,31 @@ class PendingRewardsTest {
         assertEquals(0, count());
     }
 
+    /** Without a policy, what does not fit is kept for later (QUEUE is the default). */
+    @Test
+    void theDefaultPolicyKeepsTheOverflowForLater() {
+        host.join(steve);
+        steve.fill(1);
+        ResolvedRewards resolved = rewards.resolve(steve.player, RewardList.of(
+                Reward.item("gem", RewardKit.stack("gem", 100)).build()));
+        @SuppressWarnings("unchecked")
+        CompletableFuture<RewardReport>[] future = new CompletableFuture[1];
+        host.asMain(() -> future[0] = rewards.deliver(steve.player, resolved));
+        RewardReport report = host.await(future[0]);
+        assertEquals(List.of(RewardOutcome.QUEUED), outcomes(report));
+        assertEquals(64, steve.count("gem"));
+        assertTrue(steve.dropped.isEmpty());
+        assertEquals(1, count());
+
+        steve.fill(1);
+        host.asMain(() -> future[0] = rewards.give(steve.player, RewardList.of(
+                Reward.item("rod", RewardKit.stack("rod", 70)).build())));
+        assertEquals(List.of(RewardOutcome.QUEUED), outcomes(host.await(future[0])));
+        assertTrue(steve.dropped.isEmpty());
+        assertEquals(2, count());
+        assertTrue(host.log.warnings().isEmpty(), host.log.warnings().toString());
+    }
+
     /** A claim into a full inventory puts the rest back instead of dropping or losing it. */
     @Test
     void whatStillDoesNotFitGoesBackToTheTable() {

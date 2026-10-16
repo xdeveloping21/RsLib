@@ -11,6 +11,8 @@ import java.util.logging.Logger;
 
 import org.bukkit.entity.Player;
 
+import com.rs.lib.util.Formats;
+
 /** Test helpers: a host without a server and a logger that remembers what it printed. */
 public final class YmlTestSupport {
 
@@ -75,6 +77,13 @@ public final class YmlTestSupport {
         public volatile boolean primary;
         public volatile boolean shuttingDown;
         public volatile boolean refuseAsync;
+        /** The plugin's words of {@code :relative}; null for RsLib's. */
+        public volatile Supplier<Formats.RelativeTexts> relative;
+
+        @Override
+        public Supplier<Formats.RelativeTexts> relativeTexts() {
+            return relative;
+        }
 
         @Override
         public Logger logger() {

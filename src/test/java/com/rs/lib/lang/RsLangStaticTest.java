@@ -40,6 +40,26 @@ class RsLangStaticTest {
         assertEquals("P [x]y", RsText.insertPrefix("[x]y", "P "));
     }
 
+    /** RsLib's own /rslib answers (rslib.admin) are not copied into the plugins' message files. */
+    @Test
+    void theSharedLinesLeaveRsLibsOwnBlockOut() throws Exception {
+        for (String code : List.of("en", "es")) {
+            List<String> lines = LangLoader.sharedLines(code, LOG);
+            org.bukkit.configuration.file.YamlConfiguration shared = new org.bukkit.configuration.file.YamlConfiguration();
+            shared.loadFromString(String.join("\n", lines));
+            org.bukkit.configuration.file.YamlConfiguration full = new org.bukkit.configuration.file.YamlConfiguration();
+            try (InputStream in = RsLang.class.getResourceAsStream("/rslib-messages_" + code + ".yml")) {
+                full.load(new java.io.InputStreamReader(in, StandardCharsets.UTF_8));
+            }
+            assertTrue(full.isConfigurationSection("rslib.admin"), code);
+            assertFalse(shared.contains("rslib.admin"), code);
+            assertFalse(String.join("\n", lines).contains("/rslib settings, logs"), code + ": its comment too");
+            java.util.Set<String> expected = new java.util.HashSet<>(full.getKeys(true));
+            expected.removeIf(key -> key.equals("rslib.admin") || key.startsWith("rslib.admin."));
+            assertEquals(expected, shared.getKeys(true), code);
+        }
+    }
+
     @Test
     void legacyBlockIsRenamedOnceKeepingTexts(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("messages_en.yml");

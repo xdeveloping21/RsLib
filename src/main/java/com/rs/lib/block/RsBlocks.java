@@ -33,7 +33,12 @@ import com.rs.lib.action.ActionList;
  *   them again on enable, from what it loads. Shutting the plugin down takes all of them down
  *   (the blocks stay in the world).</li>
  *   <li>A registered block cannot be broken by players, blown up (it is taken out of the
- *   explosion, the rest still blows up), moved by a piston (the piston is stopped) or burnt.</li>
+ *   explosion, the rest still blows up), moved by a piston (the piston is stopped) or burnt.
+ *   Nor can the world change it: no mob or falling block (endermen, silverfish, sheep eating
+ *   grass, sand that would fall), no water or lava flowing into it, no melting, fading,
+ *   freezing, forming, spreading onto it or leaf decay. Block physics is not watched: a
+ *   registered torch, button or sign still drops when the block holding it goes, because a
+ *   physics listener would make the server build an event for every block update.</li>
  *   <li>Its vanilla interaction is cancelled: a barrel does not open, a button does not press,
  *   nothing is placed against it, and the item in hand is not used on it. Clicks are handled
  *   at the lowest priority, even when another plugin cancelled them already.</li>

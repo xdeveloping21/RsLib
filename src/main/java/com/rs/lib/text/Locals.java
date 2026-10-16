@@ -22,11 +22,17 @@ import com.rs.lib.util.NumberFormatter;
  * hides a later token.</p>
  *
  * <p>Format suggestions: when the whole token does not resolve and ends with {@code :raw},
- * {@code :short}, {@code :grouped}, {@code :money} or {@code :date} (any case), the key
- * without the suffix is resolved and, when its value is a number (an abbreviated {@code 1.5M}
- * too), formatted again: {@code :money} and {@code :date} (epoch milliseconds) as RsLib's
- * {@code formats.yml} says ({@link Formats}). A value that is not a number, or whose number is
- * not finite, is returned unchanged.</p>
+ * {@code :short}, {@code :grouped}, {@code :money}, {@code :date} or {@code :relative} (any
+ * case), the key without the suffix is resolved and, when its value is a number (an
+ * abbreviated {@code 1.5M} too), formatted again: {@code :money} and {@code :date} (epoch
+ * milliseconds) as RsLib's {@code formats.yml} says ({@link Formats}), {@code :relative} (epoch
+ * milliseconds) from now in the language of the plugin rendering the text
+ * ({@link Formats#placeholderTexts}: {@code 3d ago}, {@code hace 3 d}). A value that is not a
+ * number, or whose number is not finite, is returned unchanged.</p>
+ *
+ * <p>A {@code :relative} value changes with the clock, never with the line: it is worked out
+ * here, before any render, and the render caches only ever see the finished line (whose
+ * render does not depend on the time).</p>
  *
  * <p>Fallbacks: when the whole token does not resolve and is {@code key|text} (see
  * {@link Fallbacks}), the key, format included ({@code {amount:short|-}}), is resolved as
@@ -44,7 +50,7 @@ final class Locals {
         void value(String value);
     }
 
-    private static final String[] SUGGESTIONS = {":raw", ":short", ":grouped", ":money", ":date"};
+    private static final String[] SUGGESTIONS = {":raw", ":short", ":grouped", ":money", ":date", ":relative"};
 
     private Locals() {
     }
@@ -172,6 +178,7 @@ final class Locals {
             case ":short" -> NumberFormatter.format(number);
             case ":money" -> Formats.money(BigDecimal.valueOf(number));
             case ":date" -> Formats.date((long) number);
+            case ":relative" -> Formats.relative((long) number, Formats.placeholderTexts());
             default -> NumberFormatter.formatComma(number);
         };
     }
