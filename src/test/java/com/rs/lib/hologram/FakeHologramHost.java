@@ -371,7 +371,7 @@ final class FakeHologramHost implements HologramHost {
                     });
         }
 
-        /** A display already in the world with a mark (SnLib's, RsLib's or none). */
+        /** A display already in the world with a mark (another plugin's, RsLib's or none). */
         static FakeDisplay marked(String key, String value) {
             FakeDisplay display = new FakeDisplay(0, 0);
             if (key != null) {

@@ -1,7 +1,7 @@
 # ============================================================
 #  RsCrates - key balance menu (a bare /rscrates)
 #  One icon per crate showing how many virtual keys you own.
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  GESTURES on a crate icon

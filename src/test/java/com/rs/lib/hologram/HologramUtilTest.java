@@ -28,7 +28,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 class HologramUtilTest {
 
-    private static final String SNLIB_MARK = "snlib:snlib_hologram";
+    private static final String OTHER_MARK = "otherlib:other_hologram";
     private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
 
     private FakeHologramHost host;
@@ -198,19 +198,19 @@ class HologramUtilTest {
         assertEquals("b", plain(host.alive().get(0).text));
     }
 
-    // ---------------------------------------------------------------- SnLib's and other plugins' entities (traps 11.6.1, 11.6.3)
+    // ---------------------------------------------------------------- other plugins' entities (traps 11.6.1, 11.6.3)
 
     @Test
-    void snlibHologramsAreNeverAdoptedChangedOrRemoved() {
+    void otherPluginsHologramsAreNeverAdoptedChangedOrRemoved() {
         world.load(0, 0);
         holograms.spawn("crate", new Location(world.world, 1, 64, 1), List.of("a"));
-        FakeDisplay legacy = FakeDisplay.marked(SNLIB_MARK, plugin + ":crate");
+        FakeDisplay legacy = FakeDisplay.marked(OTHER_MARK, plugin + ":crate");
 
         assertFalse(HologramUtil.adopt(legacy.entity));
 
         assertTrue(legacy.valid);
         assertTrue(legacy.calls.isEmpty(), "untouched: " + legacy.calls);
-        assertEquals(plugin + ":crate", legacy.data.get(SNLIB_MARK));
+        assertEquals(plugin + ":crate", legacy.data.get(OTHER_MARK));
         assertTrue(legacy.persistent);
     }
 

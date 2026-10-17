@@ -49,27 +49,27 @@ import com.rs.lib.yml.RsYml;
  *
  * <h2>Stamps</h2>
  * <p>Created items carry persistent data under the plugin's namespace (its name in lower
- * case), with the key names items already in players' inventories use: {@value #TAG_KEY}
+ * case): {@value #TAG_KEY}
  * (STRING, the id), {@value #TAG_LOCKED}, {@value #TAG_NO_DROP}, {@value #TAG_NO_MANUAL_EQUIP},
  * {@value #TAG_KEEP_ON_DEATH} (STRING {@code "true"}, only when set), {@value #TAG_OBTAIN_VIA}
  * (STRING mode name, only for COMMAND_ONLY), and with custom durability
- * {@code snlib_durability} and {@code snlib_durability_line} (INTEGER). Recipes use the key
- * {@code <plugin>:snlib_recipe_<id>}. The listener finds the plugin of an item from the
+ * {@code rslib_durability} and {@code rslib_durability_line} (INTEGER). Recipes use the key
+ * {@code <plugin>:rslib_recipe_<id>}. The listener finds the plugin of an item from the
  * namespace of its id key, so it only acts on items of plugins running on RsLib.</p>
  *
  * <p>Everything here belongs on the main thread.</p>
  */
 public final class ItemRegistry {
 
-    public static final String TAG_KEY = "snlib_item_id";
-    public static final String TAG_LOCKED = "snlib_locked";
-    public static final String TAG_NO_DROP = "snlib_no_drop";
-    public static final String TAG_NO_MANUAL_EQUIP = "snlib_no_manual_equip";
-    public static final String TAG_KEEP_ON_DEATH = "snlib_keep_on_death";
-    public static final String TAG_OBTAIN_VIA = "snlib_obtain_via";
-    static final String TAG_DURABILITY = "snlib_durability";
-    static final String TAG_DURABILITY_LINE = "snlib_durability_line";
-    static final String RECIPE_PREFIX = "snlib_recipe_";
+    public static final String TAG_KEY = "rslib_item_id";
+    public static final String TAG_LOCKED = "rslib_locked";
+    public static final String TAG_NO_DROP = "rslib_no_drop";
+    public static final String TAG_NO_MANUAL_EQUIP = "rslib_no_manual_equip";
+    public static final String TAG_KEEP_ON_DEATH = "rslib_keep_on_death";
+    public static final String TAG_OBTAIN_VIA = "rslib_obtain_via";
+    static final String TAG_DURABILITY = "rslib_durability";
+    static final String TAG_DURABILITY_LINE = "rslib_durability_line";
+    static final String RECIPE_PREFIX = "rslib_recipe_";
     /** The optional root section that wraps the items of a file. */
     static final String ITEMS_SECTION = "items";
     static final String TRUE = "true";

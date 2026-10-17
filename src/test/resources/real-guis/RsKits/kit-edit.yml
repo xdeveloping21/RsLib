@@ -1,6 +1,6 @@
 # ============================================================
 #  RsKits - kit edit menu
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 #
 #  Opened by /rskits edit <id>. Every button acts on the kit named in the title,
@@ -39,7 +39,7 @@ layout:
   - "ffffiffff"
   - "fffffffff"
 
-# sn:extensible
+# rs:extensible
 items:
   # Fills every cell no button claims. Delete it to leave those cells empty:
   # the marker above is what keeps it deleted instead of writing it back on

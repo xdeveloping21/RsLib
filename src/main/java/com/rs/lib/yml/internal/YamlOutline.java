@@ -27,9 +27,9 @@ import java.util.regex.Pattern;
  */
 public final class YamlOutline {
 
-    private static final Pattern MARKER = Pattern.compile("^\\s*#\\s*(?:rs|sn):extensible\\s*$",
+    private static final Pattern MARKER = Pattern.compile("^\\s*#\\s*rs:extensible\\s*$",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern ROOT_MARKER = Pattern.compile("^\\s*#\\s*(?:rs|sn):extensible-root\\s*$",
+    private static final Pattern ROOT_MARKER = Pattern.compile("^\\s*#\\s*rs:extensible-root\\s*$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern BLOCK_SCALAR = Pattern.compile(
             "^(?:[!&]\\S*\\s+)*[|>](?:[1-9][+-]?|[+-][1-9]?)?$");
@@ -101,8 +101,8 @@ public final class YamlOutline {
         }
 
         /**
-         * True when its comments carry {@code rs:extensible} (or the legacy {@code sn:extensible});
-         * for the root, when the file header carries {@code rs:extensible-root} or {@code sn:extensible-root}.
+         * True when its comments carry {@code rs:extensible}; for the root, when the file
+         * header carries {@code rs:extensible-root}.
          */
         public boolean marked() {
             return marked;
@@ -331,12 +331,12 @@ public final class YamlOutline {
         }
     }
 
-    /** True for a comment line carrying {@code rs:extensible} or {@code sn:extensible}. */
+    /** True for a comment line carrying {@code rs:extensible}. */
     public static boolean isMarker(String line) {
         return MARKER.matcher(line).matches();
     }
 
-    /** True for a comment line carrying {@code rs:extensible-root} or {@code sn:extensible-root}. */
+    /** True for a comment line carrying {@code rs:extensible-root}. */
     public static boolean isRootMarker(String line) {
         return ROOT_MARKER.matcher(line).matches();
     }

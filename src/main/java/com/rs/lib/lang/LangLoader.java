@@ -39,7 +39,6 @@ final class LangLoader {
     /** The block of the shared messages that stays in RsLib ({@code rslib.admin}). */
     private static final String OWN_BLOCK = "admin:";
     private static final int OWN_BLOCK_INDENT = 2;
-    private static final String LEGACY_BLOCK = "snlib:";
     private static final String SHARED_BLOCK = "rslib:";
 
     private final JavaPlugin plugin;
@@ -127,7 +126,6 @@ final class LangLoader {
     }
 
     private void prepareEnglish(File english) {
-        renameLegacyBlock(english, log);
         if (plugin.getResource("lang/messages_en.yml") != null) {
             YamlUpdater.update(plugin, "lang/messages_en.yml", english, false, ownSwitch.get());
         } else if (!english.exists()) {
@@ -154,7 +152,6 @@ final class LangLoader {
                     + ".yml does not exist; using English.");
             return null;
         }
-        renameLegacyBlock(translated, log);
         if (inJar) {
             YamlUpdater.update(plugin, resource, translated, false, ownSwitch.get());
         }
@@ -243,35 +240,6 @@ final class LangLoader {
             return newline < 0 ? message : message.substring(0, newline);
         } catch (IOException e) {
             return null;
-        }
-    }
-
-    /** Files from SnLib times keep their texts: the {@code snlib:} block becomes {@code rslib:} once. */
-    static void renameLegacyBlock(File file, Logger log) {
-        if (!file.isFile()) {
-            return;
-        }
-        try {
-            Path path = file.toPath();
-            List<String> lines = new ArrayList<>(YamlText.lines(YamlText.read(path)));
-            int legacy = -1;
-            for (int i = 0; i < lines.size(); i++) {
-                String line = lines.get(i);
-                if (line.startsWith(SHARED_BLOCK)) {
-                    return;
-                }
-                if (legacy < 0 && line.startsWith(LEGACY_BLOCK)) {
-                    legacy = i;
-                }
-            }
-            if (legacy < 0) {
-                return;
-            }
-            lines.set(legacy, SHARED_BLOCK + lines.get(legacy).substring(LEGACY_BLOCK.length()));
-            YamlText.write(path, YamlText.join(lines));
-            log.info("Renamed the 'snlib:' block of " + file.getName() + " to 'rslib:'; its texts are kept.");
-        } catch (IOException e) {
-            log.log(Level.WARNING, "Could not update " + file, e);
         }
     }
 

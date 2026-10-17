@@ -1,6 +1,6 @@
 # ============================================================
 #  RsTags - tag selector menu
-#  Opened by /rstags. Managed by SnLib: new keys merge in on boot, your edits
+#  Opened by /rstags. Managed by RsLib: new keys merge in on boot, your edits
 #  are preserved.
 #
 #  LAYOUT letters:
@@ -52,7 +52,7 @@ items:
       - "&7Retrocede una página."
     key: "<"
     # Keep [previous-page] BEFORE [custom] tags-rebind. Not for nav detection -
-    # SnLib scans the whole action list for the nav tag, so nav-disabled works at
+    # RsLib scans the whole action list for the nav tag, so nav-disabled works at
     # any position - but because the lines run in order: the rebind re-slices the
     # entries for the CURRENT page, so running it first would paint the page the
     # viewer just left.

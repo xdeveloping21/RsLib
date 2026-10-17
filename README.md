@@ -1,4 +1,4 @@
-# RsLib 1.4.0
+# RsLib 2.0.0
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -31,7 +31,7 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
   plantillas, regiones, paginación con flechas, ofertas de ítems del jugador y protección
   contra robo de los ítems del menú.
 - Barras de jefe por id con temporizador (`rs().bossbars()`), hologramas de texto que no se
-  guardan en el mundo y vuelven al cargar su chunk (`rs().holograms()`; no tocan los de SnLib) y
+  guardan en el mundo y vuelven al cargar su chunk (`rs().holograms()`; no tocan los de otros plugins) y
   mensajes a webhooks de Discord en segundo plano, respetando sus límites (`rs().discord()`).
 - Regiones cúbicas y varita de selección con partículas (`rs().selections()`), y eventos propios:
   equipar armadura, cambiar de chunk caminando y completar una selección.
@@ -80,7 +80,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.4.0</version>
+    <version>2.0.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -156,6 +156,19 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
+- **2.0.0:** cambio incompatible: las marcas que RsLib guarda en los ítems pasan a llamarse
+  `rslib_*` (`rslib_item_id`, `rslib_locked`, `rslib_no_drop`, `rslib_no_manual_equip`,
+  `rslib_keep_on_death`, `rslib_obtain_via`, `rslib_durability`, `rslib_durability_line`, las
+  recetas `<plugin>:rslib_recipe_<id>` y los modificadores de atributos `rslib:attr_*`). Se
+  quitan las lecturas heredadas: los nombres de marca anteriores, el bloque de idioma anterior,
+  las claves de mensajes con el prefijo anterior, la marca de sección extensible anterior y la
+  importación de nombres de jugadores de otra librería. Se quitan las constantes públicas
+  `GuiManager.LEGACY_ITEM_TAG`, `YamlUpdater.LEGACY_EXTENSIBLE_MARKER` y
+  `YamlUpdater.LEGACY_EXTENSIBLE_ROOT_MARKER`. Nivel de API 4, sin cambios. Pasos para
+  actualizar: instala `RsLib-2.0.0.jar` a mano (el actualizador no instala solo una versión
+  mayor); los ítems de los plugins entregados antes de esta versión dejan de reconocerse y hay
+  que volver a darlos; en los menús y archivos propios, la marca de sección extensible se
+  escribe `# rs:extensible` (o `# rs:extensible-root`).
 - **1.4.0:** `update-configs` por plugin: si el config.yml de un plugin tiene su propio
   `update-configs` arriba de todo, ese valor decide para todos sus archivos (config, menús y
   mensajes); sin la clave, sigue mandando el de RsLib. Los textos compartidos `rslib.*` se
@@ -182,24 +195,24 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
   trabajan si nadie los ve, movimiento suave, placeholders compartidos en menús y benchmarks.
   Estructura: parte de la implementación pasó a paquetes `internal` y las clases de más de 1.000
   líneas se dividieron. CI en GitHub Actions. Nivel de API 3.
-- **1.2.0:** `/rslib` igual al `/snlib` documentado: subcomandos `plugins`, `integrations`
+- **1.2.0:** `/rslib` con los subcomandos `plugins`, `integrations`
   (los enganches opcionales de cada plugin, activos o no), `iteminfo` (las etiquetas PDC del ítem
-  en la mano) y `help`, con los textos de SnLib en `version`, `reload` y `debug`; sin argumento
+  en la mano) y `help`, con textos revisados en `version`, `reload` y `debug`; sin argumento
   muestra la ayuda. `/rslib update` muestra el estado del actualizador y no revisa si
   `auto-update.enabled` es false. Aviso de versión nueva de RsLib en la consola y al entrar,
   sin usar `/rslib update`; una versión mayor nueva se informa en la consola. Al recargar, un
   `interval-hours` distinto rearma el temporizador. Versión y nivel de API en el manifiesto del
   jar (`RsLib-Version`, `RsLib-Api-Level`). Permisos nuevos `rslib.admin.plugins`,
   `rslib.admin.integrations` y `rslib.admin.iteminfo`; `rslib.admin` ya no incluye
-  `rslib.admin.debug`, que se da aparte, como en SnLib. Nivel de API 2.
-  Además, cada módulo revisado contra la documentación de SnLib y ajustado a ella: texto
+  `rslib.admin.debug`, que se da aparte. Nivel de API 2.
+  Además, cada módulo revisado contra su documentación y ajustado a ella: texto
   (null entra, null sale; la eñe en versalitas), mensajes (las claves `rslib.*` se agregan
   aunque `update-configs` sea false, una action bar simple no corta una fija, aviso de
   `<click>`/`<hover>` perdidos), PlaceholderAPI (avisa que espera a que se instale), menús
   (carpetas extra sembradas desde el jar y recargadas por espacio de nombres, `strict-clicks`
   solo con listas de acciones, un espacio nunca es una tecla), ítems (salto final en el lore,
   desgaste y raíz `items:`; `COMMAND_ONLY` sigue impidiendo equipar a mano y no toca el
-  crafteo, como SnLib), comandos (ayuda
+  crafteo), comandos (ayuda
   del subcomando por defecto, `1,500` = 1500, duraciones con espacios, textos de la consola),
   base de datos, depuración, cooldowns, versión del servidor desconocida, Discord (valores
   vacíos se omiten), cron (una expresión inválida avisa en vez de fallar), teletransportes
@@ -207,17 +220,16 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
   contra sus páginas para administradores: archivos YAML (las tabulaciones se corrigen sin
   reescribir el archivo, un archivo roto se guarda como `<nombre>.backup-N` con el primer número
   libre, avisos con el prefijo `[update-configs]`), arranque del plugin (aviso de nivel de API y
-  errores al habilitar con los textos de SnLib), menús (`update-interval` de una plantilla no se
+  errores al habilitar con textos claros), menús (`update-interval` de una plantilla no se
   programa, aviso de menú vacío), apariencia de ítems (textura rota = cabeza normal, avisos de
   `damage` y `glow`) y base de datos (`socket-timeout-seconds` de 0 a 3600). Por último, revisado
   contra las páginas de texto, comandos, formatos de valores, solución de problemas, archivos de
-  idioma y acciones: los avisos de la consola usan los textos de SnLib, el actualizador no toca
+  idioma y acciones: los avisos de la consola usan textos revisados, el actualizador no toca
   nada si hay dos jars de RsLib en `plugins/`, las opciones de `[particle]` avisan cuando están
   mal escritas y las duraciones de los comandos se leen como en los archivos (palabras
   desconocidas se saltan y un número solo son segundos). Los requisitos mal escritos siguen
-  fallando siempre (decisión de Raul) y no hay semanas ni meses en las duraciones, como SnLib.
-- **1.1.0:** regiones con varita de selección (`rs().selections()`, textos y valores como
-  SnLib), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
+  fallando siempre (decisión de Raul) y no hay semanas ni meses en las duraciones.
+- **1.1.0:** regiones con varita de selección (`rs().selections()`), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib
   (`debug` en su config.yml y `/rslib debug`), `/rslib reload` sin plugin para su config.yml,
   `update-configs` y reglas de ProGuard para plugins ofuscados. Nivel de API 2.

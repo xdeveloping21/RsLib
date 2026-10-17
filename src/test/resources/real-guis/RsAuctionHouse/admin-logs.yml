@@ -1,8 +1,8 @@
 # ============================================================
 #  RsAuctionHouse - audit logs (/ah admin logs [player])
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 #  Newest first, at most history.max-entries rows (config.yml).
 #  Needs rsauctionhouse.admin.logs.
 # ============================================================
@@ -33,7 +33,7 @@ layout:
   - "<tdfxfiu>"
 
 # Buttons.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:

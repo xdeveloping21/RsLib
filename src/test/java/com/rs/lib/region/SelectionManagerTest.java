@@ -355,7 +355,7 @@ class SelectionManagerTest {
         assertEquals("arena", manager.wandSpecId(wand(Map.of("rsarena:rslib_selection_wand", "arena"))));
         assertTrue(manager.isWand(wand(Map.of("rsarena:rslib_selection_wand", "arena"))));
         assertNull(manager.wandSpecId(wand(Map.of("rsother:rslib_selection_wand", "arena"))), "another plugin's wand");
-        assertNull(manager.wandSpecId(wand(Map.of("rsarena:snlib_selection_wand", "arena"))), "RsLib's own mark only");
+        assertNull(manager.wandSpecId(wand(Map.of("rsarena:other_selection_wand", "arena"))), "RsLib's own mark only");
         assertNull(manager.wandSpecId(wand(Map.of())));
         assertNull(manager.wandSpecId(null));
     }

@@ -2,7 +2,7 @@
 #  RsVouchers - root admin menu (/rsvouchers open)
 #  Lists every category folder under vouchers/, then every loose voucher.
 #  Clicking a category opens guis/vouchers.yml; clicking a voucher gives it.
-#  Managed by SnLib: new keys merge in on boot, your edits are kept.
+#  Managed by RsLib: new keys merge in on boot, your edits are kept.
 #
 #  This menu mixes TWO kinds of entry (a folder and a loose voucher), so the
 #  plugin fills it through 'regions:' rather than a 'paged-key:': a region lets
@@ -31,7 +31,7 @@ layout:
 regions:
   entries: p
 
-# sn:extensible
+# rs:extensible
 items:
   filler:
     material: GRAY_STAINED_GLASS_PANE

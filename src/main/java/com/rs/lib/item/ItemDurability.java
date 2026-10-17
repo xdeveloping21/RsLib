@@ -21,8 +21,8 @@ import net.kyori.adventure.text.Component;
 
 /**
  * The {@code custom-durability} of one plugin's items: what is left is kept in the stack's
- * persistent data ({@code snlib_durability}), with the index of its lore line
- * ({@code snlib_durability_line}) kept up to date, and the break actions run by the call that
+ * persistent data ({@code rslib_durability}), with the index of its lore line
+ * ({@code rslib_durability_line}) kept up to date, and the break actions run by the call that
  * takes it to 0.
  */
 final class ItemDurability {

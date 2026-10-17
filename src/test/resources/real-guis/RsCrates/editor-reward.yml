@@ -1,7 +1,7 @@
 # ============================================================
 #  RsCrates - editor: one reward's panel
 #  Every property of a single reward of a crate.
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  HOW THIS FILE WORKS

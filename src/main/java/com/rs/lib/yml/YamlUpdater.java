@@ -49,8 +49,7 @@ import com.rs.lib.yml.internal.YamlText;
  * what is below that key is the owner's data: nothing is ever inserted or pruned there. The key
  * itself is still part of the schema: if the whole section is deleted it comes back, and an
  * empty {@code {}} is respected. {@code # rs:extensible-root} in the file header (before the
- * first key) does the same for the top level. The legacy spellings {@code sn:extensible} and
- * {@code sn:extensible-root}, already present in existing files, are recognized too. Either
+ * first key) does the same for the top level. Either
  * side can declare a marker and it only adds protection: declared by the resource it is binding
  * (deleting it on disk does not re-enable merging); declared on disk, the owner freezes that
  * subtree silently: how many keys were held back is logged at FINE only. A marker above a key
@@ -91,10 +90,6 @@ public final class YamlUpdater {
     public static final String EXTENSIBLE_MARKER = "rs:extensible";
     /** Header comment marker making every top-level key belong to the server owner. */
     public static final String EXTENSIBLE_ROOT_MARKER = "rs:extensible-root";
-    /** Spelling used by files written for SnLib; still recognized. */
-    public static final String LEGACY_EXTENSIBLE_MARKER = "sn:extensible";
-    /** Spelling used by files written for SnLib; still recognized. */
-    public static final String LEGACY_EXTENSIBLE_ROOT_MARKER = "sn:extensible-root";
 
     static final String PREFIX = "[update-configs] ";
     /** The switch's key, at the top of RsLib's config.yml and, optionally, of a plugin's main config. */

@@ -11,7 +11,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 /**
  * The text of {@code /rslib plugins}, {@code /rslib integrations} and {@code /rslib iteminfo},
- * as SnLib's documentation shows {@code /snlib}. Kept apart from the command so it can be
+ * as RsLib's documentation shows them. Kept apart from the command so it can be
  * checked without a server.
  */
 public final class AdminInfo {

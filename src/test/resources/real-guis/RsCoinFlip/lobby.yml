@@ -1,6 +1,6 @@
 # ============================================================
 #  RsCoinFlip - menú del lobby (el nombre del archivo es el id del menú)
-#  Gestionado por SnLib: las claves nuevas se agregan solas al arrancar;
+#  Gestionado por RsLib: las claves nuevas se agregan solas al arrancar;
 #  tus valores y comentarios se conservan.
 #  El texto de los menús NO depende de la clave lang: de config.yml. Para
 #  cambiarlo, edita los valores de abajo; tus cambios sobreviven a cada
@@ -11,7 +11,7 @@
 title: "&#8354f2&lCoinflips activos"
 
 # Ticks entre repintados automáticos, para que un coinflip creado o tomado por otro
-# aparezca y desaparezca solo. SnLib lleva un temporizador por menú abierto y lo
+# aparezca y desaparezca solo. RsLib lleva un temporizador por menú abierto y lo
 # cancela al cerrar, salir, echar, recargar y deshabilitar. 0 desactiva el repintado.
 update-interval: 10
 
@@ -93,7 +93,7 @@ templates:
       - "&aClic izquierdo para unirte."
     # left-click-actions, NO click-actions: la lista genérica corre con CUALQUIER tipo de
     # clic, así que un clic derecho apostaría dinero real aunque el lore promete uno
-    # izquierdo. El grupo LEFT de SnLib sigue ClickType.isLeftClick: LEFT, SHIFT_LEFT,
+    # izquierdo. El grupo LEFT de RsLib sigue ClickType.isLeftClick: LEFT, SHIFT_LEFT,
     # DOUBLE_CLICK y CREATIVE unen los cuatro. strict-clicks descarta aquí el clic central
     # y todas las teclas. Clic derecho y shift + derecho no gastan el dinero de nadie.
     # El doble clic son dos izquierdos: si la primera mitad se rechaza y la lista se

@@ -1,6 +1,6 @@
 # ============================================================
 #  RsTrade - trade menu
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 # ============================================================
 # Both traders see this menu: their own side on the left, the partner's on the right.

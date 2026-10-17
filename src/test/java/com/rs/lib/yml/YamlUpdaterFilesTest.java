@@ -178,7 +178,7 @@ class YamlUpdaterFilesTest {
     @Test
     void uselessMarkersAreWarnedOnceAcrossJarAndDisk() throws IOException {
         Path file = dir.resolve("config.yml");
-        Files.writeString(file, "# rs:extensible\nname: x\n# sn:extensible\nother: y\n");
+        Files.writeString(file, "# rs:extensible\nname: x\n# RS:Extensible\nother: y\n");
         update("# rs:extensible\nname: a\nother: b\n", file.toFile(), false);
         List<String> warnings = log.warnings();
         assertEquals(List.of(

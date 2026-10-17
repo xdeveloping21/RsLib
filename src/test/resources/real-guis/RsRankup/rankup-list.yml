@@ -37,7 +37,7 @@ layout:
 # The ordered group of cells the ladder is laid over. Entry i of the current page
 # renders into cell i, reading the r cells left to right, top to bottom.
 #
-# Another order (needs SnLib 1.43.0 or newer): rewrite the region in its long form
+# Another order: rewrite the region in its long form
 # and draw a flow, a grid the size of the layout where each r cell holds an arrow
 # (> right, < left, ^ up, v down) pointing to the cell of the NEXT rank. The first
 # rank goes on the cell no arrow points at; cells outside the r letter are ignored.
@@ -84,7 +84,7 @@ regions:
 # notes and add it by hand if you want it.
 # Deleting a letter from the layout above hides a button without removing it, which
 # is the reversible way to do the same thing.
-# sn:extensible
+# rs:extensible
 items:
   filler:
     material: GRAY_STAINED_GLASS_PANE

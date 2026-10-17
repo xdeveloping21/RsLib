@@ -1,6 +1,6 @@
 # ============================================================
 #  RsLootBoxes - Editor: main menu (/rslootbox editor)
-#  Managed by SnLib: new keys merge in on boot, your edits kept.
+#  Managed by RsLib: new keys merge in on boot, your edits kept.
 #
 #  The 'boxes' region lists every lootbox as its rendered key
 #  item, in alphabetical id order, one per 'b' cell. Move or

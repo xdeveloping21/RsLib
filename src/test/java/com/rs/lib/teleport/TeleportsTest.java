@@ -425,10 +425,8 @@ class TeleportsTest {
     }
 
     @Test
-    void builtInMessagesExistInBothLanguagesAndReadOldKeys() throws Exception {
+    void builtInMessagesExistInBothLanguages() throws Exception {
         assertEquals("&7Teleporting in &e{time}&7. Do not move.", TeleportHost.Defaults.get(TeleportOptions.WARMUP_KEY));
-        assertEquals(TeleportHost.Defaults.get(TeleportOptions.CANCELLED_MOVE_KEY),
-                TeleportHost.Defaults.get("snlib.teleport.cancelled-move"));
         assertEquals("messages.home-warmup", TeleportHost.Defaults.get("messages.home-warmup"));
         for (String language : new String[] {"en", "es"}) {
             org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();

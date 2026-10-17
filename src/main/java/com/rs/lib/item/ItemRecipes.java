@@ -26,7 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * The crafting recipes of one plugin's items, added to the server under
- * {@code <plugin>:snlib_recipe_<id>} and removed again on reload and shutdown. A recipe
+ * {@code <plugin>:rslib_recipe_<id>} and removed again on reload and shutdown. A recipe
  * written wrong is reported and not added.
  */
 final class ItemRecipes {

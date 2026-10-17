@@ -161,7 +161,7 @@ class YamlMergeTest {
 
     @Test
     void resourceMarkerProtectsSectionContentsButKeyIsSchema() {
-        for (String marker : List.of("# rs:extensible", "# sn:extensible", "#   RS:Extensible  ")) {
+        for (String marker : List.of("# rs:extensible", "#   RS:Extensible  ")) {
             String res = "settings:\n  a: 1\n" + marker + "\nrewards:\n  example:\n    cmd: give\n";
             // The owner deleted the example and added their own entry: nothing comes back inside.
             String disk = "settings:\n  a: 1\nrewards:\n  mine:\n    cmd: say\n";
@@ -178,7 +178,7 @@ class YamlMergeTest {
 
     @Test
     void diskMarkerFreezesSubtreeAndLogsAtFine() {
-        for (String marker : List.of("# rs:extensible", "# sn:extensible")) {
+        for (String marker : List.of("# rs:extensible", "# RS:EXTENSIBLE")) {
             String res = "rewards:\n  example:\n    cmd: give\n";
             String disk = marker + "\nrewards:\n  mine: 1\n";
             List<String> notes = new ArrayList<>();
@@ -206,7 +206,7 @@ class YamlMergeTest {
 
     @Test
     void rootMarkerOnEitherSideStopsTopLevelMerging() {
-        for (String marker : List.of("# rs:extensible-root", "# sn:extensible-root", "# SN:EXTENSIBLE-ROOT")) {
+        for (String marker : List.of("# rs:extensible-root", "# RS:EXTENSIBLE-ROOT")) {
             String res = "# Entries\n" + marker + "\n\nexample:\n  a: 1\n";
             String disk = "mine:\n  a: 2\n";
             assertEquals(disk, merge(res, disk), marker);
@@ -217,14 +217,14 @@ class YamlMergeTest {
 
     @Test
     void markerMustBeTheWholeComment() {
-        String res = "# this section is sn:extensible maybe\nrewards:\n  a: 1\n";
+        String res = "# this section is rs:extensible maybe\nrewards:\n  a: 1\n";
         String disk = "rewards:\n  b: 1\n";
         assertEquals("rewards:\n  b: 1\n  a: 1\n", merge(res, disk));
     }
 
     @Test
     void markerOnASingleValueIsReported() {
-        List<String> lines = l("# rs:extensible\nname: hello\n# sn:extensible\nsec:\n  a: 1\n"
+        List<String> lines = l("# rs:extensible\nname: hello\n# rs:extensible\nsec:\n  a: 1\n"
                 + "# rs:extensible\nempty: {}\n# rs:extensible\nlist: []\n");
         List<String> warnings = YamlUpdater.markerWarnings(lines);
         assertEquals(1, warnings.size(), warnings.toString());
@@ -236,8 +236,6 @@ class YamlMergeTest {
     void markerConstants() {
         assertEquals("rs:extensible", YamlUpdater.EXTENSIBLE_MARKER);
         assertEquals("rs:extensible-root", YamlUpdater.EXTENSIBLE_ROOT_MARKER);
-        assertEquals("sn:extensible", YamlUpdater.LEGACY_EXTENSIBLE_MARKER);
-        assertEquals("sn:extensible-root", YamlUpdater.LEGACY_EXTENSIBLE_ROOT_MARKER);
     }
 
     // ------------------------------------------------------------------ pruning
@@ -256,13 +254,13 @@ class YamlMergeTest {
 
     @Test
     void pruneRespectsMarkersOnEitherSide() {
-        String res = "# sn:extensible\nrewards:\n  example: 1\n";
+        String res = "# rs:extensible\nrewards:\n  example: 1\n";
         assertEquals("rewards:\n  mine: 1\n", prune(res, "rewards:\n  mine: 1\n"));
         String disk = "# rs:extensible\nr:\n  mine: 1\n";
         assertEquals(disk, prune("r:\n  example: 1\n", disk));
         String rootDisk = "# rs:extensible-root\n\nmine: 1\n";
         assertEquals(rootDisk, prune("example: 1\n", rootDisk));
-        assertEquals("mine: 1\n", prune("# sn:extensible-root\nexample: 1\n", "mine: 1\n"));
+        assertEquals("mine: 1\n", prune("# rs:extensible-root\nexample: 1\n", "mine: 1\n"));
     }
 
     @Test

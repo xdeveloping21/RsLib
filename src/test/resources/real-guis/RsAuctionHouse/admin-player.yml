@@ -1,8 +1,8 @@
 # ============================================================
 #  RsAuctionHouse - staff view of a player (/ah admin open <player> <view>)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 #  Tabs: active listings, expired items, purchased items and auctions
 #  the player leads. Needs rsauctionhouse.admin.open.
 #  Returning a listing, deleting it and taking a stored item into your
@@ -37,7 +37,7 @@ layout:
   - "<fffxfff>"
 
 # Buttons.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:

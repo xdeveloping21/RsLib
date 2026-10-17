@@ -1,7 +1,7 @@
 # ============================================================
 #  RsCrates - editor: one crate's reward list
 #  Every reward of a crate, in the order it is drawn and previewed.
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  HOW THIS FILE WORKS

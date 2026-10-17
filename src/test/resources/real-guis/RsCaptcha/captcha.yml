@@ -1,6 +1,6 @@
 # ============================================================
 #  RsCaptcha - the captcha menu
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  ANTI-SCRIPT CONTRACT - READ BEFORE EDITING
@@ -57,7 +57,7 @@ items:
 templates:
   # The head. Its appearance is supplied by the plugin at bind time (a textured
   # skull built from heads.yml), and this template deliberately declares
-  # NEITHER display-name NOR lore: that makes SnLib pass the supplied stack
+  # NEITHER display-name NOR lore: that makes RsLib pass the supplied stack
   # through untouched, which is what keeps the head unreadable. See the
   # contract at the top of this file.
   head:

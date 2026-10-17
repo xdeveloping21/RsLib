@@ -84,7 +84,7 @@ class ItemAppearanceTest {
         assertEquals(Material.STONE, parse("display-name: x\n").toBuilder(null, null).material());
     }
 
-    /** Trampa 8: a number or boolean in a text key is used as text, with a warning (more tolerant than SnLib). */
+    /** Trampa 8: a number or boolean in a text key is used as text, with a warning. */
     @Test
     void nonTextScalarIsUsedAsTextWithWarning() {
         ItemAppearance numbered = parse("material: PAPER\ndisplay-name: 123\n");

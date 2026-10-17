@@ -28,7 +28,7 @@ import com.rs.lib.snapshot.SnapKit.FakePlayer;
  */
 class PlayerSnapshotTest {
 
-    /** A file written the way the notes describe it (flow maps, quoted slots), as SnLib-based plugins left them. */
+    /** A file written the way the notes describe it (flow maps, quoted slots), as older plugins left them. */
     private static final String STORED = """
             format: 1
             taken-at: 1760380800000
@@ -132,7 +132,7 @@ class PlayerSnapshotTest {
         assertEquals(5, back.itemCount());
     }
 
-    /** Files written by plugins built on SnLib (the documented shape) read as they are. */
+    /** Files in the documented shape read as they are. */
     @Test
     void readsTheDocumentedFile() {
         PlayerSnapshot snapshot = PlayerSnapshot.fromYaml(STORED, CODEC);

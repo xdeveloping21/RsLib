@@ -1,6 +1,6 @@
 # ============================================================
 #  RsKits - kits menu (page 2)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 #
 #  The second display menu, reached from the "More Kits" button of
@@ -50,7 +50,7 @@ layout:
 
 # Decoration and navigation. An entry with click-actions does something; one
 # without them is inert scenery, which is exactly what the sign below is.
-# sn:extensible
+# rs:extensible
 items:
 
   # Fills every cell no kit and no button claims.
@@ -84,7 +84,7 @@ items:
 # they are templates rather than items: their text carries the placeholders
 # above. The action after "[kits]" is what the click does and must not be
 # renamed.
-# sn:extensible
+# rs:extensible
 templates:
 
   # --- default, claimable right now ---

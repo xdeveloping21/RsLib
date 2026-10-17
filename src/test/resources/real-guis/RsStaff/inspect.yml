@@ -1,6 +1,6 @@
 # ============================================================
 #  RsStaff - menú de inspección (el nombre del archivo es el id del menú)
-#  Administrado por SnLib: las claves nuevas se fusionan automáticamente al
+#  Administrado por RsLib: las claves nuevas se fusionan automáticamente al
 #  iniciar; tus valores y comentarios se conservan. Los textos de los menús se
 #  editan aquí: no dependen de lang en config.yml.
 # ============================================================

@@ -10,7 +10,7 @@
 #  "slot" in recipes.yml and looks exactly like its "display" block there, so
 #  adding a recipe never means editing this file.
 #
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 
 # Menu title. Read once per boot; PlaceholderAPI tokens resolve per viewer.
@@ -30,7 +30,7 @@ layout:
   - "         "
   - "fffffffff"
 
-# sn:extensible
+# rs:extensible
 items:
 
   # Border. Renders in every 'f' cell above; take the character out of the

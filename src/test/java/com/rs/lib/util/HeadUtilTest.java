@@ -77,7 +77,7 @@ class HeadUtilTest {
         assertEquals(3, HeadUtil.profileId(VALUE).version());
     }
 
-    /** fromValue is the alias of fromBase64 that SnLib's examples use. */
+    /** fromValue is a public alias of fromBase64. */
     @Test
     void fromValueIsAPublicAliasOfFromBase64() throws NoSuchMethodException {
         Method alias = HeadUtil.class.getMethod("fromValue", String.class);

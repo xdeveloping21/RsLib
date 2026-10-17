@@ -1,8 +1,8 @@
 # ============================================================
 #  RsRobots - robot upgrade menu
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 # ============================================================
 
 # Menu title.
@@ -33,7 +33,7 @@ regions:
 cost-line: "&8| &7{economy}&8: &f{amount}"
 
 # Buttons. Each entry is yours: rename, restyle, or delete one and it stays deleted.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:

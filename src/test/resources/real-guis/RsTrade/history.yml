@@ -1,6 +1,6 @@
 # ============================================================
 #  RsTrade - trade history (/rstrade history, presentation.history: gui)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 # ============================================================
 # A player's logged trades, newest first. Click one for its details. Items are listed by

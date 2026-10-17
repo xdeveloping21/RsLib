@@ -34,9 +34,8 @@ import com.rs.lib.scheduler.TaskHandle;
  * by each plugin) and kept in {@code plugins/RsLib/player-names.tsv}, one line per player:
  * {@code uuid<TAB>name<TAB>lastSeenMillis}. It learns from every allowed login and every join
  * (the newest sighting wins a name), from the players online when RsLib starts and from the
- * file. On the very first start, when that file does not exist yet, it imports
- * {@code plugins/SnLib/player-names.tsv} (same format) and the server's {@code usercache.json}
- * (players it does not know yet) once. The file is loaded off the main thread, saved off the
+ * file. On the very first start, when that file does not exist yet, it imports the server's
+ * {@code usercache.json} once. The file is loaded off the main thread, saved off the
  * main thread every five minutes when something changed, and saved before RsLib stops. Past
  * {@value #MAX_ENTRIES} players, the ones seen longest ago are dropped.</p>
  *
@@ -131,7 +130,6 @@ public final class PlayerNames {
         }
         Logger log = rslib.getLogger();
         Path file = rslib.getDataFolder().toPath().resolve(FILE_NAME);
-        Path snlibFile = rslib.getDataFolder().toPath().resolveSibling("SnLib").resolve(FILE_NAME);
         Path usercache = Bukkit.getWorldContainer().toPath().resolve("usercache.json");
         RsScheduler scheduler = new RsScheduler(rslib);
         loaded = false;
@@ -143,7 +141,7 @@ public final class PlayerNames {
         rslib.getServer().getPluginManager().registerEvents(LISTENER, rslib);
 
         CompletableFuture<Void> load = scheduler.supplyAsync(() -> {
-            loadOrImport(DIRECTORY, file, snlibFile, usercache, log);
+            loadOrImport(DIRECTORY, file, usercache, log);
             return null;
         });
         TaskHandle saver = scheduler.timerAsync(SAVE_PERIOD_TICKS, SAVE_PERIOD_TICKS, () -> {
@@ -193,10 +191,10 @@ public final class PlayerNames {
     }
 
     /**
-     * Reads {@code file}; when it does not exist (the first start), imports SnLib's file and the
-     * usercache instead and writes {@code file} at once, even empty, so the import runs only once.
+     * Reads {@code file}; when it does not exist (the first start), imports the usercache
+     * instead and writes {@code file} at once, even empty, so the import runs only once.
      */
-    static void loadOrImport(NameDirectory directory, Path file, Path snlibFile, Path usercache, Logger log) {
+    static void loadOrImport(NameDirectory directory, Path file, Path usercache, Logger log) {
         try {
             if (Files.exists(file)) {
                 NameDirectory.LoadResult result = directory.load(file);
@@ -207,15 +205,6 @@ public final class PlayerNames {
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-        if (Files.exists(snlibFile)) {
-            try {
-                NameDirectory.LoadResult result = directory.load(snlibFile);
-                log.info("Imported " + result.read() + " player name(s) from SnLib"
-                        + (result.skipped() > 0 ? " (" + result.skipped() + " unreadable line(s) skipped)." : "."));
-            } catch (IOException e) {
-                log.log(Level.WARNING, "Could not import SnLib's " + FILE_NAME, e);
-            }
         }
         if (Files.exists(usercache)) {
             try {

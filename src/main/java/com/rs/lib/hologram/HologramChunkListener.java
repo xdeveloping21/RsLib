@@ -19,7 +19,7 @@ import io.papermc.paper.event.player.PlayerTrackEntityEvent;
  *
  * <p>RsLib's holograms are never saved with the chunk: unloading the chunk removes the entity,
  * and loading it spawns a new one on the next tick. Nothing is ever read back from the world,
- * so this listener never looks at existing entities (another plugin's or SnLib's) at all.</p>
+ * so this listener never looks at existing entities (another plugin's) at all.</p>
  *
  * <p>The index goes world name, then packed chunk, then the holograms there. A chunk load
  * with no hologram costs two map lookups and allocates nothing.</p>

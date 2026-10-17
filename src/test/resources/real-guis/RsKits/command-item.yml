@@ -1,6 +1,6 @@
 # ============================================================
 #  RsKits - command item menu
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 #
 #  Opened by RIGHT-CLICKING a command item inside the items editor grid
@@ -41,7 +41,7 @@ layout:
   - "fffffffff"
   - "ffffbffff"
 
-# sn:extensible
+# rs:extensible
 items:
   # Fills every cell no button claims. Delete it to leave those cells empty:
   # the marker above is what keeps it deleted instead of writing it back on

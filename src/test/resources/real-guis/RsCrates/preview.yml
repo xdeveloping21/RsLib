@@ -1,7 +1,7 @@
 # ============================================================
 #  RsCrates - crate preview (the full layout)
 #  Every reward a crate can give, page by page, read-only.
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  ONE LAYOUT PER FILE

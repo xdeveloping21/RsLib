@@ -26,7 +26,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 /**
  * Anti-theft for menu stacks, registered once by RsLib for the whole server. A stack stamped
- * with {@value GuiManager#ITEM_TAG} (or SnLib's {@value GuiManager#LEGACY_ITEM_TAG}), under any
+ * with {@value GuiManager#ITEM_TAG}, under any
  * namespace, only belongs in the cells of a menu; anywhere else it is deleted:
  * <ol>
  *     <li>clicked outside a menu's cells, held on the cursor, pulled with a number key or the
@@ -41,9 +41,6 @@ import org.bukkit.inventory.meta.ItemMeta;
  * </ol>
  */
 final class GuiProtection implements Listener {
-
-    /** Holder class name of SnLib's menus, which keep their own stacks. */
-    private static final String LEGACY_HOLDER = "SnGuiHolder";
 
     /** True when {@code stack} carries a menu stamp. */
     static boolean marked(ItemStack stack) {
@@ -64,20 +61,16 @@ final class GuiProtection implements Listener {
 
     /** True for the key names of a menu stamp. */
     static boolean isStampName(String keyName) {
-        return GuiManager.ITEM_TAG.equals(keyName) || GuiManager.LEGACY_ITEM_TAG.equals(keyName);
+        return GuiManager.ITEM_TAG.equals(keyName);
     }
 
-    /** True when {@code inventory} is a menu (RsLib's, or SnLib's by its holder's class name). */
+    /** True when {@code inventory} is a menu of RsLib. */
     static boolean isMenu(Inventory inventory) {
         if (inventory == null) {
             return false;
         }
         InventoryHolder holder = inventory.getHolder(false);
-        return holder instanceof RsGuiHolder || (holder != null && isLegacyHolder(holder.getClass()));
-    }
-
-    static boolean isLegacyHolder(Class<?> type) {
-        return LEGACY_HOLDER.equals(type.getSimpleName());
+        return holder instanceof RsGuiHolder;
     }
 
     // ------------------------------------------------------------------ 1: clicks, number key, F

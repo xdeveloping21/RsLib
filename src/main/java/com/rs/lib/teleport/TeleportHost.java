@@ -121,8 +121,7 @@ interface TeleportHost {
         }
 
         static String get(String key) {
-            String lookup = key.startsWith("snlib.") ? "rslib." + key.substring(6) : key;
-            String value = MESSAGES.getString(lookup);
+            String value = MESSAGES.getString(key);
             return value == null ? key : value;
         }
 

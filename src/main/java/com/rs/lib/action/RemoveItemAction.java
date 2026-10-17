@@ -25,10 +25,10 @@ import org.bukkit.plugin.java.JavaPlugin;
  *   <li>No selector: from the main hand.</li>
  *   <li>{@code offhand}: from the off hand.</li>
  *   <li>{@code id:<item-id>}: items this plugin registered with that id (its
- *   {@code <plugin>:snlib_item_id} or {@code <plugin>:rslib_item_id} tag), from slots 0 to 35
+ *   {@code <plugin>:rslib_item_id} tag), from slots 0 to 35
  *   and then the off hand.</li>
  *   <li>A material: stacks of it, same order, never one that carries a library tag
- *   ({@code snlib_*} or {@code rslib_*} key in any namespace): registered items and menu
+ *   ({@code rslib_*} key in any namespace): registered items and menu
  *   stacks are not plain materials.</li>
  * </ul>
  *
@@ -37,7 +37,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 final class RemoveItemAction implements ActionHandler {
 
-    static final List<String> ITEM_ID_KEYS = List.of("snlib_item_id", "rslib_item_id");
+    static final List<String> ITEM_ID_KEYS = List.of("rslib_item_id");
     private static final int STORAGE_SLOTS = 36;
 
     /** Where items are taken from. */
@@ -168,7 +168,7 @@ final class RemoveItemAction implements ActionHandler {
         return false;
     }
 
-    /** Whether the stack carries a key of RsLib or SnLib in any namespace. */
+    /** Whether the stack carries a key of RsLib in any namespace. */
     static boolean libraryTagged(ItemStack stack) {
         ItemMeta meta = stack.hasItemMeta() ? stack.getItemMeta() : null;
         if (meta == null) {
@@ -176,7 +176,7 @@ final class RemoveItemAction implements ActionHandler {
         }
         for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
             String name = key.getKey();
-            if (name.startsWith("snlib_") || name.startsWith("rslib_")) {
+            if (name.startsWith("rslib_")) {
                 return true;
             }
         }

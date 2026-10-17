@@ -49,8 +49,8 @@ final class ItemCompat {
     static final boolean SLOT_GROUPS = RsVersion.supports(20, 5);
     static final boolean MODIFIER_KEYS = RsVersion.supports(21, 0);
 
-    /** Namespace of the attribute modifier keys, the one items already in players' hands carry. */
-    static final String MODIFIER_NAMESPACE = "snlib";
+    /** Namespace of the attribute modifier keys. */
+    static final String MODIFIER_NAMESPACE = "rslib";
 
     private static final int MAX_CACHED = 1024;
     private static final Map<String, Optional<Enchantment>> ENCHANTMENTS = new ConcurrentHashMap<>();
@@ -260,7 +260,7 @@ final class ItemCompat {
 
     /**
      * The modifier for line {@code index}. From 1.21 its key is
-     * {@code snlib:attr_<index>_<attribute>}; before, a UUID derived from that same text. The
+     * {@code rslib:attr_<index>_<attribute>}; before, a UUID derived from that same text. The
      * same line always gives the same modifier, so items built twice stack.
      */
     @SuppressWarnings({"deprecation", "removal"})

@@ -81,7 +81,7 @@ class PlayerNamesTest {
         assertEquals(Optional.of(C), names.uuid("c"));
     }
 
-    /** Trampa: same TSV format as SnLib, unreadable lines skipped and counted. */
+    /** Trampa: TSV format, unreadable lines skipped and counted. */
     @Test
     void readsAndWritesTheTsvFormat() throws Exception {
         Path file = dir.resolve("player-names.tsv");
@@ -123,33 +123,31 @@ class PlayerNamesTest {
         assertTrue(names.isDirty());
     }
 
-    /** Trampa: RsLib owns the directory; SnLib's file seeds it once, on the first start only. */
+    /** Trampa: RsLib owns the directory; the usercache seeds it once, on the first start only. */
     @Test
-    void snlibFileIsImportedOnlyOnce() throws Exception {
+    void usercacheIsImportedOnlyOnce() throws Exception {
         Path ours = dir.resolve("RsLib").resolve("player-names.tsv");
-        Path snlib = dir.resolve("SnLib").resolve("player-names.tsv");
-        Files.createDirectories(snlib.getParent());
-        Files.writeString(snlib, A + "\tSteve\t100\n");
-        Path noUsercache = dir.resolve("usercache.json");
+        Path usercache = dir.resolve("usercache.json");
+        Files.writeString(usercache, "[{\"name\":\"Steve\",\"uuid\":\"" + A + "\"}]");
 
         NameDirectory first = new NameDirectory(100);
-        PlayerNames.loadOrImport(first, ours, snlib, noUsercache, LOG);
+        PlayerNames.loadOrImport(first, ours, usercache, LOG);
         assertEquals(Optional.of(A), first.uuid("Steve"));
         assertTrue(Files.exists(ours), "our file is written at once");
         assertFalse(first.isDirty());
 
-        Files.writeString(snlib, B + "\tAlex\t200\n");
+        Files.writeString(usercache, "[{\"name\":\"Alex\",\"uuid\":\"" + B + "\"}]");
         NameDirectory second = new NameDirectory(100);
-        PlayerNames.loadOrImport(second, ours, snlib, noUsercache, LOG);
+        PlayerNames.loadOrImport(second, ours, usercache, LOG);
         assertEquals(Optional.of(A), second.uuid("steve"));
-        assertEquals(Optional.empty(), second.uuid("alex"), "SnLib's file is not read again");
+        assertEquals(Optional.empty(), second.uuid("alex"), "the usercache is not read again");
     }
 
     @Test
     void firstStartWithNothingToImportStillWritesTheFile() {
         Path ours = dir.resolve("RsLib").resolve("player-names.tsv");
         NameDirectory names = new NameDirectory(100);
-        PlayerNames.loadOrImport(names, ours, dir.resolve("none.tsv"), dir.resolve("none.json"), LOG);
+        PlayerNames.loadOrImport(names, ours, dir.resolve("none.json"), LOG);
         assertTrue(Files.exists(ours));
         assertEquals(0, names.size());
     }

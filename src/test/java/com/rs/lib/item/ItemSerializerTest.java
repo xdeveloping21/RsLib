@@ -70,15 +70,15 @@ class ItemSerializerTest {
     /** Trampa 1: the persistent data keys items already carry. */
     @Test
     void stampKeysKeepTheirNames() {
-        assertEquals("snlib_item_id", ItemRegistry.TAG_KEY);
-        assertEquals("snlib_locked", ItemRegistry.TAG_LOCKED);
-        assertEquals("snlib_no_drop", ItemRegistry.TAG_NO_DROP);
-        assertEquals("snlib_no_manual_equip", ItemRegistry.TAG_NO_MANUAL_EQUIP);
-        assertEquals("snlib_keep_on_death", ItemRegistry.TAG_KEEP_ON_DEATH);
-        assertEquals("snlib_obtain_via", ItemRegistry.TAG_OBTAIN_VIA);
-        assertEquals("snlib_durability", ItemRegistry.TAG_DURABILITY);
-        assertEquals("snlib_durability_line", ItemRegistry.TAG_DURABILITY_LINE);
-        assertEquals("snlib_recipe_", ItemRegistry.RECIPE_PREFIX);
-        assertEquals("snlib", ItemCompat.MODIFIER_NAMESPACE);
+        assertEquals("rslib_item_id", ItemRegistry.TAG_KEY);
+        assertEquals("rslib_locked", ItemRegistry.TAG_LOCKED);
+        assertEquals("rslib_no_drop", ItemRegistry.TAG_NO_DROP);
+        assertEquals("rslib_no_manual_equip", ItemRegistry.TAG_NO_MANUAL_EQUIP);
+        assertEquals("rslib_keep_on_death", ItemRegistry.TAG_KEEP_ON_DEATH);
+        assertEquals("rslib_obtain_via", ItemRegistry.TAG_OBTAIN_VIA);
+        assertEquals("rslib_durability", ItemRegistry.TAG_DURABILITY);
+        assertEquals("rslib_durability_line", ItemRegistry.TAG_DURABILITY_LINE);
+        assertEquals("rslib_recipe_", ItemRegistry.RECIPE_PREFIX);
+        assertEquals("rslib", ItemCompat.MODIFIER_NAMESPACE);
     }
 }

@@ -3,7 +3,7 @@
 #  One dynamic button showing the NEXT rank: its item, its price and its
 #  rewards come from that rank's menu-item in rankup.yml. Clicking it ranks up.
 #  Opened by /rsrankup while config.yml has menu.mode: single.
-#  Managed by SnLib: new keys merge in on boot, your values and comments stay.
+#  Managed by RsLib: new keys merge in on boot, your values and comments stay.
 # ============================================================
 
 # Window title, resolved per viewer through PlaceholderAPI.
@@ -36,7 +36,7 @@ regions:
 # notes and add it by hand if you want it.
 # Deleting a letter from the layout above hides a button without removing it, which
 # is the reversible way to do the same thing.
-# sn:extensible
+# rs:extensible
 items:
   # Background pane behind everything else.
   filler:

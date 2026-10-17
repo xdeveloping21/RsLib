@@ -1,7 +1,7 @@
 # ============================================================
 #  RsCrates - reveal opening animation
 #  Face-down cards flip over one at a time; the last one is the winner.
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  This is a frame, not a menu. Nothing in it can be clicked or taken while

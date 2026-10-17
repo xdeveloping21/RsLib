@@ -1,9 +1,9 @@
 # ============================================================
 #  RsAuctionHouse - sell menu (/ah sell without a price, /ah auction without a
 #  starting price, the Sell button)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 #  Shift-click stacks of your inventory to add them. Nothing leaves the
 #  inventory until Confirm: closing or cancelling returns nothing because
 #  nothing was taken.
@@ -38,7 +38,7 @@ regions:
   staged: s
 
 # Buttons.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:

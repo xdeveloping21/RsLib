@@ -43,7 +43,7 @@ import net.kyori.adventure.text.JoinConfiguration;
  *   not loaded costs nothing: no entity, no placeholder work, and {@link #spawn} never loads a
  *   chunk.</li>
  *   <li>Each entity carries the mark {@link #MARK} = {@code <Plugin>:<id>}. Entities without
- *   it, including SnLib's ({@code snlib:snlib_hologram}) and any other plugin's, are never
+ *   it, including any other plugin's, are never
  *   adopted, changed or removed.</li>
  *   <li>Each line goes through PlaceholderAPI with no viewer and then the full text pipeline;
  *   the lines are joined with line breaks. The billboard is {@code CENTER} unless set.</li>
@@ -322,7 +322,7 @@ public final class HologramUtil {
     /**
      * Decides what to do with a text display found in the world; call it on the thread that
      * owns the entity. Only entities with RsLib's {@link #MARK} are considered: anything else
-     * (no mark, SnLib's {@code snlib:snlib_hologram}, another plugin's) is left alone and false
+     * (no mark, another plugin's) is left alone and false
      * comes back. A marked entity no live hologram claims, or a second copy of one that already
      * has its entity, is removed. Otherwise the entity becomes that hologram's (not persistent,
      * text and billboard applied again) and true comes back.

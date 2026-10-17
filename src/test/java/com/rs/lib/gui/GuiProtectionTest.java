@@ -50,11 +50,11 @@ class GuiProtectionTest {
         steve = kit.player("Steve");
     }
 
-    /** Trampa 16: the stamp is found by its key name under any namespace, SnLib's name included. */
+    /** Trampa 16: the stamp is found by its key name under any namespace. */
     @Test
     void stampsAreFoundUnderAnyNamespace() {
         assertTrue(GuiProtection.marked(stamped("a")));
-        assertTrue(GuiProtection.marked(TestStack.withKeys("b", new NamespacedKey("other", "snlib_gui_item"))));
+        assertTrue(GuiProtection.marked(TestStack.withKeys("b", new NamespacedKey("other", GuiManager.ITEM_TAG))));
         assertTrue(GuiProtection.marked(TestStack.withKeys("c", new NamespacedKey("x", "something"),
                 new NamespacedKey("y", GuiManager.ITEM_TAG))));
         assertFalse(GuiProtection.marked(TestStack.withKeys("d", new NamespacedKey("x", "rslib_gui_items"))));
@@ -63,15 +63,14 @@ class GuiProtectionTest {
     }
 
     @Test
-    void menusAreRecognisedIncludingSnLibOnes() {
+    void onlyRsLibMenusAreRecognised() {
         assertFalse(GuiProtection.isMenu(null));
         assertFalse(GuiProtection.isMenu(kit.inventory(null, 9)));
-        assertTrue(GuiProtection.isMenu(kit.inventory(new SnGuiHolder(), 9)));
-        assertTrue(GuiProtection.isLegacyHolder(SnGuiHolder.class));
+        assertFalse(GuiProtection.isMenu(kit.inventory(new OtherHolder(), 9)));
     }
 
-    /** A holder class with SnLib's name, as an SnLib menu would have. */
-    static final class SnGuiHolder implements InventoryHolder {
+    /** A holder of another plugin's menu. */
+    static final class OtherHolder implements InventoryHolder {
         @Override
         public Inventory getInventory() {
             return null;

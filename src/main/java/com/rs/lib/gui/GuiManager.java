@@ -48,8 +48,7 @@ import com.rs.lib.yml.YmlManager;
  * <h2>Anti-theft</h2>
  * <p>Every stack a menu puts in its inventory carries {@code <plugin>:}{@value #ITEM_TAG} in its
  * persistent data. RsLib's shared listener deletes any stamped stack that leaves a menu (click,
- * number key, off-hand key, drag, use, swap, drop, death, item spawn); stacks with
- * {@value #LEGACY_ITEM_TAG}, the stamp SnLib menus use, are treated the same way outside menus.</p>
+ * number key, off-hand key, drag, use, swap, drop, death, item spawn).</p>
  *
  * <h2>List editors</h2>
  * <p>{@link #listEditor} and {@link #itemEditor} edit a copy of a list in one of these menus,
@@ -59,8 +58,6 @@ public final class GuiManager {
 
     /** Name of the persistent data key stamped on every menu stack, under the plugin's namespace. */
     public static final String ITEM_TAG = "rslib_gui_item";
-    /** The key name SnLib menus stamp; recognised so their stacks cannot leave menus either. */
-    public static final String LEGACY_ITEM_TAG = "snlib_gui_item";
     /** The folder of the plugin's menus. */
     public static final String FOLDER = "guis";
 

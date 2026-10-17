@@ -3,7 +3,7 @@
 #  Se abre haciendo clic derecho en un cargador colocado SIN tener en la mano un
 #  ítem cargador. (Con un ítem cargador del mismo tamaño se le suma tiempo; con
 #  cualquier otra cosa - la mano vacía, una espada, tierra - se abre este menú.)
-#  Administrado por SnLib: las claves nuevas se fusionan al iniciar; tus valores y
+#  Administrado por RsLib: las claves nuevas se fusionan al iniciar; tus valores y
 #  tus comentarios se conservan. No hay ninguna clave de versión que mantener.
 #  Marcadores en el título, en cada display-name y en cada línea de lore:
 #  {owner} {time} {size} {chunks} {status}
@@ -20,7 +20,7 @@ title: "&#8354f2&lCargador de chunks"
 # Mapa de celdas, un carácter por casilla, nueve por fila.
 # f = borde, i = información, t = el botón de encender y pausar.
 # Para ocultar un elemento, borra su letra del mapa Y su sección más abajo. Si
-# quitas solo la letra, queda un elemento definido sin lugar y SnLib avisa en cada
+# quitas solo la letra, queda un elemento definido sin lugar y RsLib avisa en cada
 # arranque.
 layout:
   - "fffffffff"

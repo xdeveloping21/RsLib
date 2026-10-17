@@ -1,11 +1,11 @@
 # ============================================================
 #  RsVouchers - category menu (opened from guis/categories.yml)
 #  Lists every voucher inside one category folder. Clicking one gives it.
-#  Managed by SnLib: new keys merge in on boot, your edits are kept.
+#  Managed by RsLib: new keys merge in on boot, your edits are kept.
 #
 #  Every entry here is the same kind of thing, so this menu uses the plain
 #  paginated region ('paged-key: p'). The header at 'h' names the category the
-#  player is looking at - the window title cannot, because SnLib resolves a
+#  player is looking at - the window title cannot, because RsLib resolves a
 #  title against the viewer and PlaceholderAPI only, never against values the
 #  plugin supplies.
 # ============================================================
@@ -23,7 +23,7 @@ layout:
   - "fpppppppf"
   - "<fffbfff>"
 
-# sn:extensible
+# rs:extensible
 items:
   filler:
     material: GRAY_STAINED_GLASS_PANE

@@ -12,7 +12,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.Test;
 
-/** The text of /rslib plugins, integrations and iteminfo, as SnLib's /snlib shows it. */
+/** The text of /rslib plugins, integrations and iteminfo. */
 class AdminInfoTest {
 
     private record Stored(PersistentDataType<?, ?> type, Object value) {
@@ -41,13 +41,13 @@ class AdminInfoTest {
     @Test
     void itemInfoShowsStringTagsAndMarksTheRest() {
         Map<NamespacedKey, Stored> data = new LinkedHashMap<>();
-        data.put(new NamespacedKey("rskits", "snlib_item_id"), new Stored(PersistentDataType.STRING, "starter"));
+        data.put(new NamespacedKey("rskits", "rslib_item_id"), new Stored(PersistentDataType.STRING, "starter"));
         data.put(new NamespacedKey("rskits", "uses"), new Stored(PersistentDataType.LONG, 7L));
         data.put(new NamespacedKey("rsgifts", "box"), new Stored(PersistentDataType.TAG_CONTAINER, container(Map.of())));
         assertEquals(List.of(
                 "PDC tags of DIAMOND (3):",
                 "- rsgifts:box = <non-string tag>",
-                "- rskits:snlib_item_id = starter",
+                "- rskits:rslib_item_id = starter",
                 "- rskits:uses = <non-string tag>"), AdminInfo.itemInfo("DIAMOND", container(data)));
     }
 

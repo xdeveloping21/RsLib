@@ -1,8 +1,8 @@
 # ============================================================
 #  RsAuctionHouse - payouts (staff view of a player's money)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 #  Every credit of the auction house is a payout row: PENDING until
 #  claimed, PAID once credited, HELD while it waits for staff review
 #  (a refund whose outcome was unknown after a crash; release or discard
@@ -36,7 +36,7 @@ layout:
   - "<fsfxfmf>"
 
 # Buttons.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:

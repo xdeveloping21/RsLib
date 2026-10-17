@@ -59,7 +59,7 @@ class RsvConfigTest {
         assertEquals(List.of("lobby", "survival"), config.getStringList("servers"));
     }
 
-    /** Trampa 14.6: SnLib rewrote the whole file and lost the owner's comments. */
+    /** Trampa 14.6: rewriting the whole file would lose the owner's comments. */
     @Test
     void onlyMissingKeysAreAddedAndTheOwnersCommentsAndValuesStay() throws IOException {
         Path file = dir.resolve("config.yml");

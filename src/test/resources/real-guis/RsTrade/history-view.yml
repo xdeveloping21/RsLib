@@ -1,6 +1,6 @@
 # ============================================================
 #  RsTrade - trade details (from the history menu)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 # ============================================================
 # Read-only view of one logged trade: what each side gave. The left side is the player

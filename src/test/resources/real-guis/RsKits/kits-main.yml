@@ -1,6 +1,6 @@
 # ============================================================
 #  RsKits - kits menu (page 1)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 #
 #  Opened by a bare /rskits (config.yml default-gui names which display menu that
@@ -59,7 +59,7 @@ layout:
 
 # Decoration and navigation. An entry with click-actions does something; one
 # without them is inert scenery.
-# sn:extensible
+# rs:extensible
 items:
 
   # Fills every cell no kit and no button claims.
@@ -87,7 +87,7 @@ items:
 # they are templates rather than items: their text carries the placeholders
 # above. The action after "[kits]" is what the click does and must not be
 # renamed.
-# sn:extensible
+# rs:extensible
 templates:
 
   # --- default, claimable right now ---

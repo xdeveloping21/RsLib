@@ -1,6 +1,6 @@
 # ============================================================
 #  RsCoinFlip - menú de estadísticas (el nombre del archivo es el id del menú)
-#  Gestionado por SnLib: las claves nuevas se agregan solas al arrancar;
+#  Gestionado por RsLib: las claves nuevas se agregan solas al arrancar;
 #  tus valores y comentarios se conservan.
 #  El texto de los menús NO depende de la clave lang: de config.yml. Para
 #  cambiarlo, edita los valores de abajo; tus cambios sobreviven a cada

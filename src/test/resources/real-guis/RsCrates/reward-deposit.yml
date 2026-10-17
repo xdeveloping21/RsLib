@@ -2,7 +2,7 @@
 #  RsCrates - editor: the item capture
 #  The one editor screen that takes an item FROM you: it copies
 #  whatever you are holding in your main hand.
-#  Managed by SnLib: new keys merge in on boot, your values are kept.
+#  Managed by RsLib: new keys merge in on boot, your values are kept.
 # ============================================================
 #
 #  HOW IT WORKS. Hold the item you want in your main hand, open this

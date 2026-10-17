@@ -39,8 +39,7 @@ import net.kyori.adventure.title.Title;
  * shared {@code rslib.*} messages. The chosen translation is seeded from the jar when it is
  * missing, merged first with the jar's own translation and then with the English file, so new
  * keys arrive translated when the jar has them and in English otherwise. A key missing from the
- * translation falls back to English. A file that still has the old {@code snlib:} block keeps
- * its texts: the block is renamed to {@code rslib:} once.</p>
+ * translation falls back to English.</p>
  *
  * <p>Every line is compiled once per load. A line without placeholders is rendered once and
  * reused; the rest are filled in on each send. Sending is safe from any thread; PlaceholderAPI
@@ -48,8 +47,6 @@ import net.kyori.adventure.title.Title;
  */
 public final class RsLang {
 
-    /** Keys from SnLib times ({@code snlib.no-permission}) are read from {@code rslib.}. */
-    private static final String LEGACY_PREFIX = "snlib.";
     private static final long ACTIONBAR_REFRESH_TICKS = 40L;
     private static final int TITLE_FADE_IN = 10;
     private static final int TITLE_STAY = 70;
@@ -320,9 +317,6 @@ public final class RsLang {
         if (key == null) {
             warnOnce("missing:null", () -> "A message was requested with a null key.");
             return null;
-        }
-        if (key.startsWith(LEGACY_PREFIX)) {
-            key = "rslib." + key.substring(LEGACY_PREFIX.length());
         }
         Catalog current = catalog;
         Entry entry = current.active.get(key);

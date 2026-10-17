@@ -1,8 +1,8 @@
 # ============================================================
 #  RsAuctionHouse - trade history (/ah history, /ah admin history)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 #  Shows at most history.max-entries rows (config.yml). With
 #  presentation.history: chat the commands print the lists.history-*
 #  lines of the language file instead of opening this menu.
@@ -33,7 +33,7 @@ layout:
   - "<fsfbfif>"
 
 # Buttons.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:

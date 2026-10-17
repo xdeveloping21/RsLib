@@ -61,26 +61,6 @@ class RsLangStaticTest {
     }
 
     @Test
-    void legacyBlockIsRenamedOnceKeepingTexts(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("messages_en.yml");
-        Files.writeString(file, "prefix: \"&7\"\nsnlib:\n  no-permission: \"&cNope\"\nother:\n  snlib: x\n",
-                StandardCharsets.UTF_8);
-        LangLoader.renameLegacyBlock(file.toFile(), LOG);
-        assertEquals("prefix: \"&7\"\nrslib:\n  no-permission: \"&cNope\"\nother:\n  snlib: x\n",
-                Files.readString(file, StandardCharsets.UTF_8));
-    }
-
-    @Test
-    void existingSharedBlockWins(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("messages_en.yml");
-        String text = "rslib:\n  a: b\nsnlib:\n  a: c\n";
-        Files.writeString(file, text, StandardCharsets.UTF_8);
-        LangLoader.renameLegacyBlock(file.toFile(), LOG);
-        assertEquals(text, Files.readString(file, StandardCharsets.UTF_8));
-        LangLoader.renameLegacyBlock(new File(dir.toFile(), "absent.yml"), LOG);
-    }
-
-    @Test
     void parseErrorFlagsOnlyBrokenFiles(@TempDir Path dir) throws Exception {
         Path good = dir.resolve("good.yml");
         Path bad = dir.resolve("bad.yml");

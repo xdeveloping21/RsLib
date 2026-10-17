@@ -1,7 +1,7 @@
 # ============================================================
 #  RsCrates - editor: one crate's panel
 #  Everything about a crate except its rewards, which have their own
-#  screen. Managed by SnLib: new keys merge in on boot, your values
+#  screen. Managed by RsLib: new keys merge in on boot, your values
 #  are kept.
 # ============================================================
 #

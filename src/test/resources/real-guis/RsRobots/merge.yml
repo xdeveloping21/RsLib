@@ -1,6 +1,6 @@
 # ============================================================
 #  RsRobots - merge menu
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
 #  Remove a button by deleting its letter from the layout below; the item
 #  stays declared here and nothing is logged.
@@ -43,7 +43,7 @@ close-actions:
   - "[merge-close]"
 
 # Buttons. Each entry is yours: rename, restyle, or delete one and it stays deleted.
-# sn:extensible
+# rs:extensible
 items:
   filler:
     material: GRAY_STAINED_GLASS_PANE

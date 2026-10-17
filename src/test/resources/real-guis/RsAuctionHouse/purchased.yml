@@ -1,8 +1,8 @@
 # ============================================================
 #  RsAuctionHouse - purchased items (/ah purchased)
-#  Managed by SnLib: new keys are auto-merged on boot; your values and
+#  Managed by RsLib: new keys are auto-merged on boot; your values and
 #  comments are preserved.
-#  Every field supported here is listed in SnLib docs/menu-example.yml.
+#  Every field supported here is listed in the RsLib documentation.
 #  Items you bought or won that did not go straight to your inventory.
 #  They wait here until you take them.
 # ============================================================
@@ -32,7 +32,7 @@ layout:
   - "<fifbfaf>"
 
 # Buttons.
-# sn:extensible
+# rs:extensible
 items:
 
   filler:
