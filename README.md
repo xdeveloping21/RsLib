@@ -1,4 +1,4 @@
-# RsLib 1.3.1
+# RsLib 1.3.2
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -79,7 +79,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.3.1</version>
+    <version>1.3.2</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -155,6 +155,9 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
+- **1.3.2:** compilación sin avisos: las pruebas ya no muestran advertencias de javac, los
+  mensajes que las pruebas provocan a propósito no salen en la consola y shade ya no avisa por
+  los manifiestos repetidos de las librerías. Sin cambios en el código.
 - **1.3.1:** compila con Java 25 en Maven: javac corre en un proceso aparte (`<fork>true</fork>`),
   porque el javac de Java 25 dentro de Maven fallaba con "this.hashes is null" al compilar las
   pruebas. Sin cambios en el código.

@@ -75,7 +75,7 @@ class PendingRewardsTest {
     }
 
     private RewardReport claim() {
-        @SuppressWarnings("unchecked")
+        @SuppressWarnings({"unchecked", "rawtypes"})
         CompletableFuture<RewardReport>[] future = new CompletableFuture[1];
         host.asMain(() -> future[0] = rewards.claim(steve.player));
         return host.await(future[0]);
@@ -152,7 +152,7 @@ class PendingRewardsTest {
         steve.fill(1);
         ResolvedRewards resolved = rewards.resolve(steve.player, RewardList.of(
                 Reward.item("gem", RewardKit.stack("gem", 100)).build()));
-        @SuppressWarnings("unchecked")
+        @SuppressWarnings({"unchecked", "rawtypes"})
         CompletableFuture<RewardReport>[] future = new CompletableFuture[1];
         host.asMain(() -> future[0] = rewards.deliver(steve.player, resolved));
         RewardReport report = host.await(future[0]);

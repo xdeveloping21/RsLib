@@ -130,6 +130,7 @@ class RegionTrackerTest {
     }
 
     @Test
+    @SuppressWarnings("removal")
     void joiningInsideARegionIsNotEnteringIt() {
         arena.register("spawn", Cuboid.of("world", -10, 0, -10, 10, 100, 10));
         assertEquals(1, host.events.size(), "Alex was online when it was made: he enters");
@@ -313,6 +314,7 @@ class RegionTrackerTest {
     }
 
     @Test
+    @SuppressWarnings("removal")
     void quittingForgetsThePlayerWithoutAnEvent() {
         arena.register("a", Cuboid.of("world", -10, 0, -10, 10, 100, 10));
         host.events.clear();

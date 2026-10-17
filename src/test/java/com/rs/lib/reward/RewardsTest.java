@@ -54,7 +54,7 @@ class RewardsTest {
         return host.await(future[0]);
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private static CompletableFuture<RewardReport>[] holder() {
         return new CompletableFuture[1];
     }

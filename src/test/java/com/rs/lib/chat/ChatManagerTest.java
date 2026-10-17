@@ -169,6 +169,7 @@ class ChatManagerTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     void withoutPapersEventEverythingRunsOnTheLegacyOne() throws Exception {
         PaperChatSim sim = sim(false);
         for (PaperChatSim.Registered each : sim.permanent) {

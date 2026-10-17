@@ -163,6 +163,7 @@ class RsBlocksTest {
     }
 
     @Test
+    @SuppressWarnings("removal")
     void aRepeatedClickWithinTheWindowCountsOnce() {
         List<ClickedBlock> clicks = new ArrayList<>();
         crates.at("world", 0, 64, 0).onClick(clicks::add).register();

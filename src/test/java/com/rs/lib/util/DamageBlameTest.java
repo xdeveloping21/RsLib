@@ -96,7 +96,7 @@ class DamageBlameTest {
     }
 
     @Test
-    @SuppressWarnings("UnstableApiUsage")
+    @SuppressWarnings({"UnstableApiUsage", "removal"})
     void eventsAreReadThroughTheirDamager() {
         Zombie victim = entity(Zombie.class, Map.of());
         DamageSource source = entity(DamageSource.class, Map.of());
