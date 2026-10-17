@@ -45,6 +45,8 @@ final class LangLoader {
     private final JavaPlugin plugin;
     private final Logger log;
     private final BiConsumer<String, Supplier<String>> warnOnce;
+    /** The plugin's own {@code update-configs}, or null when it follows RsLib's. */
+    private final Supplier<Boolean> ownSwitch;
 
     /**
      * The maps one load fills: the language in use, its prefix, both layers of entries and, for
@@ -54,10 +56,11 @@ final class LangLoader {
                           Map<String, String> files) {
     }
 
-    LangLoader(JavaPlugin plugin, BiConsumer<String, Supplier<String>> warnOnce) {
+    LangLoader(JavaPlugin plugin, BiConsumer<String, Supplier<String>> warnOnce, Supplier<Boolean> ownSwitch) {
         this.plugin = plugin;
         this.log = plugin.getLogger();
         this.warnOnce = warnOnce;
+        this.ownSwitch = ownSwitch;
     }
 
     /**
@@ -120,13 +123,13 @@ final class LangLoader {
 
     /** Adds the entries of {@code reference} that the English file lacks; true when it changed. */
     boolean mergeIntoEnglish(List<String> reference) {
-        return mergeLines(log, reference, langFile("en"));
+        return mergeLines(log, reference, langFile("en"), false, ownSwitch.get());
     }
 
     private void prepareEnglish(File english) {
         renameLegacyBlock(english, log);
         if (plugin.getResource("lang/messages_en.yml") != null) {
-            YamlUpdater.update(plugin, "lang/messages_en.yml", english, false);
+            YamlUpdater.update(plugin, "lang/messages_en.yml", english, false, ownSwitch.get());
         } else if (!english.exists()) {
             try {
                 YamlText.write(english.toPath(), "# Messages of " + plugin.getName() + ".\n"
@@ -137,7 +140,7 @@ final class LangLoader {
         }
         List<String> shared = sharedLines("en", log);
         if (shared != null) {
-            mergeLines(log, shared, english, true);
+            mergeLines(log, shared, english, true, null);
         }
     }
 
@@ -153,14 +156,15 @@ final class LangLoader {
         }
         renameLegacyBlock(translated, log);
         if (inJar) {
-            YamlUpdater.update(plugin, resource, translated, false);
+            YamlUpdater.update(plugin, resource, translated, false, ownSwitch.get());
         }
         List<String> shared = sharedLines(code, log);
         if (shared != null) {
-            mergeLines(log, shared, translated, true);
+            mergeLines(log, shared, translated, true, null);
         }
         try {
-            if (english.exists() && mergeLines(log, YamlText.lines(YamlText.read(english.toPath())), translated)) {
+            if (english.exists() && mergeLines(log, YamlText.lines(YamlText.read(english.toPath())), translated, false,
+                    ownSwitch.get())) {
                 log.info("New messages were added to lang/messages_" + code + ".yml; translate them when convenient.");
             }
         } catch (IOException e) {
@@ -174,17 +178,14 @@ final class LangLoader {
         return yaml;
     }
 
-    private static boolean mergeLines(Logger log, List<String> reference, File file) {
-        return mergeLines(log, reference, file, false);
-    }
-
     /**
      * Adds missing keys from {@code reference} to {@code file}. A file that is not valid YAML is
      * left untouched (with a warning): it holds the owner's texts and there is no jar copy of
      * it to rebuild from. {@code force} (the shared {@code rslib.*} lines) merges even with
-     * {@code update-configs: false}, since commands and other modules depend on those keys.
+     * {@code update-configs: false}, since commands and other modules depend on those keys;
+     * otherwise {@code own} (the plugin's switch, null when none) decides.
      */
-    private static boolean mergeLines(Logger log, List<String> reference, File file, boolean force) {
+    private static boolean mergeLines(Logger log, List<String> reference, File file, boolean force, Boolean own) {
         if (file.isFile()) {
             try {
                 String text = YamlPreprocessor.preprocess(YamlPreprocessor.read(file.toPath())).cleanText();
@@ -198,7 +199,7 @@ final class LangLoader {
                 return false;
             }
         }
-        return YamlUpdater.updateFromLines(log, reference, file, force);
+        return YamlUpdater.updateFromLines(log, reference, file, force, own);
     }
 
     /** True (with a warning per file) when a message file this load would read is not valid YAML. */
@@ -342,7 +343,7 @@ final class LangLoader {
         }
         File english = new File(dir, "messages_en.yml");
         if (plugin.getResource(folder + "/messages_en.yml") != null) {
-            YamlUpdater.update(plugin, folder + "/messages_en.yml", english, false);
+            YamlUpdater.update(plugin, folder + "/messages_en.yml", english, false, ownSwitch.get());
         }
         YamlConfiguration source = parse(english, log);
         String sourceFile = folder + "/messages_en.yml";
@@ -377,7 +378,8 @@ final class LangLoader {
         }
         try {
             if (englishFile.isFile()) {
-                mergeLines(log, YamlText.lines(YamlText.read(englishFile.toPath())), translated);
+                mergeLines(log, YamlText.lines(YamlText.read(englishFile.toPath())), translated, false,
+                        ownSwitch.get());
             }
         } catch (IOException e) {
             log.log(Level.WARNING, "Could not read " + englishFile, e);

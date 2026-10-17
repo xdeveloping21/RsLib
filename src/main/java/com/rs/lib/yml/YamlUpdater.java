@@ -69,11 +69,14 @@ import com.rs.lib.yml.internal.YamlText;
  *
  * <h2>The {@code update-configs} switch</h2>
  * <p>{@code update-configs} in {@code plugins/RsLib/config.yml} (true by default) turns merging
- * on and off for every plugin at once ({@link #setMergeEnabled}). When it is false, an existing
- * file is never written: the keys it lacks are counted and reported in one warning per file
- * ({@code update-configs is false: N keys missing in <file>}), and RsLib's own config.yml is
- * still merged so the switch itself can arrive. Missing files are still created from the jar,
- * and a file that is not valid YAML is still handled as below.</p>
+ * on and off for every plugin at once ({@link #setMergeEnabled}). A plugin whose main config has
+ * its own top-level {@code update-configs} uses that value for all of its files instead (its
+ * config, the other managed files and its messages); the caller passes it as {@code own}, and
+ * {@code null} means the plugin has none and follows RsLib's. When the switch that applies is
+ * false, an existing file is never written: the keys it lacks are counted and reported in one
+ * warning per file ({@code update-configs is false: N keys missing in <file>}), and RsLib's own
+ * config.yml is still merged so the switch itself can arrive. Missing files are still created
+ * from the jar, and a file that is not valid YAML is still handled as below.</p>
  *
  * <h2>Tabs</h2>
  * <p>The structure is computed on spaces only, so a disk file indented with tabs is repaired
@@ -94,7 +97,8 @@ public final class YamlUpdater {
     public static final String LEGACY_EXTENSIBLE_ROOT_MARKER = "sn:extensible-root";
 
     static final String PREFIX = "[update-configs] ";
-    static final String OBSOLETE_KEY = "update-configs";
+    /** The switch's key, at the top of RsLib's config.yml and, optionally, of a plugin's main config. */
+    static final String SWITCH_KEY = "update-configs";
 
     private static volatile boolean mergeEnabled = true;
     private static volatile Path mergeExempt;
@@ -118,12 +122,51 @@ public final class YamlUpdater {
         return mergeEnabled;
     }
 
-    private static boolean mayMerge(Path path) {
-        if (mergeEnabled) {
+    /** {@code own} (the plugin's switch, null when it has none) wins over RsLib's; RsLib's config always merges. */
+    private static boolean mayMerge(Path path, Boolean own) {
+        Path exempt = mergeExempt;
+        if (exempt != null && exempt.equals(path.toAbsolutePath().normalize())) {
             return true;
         }
-        Path exempt = mergeExempt;
-        return exempt != null && exempt.equals(path.toAbsolutePath().normalize());
+        return own != null ? own : mergeEnabled;
+    }
+
+    /**
+     * The plugin's own switch: the top-level {@code update-configs} of its main config on disk,
+     * or null when the file is missing, is not valid YAML or lacks the key. A value other than
+     * true or false is ignored with a warning (none when {@code logger} is null), so RsLib's
+     * setting applies.
+     */
+    static Boolean readSwitch(Logger logger, File file) {
+        if (!file.isFile()) {
+            return null;
+        }
+        Object value;
+        try {
+            YamlConfiguration yaml = new YamlConfiguration();
+            yaml.loadFromString(YamlPreprocessor.preprocess(YamlText.read(file.toPath())).cleanText());
+            value = yaml.get(SWITCH_KEY);
+        } catch (IOException | InvalidConfigurationException | RuntimeException e) {
+            return null;
+        }
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String text = String.valueOf(value).trim();
+        if (text.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (text.equalsIgnoreCase("false")) {
+            return false;
+        }
+        if (logger != null) {
+            logger.warning(PREFIX + SWITCH_KEY + " in " + file.getName() + " must be true or false; using RsLib's "
+                    + SWITCH_KEY + " instead");
+        }
+        return null;
     }
 
     /** How many keys of {@code referenceLines} the disk lines (tab-free) lack. */
@@ -248,10 +291,10 @@ public final class YamlUpdater {
 
     /** Same as {@link #removeObsoleteKey(List, List)} with both outlines already parsed. */
     private static List<String> removeObsoleteKey(Node resRoot, List<String> diskLines, Node diskRoot) {
-        if (resRoot.child(OBSOLETE_KEY) != null) {
+        if (resRoot.child(SWITCH_KEY) != null) {
             return diskLines;
         }
-        Node node = diskRoot.child(OBSOLETE_KEY);
+        Node node = diskRoot.child(SWITCH_KEY);
         if (node == null) {
             return diskLines;
         }
@@ -277,7 +320,15 @@ public final class YamlUpdater {
      * resource into it (and, with {@code prune}, removes keys the resource no longer has).
      */
     public static void update(JavaPlugin plugin, String resourcePath, File diskFile, boolean prune) {
-        updateResource(plugin.getLogger(), plugin::getResource, resourcePath, diskFile, prune, false);
+        update(plugin, resourcePath, diskFile, prune, null);
+    }
+
+    /**
+     * Same as {@link #update(JavaPlugin, String, File, boolean)} under the plugin's own
+     * {@code update-configs} ({@code own}); null follows RsLib's.
+     */
+    public static void update(JavaPlugin plugin, String resourcePath, File diskFile, boolean prune, Boolean own) {
+        updateResource(plugin.getLogger(), plugin::getResource, resourcePath, diskFile, prune, false, false, own);
     }
 
     /**
@@ -301,7 +352,16 @@ public final class YamlUpdater {
      * modules depend on.
      */
     public static boolean updateFromLines(Logger logger, List<String> referenceLines, File diskFile, boolean force) {
-        return updateLines(logger, referenceLines, diskFile, false, false, false, force) == Outcome.WRITTEN;
+        return updateFromLines(logger, referenceLines, diskFile, force, null);
+    }
+
+    /**
+     * Same as {@link #updateFromLines(Logger, List, File, boolean)} under the plugin's own
+     * {@code update-configs} ({@code own}); null follows RsLib's.
+     */
+    public static boolean updateFromLines(Logger logger, List<String> referenceLines, File diskFile, boolean force,
+                                          Boolean own) {
+        return updateLines(logger, referenceLines, diskFile, false, false, false, force, own) == Outcome.WRITTEN;
     }
 
     /** Reads a resource; null (with a warning) when the jar lacks it. */
@@ -340,11 +400,18 @@ public final class YamlUpdater {
      */
     static Outcome updateResource(Logger logger, Function<String, InputStream> resources, String resourcePath,
                                   File diskFile, boolean prune, boolean dropObsolete, boolean keepInvalid) {
+        return updateResource(logger, resources, resourcePath, diskFile, prune, dropObsolete, keepInvalid, null);
+    }
+
+    /** {@code own} is the plugin's {@code update-configs}, null when it has none. */
+    static Outcome updateResource(Logger logger, Function<String, InputStream> resources, String resourcePath,
+                                  File diskFile, boolean prune, boolean dropObsolete, boolean keepInvalid,
+                                  Boolean own) {
         List<String> reference = readResource(logger, resources, resourcePath);
         if (reference == null) {
             return Outcome.UNCHANGED;
         }
-        return updateLines(logger, reference, diskFile, prune, dropObsolete, keepInvalid);
+        return updateLines(logger, reference, diskFile, prune, dropObsolete, keepInvalid, false, own);
     }
 
     /** Writes {@code lines} to {@code file} as they are, creating folders. */
@@ -354,12 +421,13 @@ public final class YamlUpdater {
 
     static Outcome updateLines(Logger logger, List<String> referenceLines, File diskFile,
                                boolean prune, boolean dropObsolete, boolean keepInvalid) {
-        return updateLines(logger, referenceLines, diskFile, prune, dropObsolete, keepInvalid, false);
+        return updateLines(logger, referenceLines, diskFile, prune, dropObsolete, keepInvalid, false, null);
     }
 
-    /** {@code force} merges past the {@code update-configs} switch. */
+    /** {@code force} merges past the {@code update-configs} switch; {@code own} is the plugin's, null when none. */
     private static Outcome updateLines(Logger logger, List<String> referenceLines, File diskFile,
-                                       boolean prune, boolean dropObsolete, boolean keepInvalid, boolean force) {
+                                       boolean prune, boolean dropObsolete, boolean keepInvalid, boolean force,
+                                       Boolean own) {
         Path path = diskFile.toPath();
         String name = diskFile.getName();
         try {
@@ -374,7 +442,7 @@ public final class YamlUpdater {
                 return invalidFile(logger, referenceLines, path, error, keepInvalid);
             }
             List<String> clean = YamlText.lines(repaired.cleanText());
-            if (!force && !mayMerge(path)) {
+            if (!force && !mayMerge(path, own)) {
                 int missing = missingKeys(referenceLines, clean);
                 if (missing > 0) {
                     logger.warning(PREFIX + "update-configs is false: " + missing + " keys missing in " + name);

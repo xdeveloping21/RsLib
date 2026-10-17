@@ -33,12 +33,14 @@ package com.rs.lib;
  *     ({@code rs().blocks()}), hotbar cooldowns, the multi-question wizard, the list editor,
  *     database export and import, alt accounts ({@code rs().accounts()}), the shared timer
  *     and hologram view range and movement.</li>
+ *     <li>4 (1.4.0): each plugin's own {@code update-configs} in its main config
+ *     ({@code rs().yml().updateConfigs()} and the {@code YamlUpdater} overloads that take it).</li>
  * </ul>
  */
 public final class RsApi {
 
     /** Must stay a literal so the compiler inlines it into every plugin. */
-    public static final int LEVEL = 3;
+    public static final int LEVEL = 4;
 
     private RsApi() {
     }

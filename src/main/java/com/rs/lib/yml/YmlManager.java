@@ -34,8 +34,10 @@ import com.rs.lib.Rs;
  *     <li>{@link #data} (files the plugin writes) and {@link #load} (any file to read): never
  *     seeded nor merged.</li>
  * </ul>
- * <p>The main config is mounted as managed when the manager is created; the obsolete top-level
- * {@code update-configs} key is removed from it unless the jar copy still declares it. All this
+ * <p>The main config is mounted as managed when the manager is created; the top-level
+ * {@code update-configs} key is removed from it unless the jar copy declares it. When the main
+ * config on disk has that key, its value decides for every file of the plugin whether the keys
+ * of a new version are added ({@link #updateConfigs}); without it, RsLib's own setting does. All this
  * I/O is synchronous on purpose: it only runs on enable and on reload.</p>
  * <p>A managed file that is not valid YAML is moved to {@code <name>.backup-N} and seeded again
  * from the jar only when it is first mounted. On a reload it is left as it is, with a warning,
@@ -68,6 +70,8 @@ public final class YmlManager {
     private final Map<String, Mounted> files = new LinkedHashMap<>();
     private final Set<String> modeWarnings = new HashSet<>();
     private final RsYml config;
+    /** The plugin's own {@code update-configs}, read from the main config before each merge of it. */
+    private volatile Boolean ownSwitch;
 
     public YmlManager(Rs rs, String configFile) {
         this(YmlHost.of(rs), rs.plugin().getDataFolder(), rs.plugin()::getResource, configFile);
@@ -79,6 +83,14 @@ public final class YmlManager {
         this.resources = Objects.requireNonNull(resources, "resources");
         this.configPath = normalize(configFile == null ? "config.yml" : configFile);
         this.config = mount(configPath, Mode.MANAGED);
+    }
+
+    /**
+     * The {@code update-configs} of this plugin's main config (read again on every reload), or
+     * null when it has none and RsLib's setting applies.
+     */
+    public Boolean updateConfigs() {
+        return ownSwitch;
     }
 
     /** The main config, merged with the jar copy. */
@@ -235,8 +247,15 @@ public final class YmlManager {
     private void merge(String path, File file, boolean prune, RsYml reloading) {
         Logger logger = host.logger();
         boolean main = path.equals(configPath);
+        if (main) {
+            ownSwitch = YamlUpdater.readSwitch(logger, file);
+        }
         YamlUpdater.Outcome outcome = YamlUpdater.updateResource(logger, resources, path, file, prune, main,
-                reloading != null);
+                reloading != null, ownSwitch);
+        if (main) {
+            // Seeding, the merge or the key's removal can change it; the first read already warned.
+            ownSwitch = YamlUpdater.readSwitch(null, file);
+        }
         if (outcome == YamlUpdater.Outcome.KEPT_INVALID) {
             reloading.invalidReported();
         }

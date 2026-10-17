@@ -24,6 +24,7 @@ import com.rs.lib.text.RsText;
 import com.rs.lib.util.Formats;
 import com.rs.lib.util.RsFormats;
 import com.rs.lib.yml.RsYml;
+import com.rs.lib.yml.YmlManager;
 import com.rs.lib.yml.internal.ResourceFolders;
 import com.rs.lib.yml.internal.YamlText;
 
@@ -72,7 +73,10 @@ public final class RsLang {
         this.rs = rs;
         this.config = config;
         this.papi = rs.papi();
-        this.loader = new LangLoader(rs.plugin(), this::warnOnce);
+        this.loader = new LangLoader(rs.plugin(), this::warnOnce, () -> {
+            YmlManager yml = rs.ymlOrNull();
+            return yml == null ? null : yml.updateConfigs();
+        });
         rs.onQuit(player -> cancelBar(player.getUniqueId()));
         load();
     }

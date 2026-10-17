@@ -8,7 +8,8 @@ lang: en
 
 # Adds to the YAML files of every plugin the keys a new version brings (with their comments,
 # keeping your values). false: nothing is added, the missing keys are only reported in the
-# console. This file is always updated.
+# console. This file is always updated. A plugin whose config.yml has its own update-configs
+# uses that value for its files instead.
 update-configs: true
 
 # RsLib's own debug output (also switched on and off with /rslib debug, no restart needed).

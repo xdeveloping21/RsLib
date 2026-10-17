@@ -94,6 +94,76 @@ class YamlUpdaterSwitchTest {
         assertTrue(Files.readString(file).contains("b: shared"));
     }
 
+    private YamlUpdater.Outcome update(Path file, Boolean own) {
+        return YamlUpdater.updateResource(log.logger, jar(), "config.yml", file.toFile(), false, false, false, own);
+    }
+
+    @Test
+    void aPluginsOwnSwitchWinsOverRsLibs() throws IOException {
+        Path file = dir.resolve("config.yml");
+        Files.writeString(file, DISK);
+        YamlUpdater.setMergeEnabled(false, dir.resolve("RsLib/config.yml").toFile());
+        assertEquals(YamlUpdater.Outcome.WRITTEN, update(file, true));
+        assertTrue(Files.readString(file).contains("new: 2"));
+
+        Files.writeString(file, DISK);
+        YamlUpdater.setMergeEnabled(true, null);
+        assertEquals(YamlUpdater.Outcome.UNCHANGED, update(file, false));
+        assertEquals(DISK, Files.readString(file));
+        assertEquals(List.of("[update-configs] update-configs is false: 2 keys missing in config.yml"),
+                log.records.stream().filter(r -> r.getLevel() == Level.WARNING).map(r -> r.getMessage()).toList());
+        assertEquals(YamlUpdater.Outcome.WRITTEN, update(file, null));
+    }
+
+    @Test
+    void rsLibsOwnConfigMergesWhateverThePluginSwitchSays() throws IOException {
+        Path own = dir.resolve("RsLib/config.yml");
+        Files.createDirectories(own.getParent());
+        Files.writeString(own, DISK);
+        YamlUpdater.setMergeEnabled(false, own.toFile());
+        assertEquals(YamlUpdater.Outcome.WRITTEN, update(own, false));
+    }
+
+    @Test
+    void forcedLinesIgnoreThePluginSwitchToo() throws IOException {
+        Path file = dir.resolve("lang/messages_en.yml");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "a: mine\n");
+        List<String> shared = List.of("rslib:", "  b: shared");
+        assertFalse(YamlUpdater.updateFromLines(log.logger, shared, file.toFile(), false, false));
+        assertEquals("a: mine\n", Files.readString(file));
+        assertTrue(YamlUpdater.updateFromLines(log.logger, shared, file.toFile(), true, false));
+        assertTrue(Files.readString(file).contains("b: shared"));
+    }
+
+    @Test
+    void readSwitchTakesTheTopLevelBoolean() throws IOException {
+        Path file = dir.resolve("config.yml");
+        assertEquals(null, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        Files.writeString(file, "a: 1\n");
+        assertEquals(null, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        Files.writeString(file, "a: 1\nupdate-configs: false\n");
+        assertEquals(Boolean.FALSE, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        Files.writeString(file, "update-configs: 'TRUE'\n");
+        assertEquals(Boolean.TRUE, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        Files.writeString(file, "section:\n  update-configs: false\n");
+        assertEquals(null, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        Files.writeString(file, "update-configs: [broken\n");
+        assertEquals(null, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        assertTrue(log.records.isEmpty(), log.records.toString());
+    }
+
+    @Test
+    void readSwitchWarnsAboutAValueThatIsNotABoolean() throws IOException {
+        Path file = dir.resolve("config.yml");
+        Files.writeString(file, "update-configs: maybe\n");
+        assertEquals(null, YamlUpdater.readSwitch(null, file.toFile()));
+        assertTrue(log.records.isEmpty());
+        assertEquals(null, YamlUpdater.readSwitch(log.logger, file.toFile()));
+        assertEquals(List.of("[update-configs] update-configs in config.yml must be true or false; using RsLib's"
+                + " update-configs instead"), log.records.stream().map(r -> r.getMessage()).toList());
+    }
+
     @Test
     void missingKeysCountsNestedOnes() {
         assertEquals(0, YamlUpdater.missingKeys(List.of("a: 1"), List.of("a: 3")));

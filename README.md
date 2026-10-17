@@ -1,4 +1,4 @@
-# RsLib 1.3.2
+# RsLib 1.4.0
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -64,7 +64,8 @@ plugins Rs declaran como dependencia (`depend: [RsLib]`). Ofrece:
   `rslib.admin.update` (también al entrar) cuando sale una versión nueva, aunque la
   actualización automática esté apagada. Su propia depuración se activa con `debug`
   en ese mismo archivo o con `/rslib debug`, y `update-configs: false` deja de agregar claves
-  nuevas a los .yml de todos los plugins (solo las informa en la consola).
+  nuevas a los .yml de todos los plugins (solo las informa en la consola). Un plugin que tenga
+  su propio `update-configs` en su config.yml usa ese valor para sus archivos.
 
 ## Compilar
 
@@ -79,7 +80,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>1.3.2</version>
+    <version>1.4.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -155,6 +156,10 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
+- **1.4.0:** `update-configs` por plugin: si el config.yml de un plugin tiene su propio
+  `update-configs` arriba de todo, ese valor decide para todos sus archivos (config, menús y
+  mensajes); sin la clave, sigue mandando el de RsLib. Los textos compartidos `rslib.*` se
+  agregan siempre, como antes. Nivel de API 4.
 - **1.3.2:** compilación sin avisos: las pruebas ya no muestran advertencias de javac, los
   mensajes que las pruebas provocan a propósito no salen en la consola y shade ya no avisa por
   los manifiestos repetidos de las librerías. Sin cambios en el código.
