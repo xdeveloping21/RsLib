@@ -43,6 +43,9 @@ final class Hologram {
     volatile boolean stale;
     volatile TaskHandle refresh;
     volatile boolean deleted;
+    /** Start of the current window of respawns after removals by something else, and how many there were. */
+    private long respawnsSince;
+    private int respawns;
 
     Hologram(HologramUtil owner, String id, Location at, List<String> lines) {
         this.owner = owner;
@@ -88,6 +91,20 @@ final class Hologram {
     /** Chunk coordinates packed into one long (x low, z high). */
     static long chunkKey(int chunkX, int chunkZ) {
         return (chunkX & 0xFFFFFFFFL) | ((chunkZ & 0xFFFFFFFFL) << 32);
+    }
+
+    /**
+     * Counts one respawn after a removal by something else; false once there were more than
+     * {@link HologramUtil#MAX_RESPAWNS} within {@link HologramUtil#RESPAWN_WINDOW_NANOS}. Caller
+     * holds this object's lock.
+     */
+    boolean countRespawn(long now) {
+        if (respawns == 0 || now - respawnsSince > HologramUtil.RESPAWN_WINDOW_NANOS) {
+            respawnsSince = now;
+            respawns = 0;
+        }
+        respawns++;
+        return respawns <= HologramUtil.MAX_RESPAWNS;
     }
 
     static boolean alive(TextDisplay display) {

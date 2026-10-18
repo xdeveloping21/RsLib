@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 
@@ -19,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.Listener;
 import org.bukkit.persistence.PersistentDataType;
+import org.jetbrains.annotations.ApiStatus;
 
 import com.rs.lib.Rs;
 import com.rs.lib.scheduler.TaskHandle;
@@ -42,6 +44,10 @@ import net.kyori.adventure.text.JoinConfiguration;
  *   or a crash leaves nothing behind, so there is nothing to purge. A hologram whose chunk is
  *   not loaded costs nothing: no entity, no placeholder work, and {@link #spawn} never loads a
  *   chunk.</li>
+ *   <li>When a command or another plugin removes the entity (for example
+ *   {@code /kill @e[type=text_display]}), a new one is spawned on the next tick. After
+ *   {@value #MAX_RESPAWNS} such removals within ten seconds the hologram is reported once and
+ *   left down until its lines change or its chunk loads again.</li>
  *   <li>Each entity carries the mark {@link #MARK} = {@code <Plugin>:<id>}. Entities without
  *   it, including any other plugin's, are never
  *   adopted, changed or removed.</li>
@@ -70,6 +76,9 @@ public final class HologramUtil {
     public static final int MAX_MOVE_TICKS = 59;
     /** Blocks a display is seen from at view range 1, before the client's entity distance setting. */
     static final int BLOCKS_PER_VIEW_RANGE = 64;
+    /** Respawns allowed after removals by something else within {@link #RESPAWN_WINDOW_NANOS}. */
+    static final int MAX_RESPAWNS = 5;
+    static final long RESPAWN_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(10);
 
     /** Live hologram sets by plugin name, for {@link #adopt}. */
     private static final Map<String, HologramUtil> LIVE = new ConcurrentHashMap<>();
@@ -94,6 +103,20 @@ public final class HologramUtil {
     /** The chunk listener every plugin shares; RsLib registers it. */
     public static Listener chunkListener() {
         return HologramChunkListener.INSTANCE;
+    }
+
+    /**
+     * The listener that puts back holograms removed by a command or another plugin, or null on
+     * a server without {@code EntityRemoveEvent}; RsLib registers it.
+     */
+    @ApiStatus.Internal
+    public static Listener removalListener() {
+        try {
+            Class.forName(HologramRemovalListener.EVENT_CLASS, false, HologramUtil.class.getClassLoader());
+        } catch (ClassNotFoundException | LinkageError absent) {
+            return null;
+        }
+        return new HologramRemovalListener();
     }
 
     /**
@@ -345,6 +368,27 @@ public final class HologramUtil {
         return util.rebind(hologram, display);
     }
 
+    /**
+     * {@code display} was removed by a command or another plugin (not a chunk unload): when it
+     * is a live hologram's entity, a new one is spawned on the next tick. Called on the thread
+     * that owns the entity; anything without RsLib's {@link #MARK} is ignored.
+     */
+    static void removedByOther(TextDisplay display) {
+        if (LIVE.isEmpty()) {
+            return;
+        }
+        String mark = display.getPersistentDataContainer().get(MARK, PersistentDataType.STRING);
+        if (mark == null) {
+            return;
+        }
+        int colon = mark.indexOf(':');
+        HologramUtil util = colon <= 0 ? null : LIVE.get(mark.substring(0, colon));
+        Hologram hologram = util == null ? null : util.holograms.get(mark.substring(colon + 1));
+        if (hologram != null) {
+            util.lost(hologram, display);
+        }
+    }
+
     // ------------------------------------------------------------------ internals
 
     String ownerName() {
@@ -363,6 +407,33 @@ public final class HologramUtil {
         }
         World world = host.world(hologram.world());
         if (world != null) {
+            schedule(hologram, hologram.location(world));
+        }
+    }
+
+    /**
+     * The hologram's own entity was removed by something else: forget it and spawn a new one on
+     * the next tick, unless that happened too often. A removal RsLib did itself (delete, move,
+     * a replaced copy) never gets here, because the hologram no longer points at that entity.
+     */
+    private void lost(Hologram hologram, TextDisplay display) {
+        boolean respawn;
+        synchronized (hologram) {
+            TextDisplay bound = hologram.entity;
+            if (hologram.deleted || bound == null || !bound.getUniqueId().equals(display.getUniqueId())) {
+                return;
+            }
+            hologram.entity = null;
+            respawn = hologram.countRespawn(System.nanoTime());
+        }
+        HologramChunkListener.INSTANCE.fresh(display.getUniqueId());
+        if (!respawn) {
+            warnOnce("respawn:" + hologram.id, "Hologram '" + hologram.id + "' was removed by a command or another plugin "
+                    + MAX_RESPAWNS + " times in 10 seconds; it is not put back until its lines change or its chunk loads again.");
+            return;
+        }
+        World world = host.world(hologram.world());
+        if (world != null && world.isChunkLoaded(hologram.place.chunkX(), hologram.place.chunkZ())) {
             schedule(hologram, hologram.location(world));
         }
     }

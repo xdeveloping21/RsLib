@@ -198,6 +198,125 @@ class HologramUtilTest {
         assertEquals("b", plain(host.alive().get(0).text));
     }
 
+    // ---------------------------------------------------------------- removed by a command or another plugin
+
+    /** What {@code /kill} does to the display: it is gone and the removal listener hears of it. */
+    private static void killed(FakeDisplay display) {
+        display.valid = false;
+        HologramUtil.removedByOther(display.entity);
+    }
+
+    @Test
+    void theRemovalListenerExistsOnThisServerApi() {
+        assertTrue(HologramUtil.removalListener() instanceof HologramRemovalListener);
+    }
+
+    @Test
+    void aHologramRemovedByACommandComesBackOnTheNextTick() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("&aHi"));
+        FakeDisplay first = host.spawned.get(0);
+
+        killed(first);
+        assertTrue(host.alive().isEmpty(), "back on the next tick, not inside the removal");
+        host.tick();
+
+        assertEquals(1, host.alive().size());
+        FakeDisplay second = host.alive().get(0);
+        assertNotSame(first, second);
+        assertEquals("Hi", plain(second.text));
+        assertEquals(plugin + ":crate", second.mark());
+        assertSame(second.entity, holograms.hologram("crate").entity);
+        assertTrue(host.warnings.isEmpty(), host.warnings.toString());
+    }
+
+    @Test
+    void removalsRsLibDidItselfAreNotPutBack() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"));
+        holograms.spawn("moved", here(), List.of("b"));
+        FakeDisplay crate = host.spawned.get(0);
+        FakeDisplay moved = host.spawned.get(1);
+
+        holograms.delete("crate");
+        holograms.moveTo("moved", new Location(world.world, 90, 64, 90));
+        host.tick();
+        HologramUtil.removedByOther(crate.entity);
+        HologramUtil.removedByOther(moved.entity);
+        host.tick();
+
+        assertTrue(host.alive().isEmpty(), "the moved one waits for its new chunk: " + host.alive());
+        assertTrue(crate.removed && moved.removed);
+        assertNull(holograms.hologram("crate"));
+    }
+
+    @Test
+    void displaysThatAreNotTheHologramsOwnAreIgnored() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"));
+        FakeDisplay foreign = FakeDisplay.marked(OTHER_MARK, plugin + ":crate");
+        FakeDisplay copy = FakeDisplay.marked(HologramUtil.MARK.toString(), plugin + ":crate");
+        FakeDisplay unknown = FakeDisplay.marked(HologramUtil.MARK.toString(), plugin + ":gone");
+
+        killed(foreign);
+        killed(copy);
+        killed(unknown);
+        host.tick();
+
+        assertEquals(1, host.spawned.size(), "nothing new spawned");
+        assertTrue(host.spawned.get(0).valid);
+        assertTrue(foreign.calls.isEmpty() && copy.calls.isEmpty() && unknown.calls.isEmpty());
+    }
+
+    @Test
+    void aRemovalWhileTheChunkIsNotLoadedWaitsForTheChunk() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"));
+        FakeDisplay first = host.spawned.get(0);
+
+        world.unload(0, 1, host);
+        HologramUtil.removedByOther(first.entity);
+        host.tick();
+        assertTrue(host.alive().isEmpty());
+
+        world.load(0, 1);
+        HologramChunkListener.INSTANCE.chunkLoaded("world", 0, 1);
+        host.tick();
+        assertEquals(1, host.alive().size());
+    }
+
+    @Test
+    void tooManyRemovalsInARowAreReportedOnceAndLeaveItDownUntilItsLinesChange() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"));
+
+        for (int i = 0; i < HologramUtil.MAX_RESPAWNS; i++) {
+            killed(host.alive().get(0));
+            host.tick();
+            assertEquals(1, host.alive().size(), "respawn " + (i + 1));
+        }
+        killed(host.alive().get(0));
+        host.tick();
+        assertTrue(host.alive().isEmpty());
+        assertEquals(1, host.warnings.size());
+        assertTrue(host.warnings.get(0).contains("'crate'"), host.warnings.get(0));
+
+        holograms.setLines("crate", List.of("b"));
+        assertEquals(1, host.alive().size());
+        assertEquals("b", plain(host.alive().get(0).text));
+    }
+
+    @Test
+    void theRespawnWindowStartsAgainAfterTenSeconds() {
+        Hologram hologram = new Hologram(holograms, "w", here(), List.of());
+        long start = 1_000L;
+        for (int i = 0; i < HologramUtil.MAX_RESPAWNS; i++) {
+            assertTrue(hologram.countRespawn(start + i));
+        }
+        assertFalse(hologram.countRespawn(start + HologramUtil.MAX_RESPAWNS));
+        assertTrue(hologram.countRespawn(start + HologramUtil.RESPAWN_WINDOW_NANOS + 1));
+    }
+
     // ---------------------------------------------------------------- other plugins' entities (traps 11.6.1, 11.6.3)
 
     @Test

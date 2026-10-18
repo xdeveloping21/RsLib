@@ -1,7 +1,7 @@
-# RsLib 2.0.1
+# RsLib 2.0.2
 
 [![CI](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml/badge.svg)](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml)
-![Versión](https://img.shields.io/badge/versi%C3%B3n-2.0.1-blue)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-2.0.2-blue)
 ![Paper](https://img.shields.io/badge/Paper-1.20%20a%201.21.x-informational)
 ![Velocity](https://img.shields.io/badge/Velocity-3.4-informational)
 ![Java](https://img.shields.io/badge/Java-21-orange)
@@ -61,7 +61,7 @@ mensajes, comandos, menús, base de datos y más, para que todos los plugins se 
 | **Recompensas que no se pierden** | Lo que no cabe en el inventario o se gana sin estar conectado se guarda y se entrega al entrar; los avisos de una venta o una subasta llegan aunque el jugador no esté. |
 | **Herramientas para el staff** | Registro de auditoría con `/rslib logs`, cuentas alternas por hash de la IP con `/rslib alts` y exportar o importar la base de datos de un plugin con `/rslib db`. |
 | **Preferencias de los jugadores** | Un menú común, `/rslib settings`, donde cada jugador ajusta las opciones de todos los plugins y silencia los anuncios que no quiere ver. |
-| **Y además** | Barras de jefe con temporizador, hologramas de texto que no se guardan en el mundo, webhooks de Discord, tops que se actualizan en segundo plano, teletransportes con espera, regiones con eventos de entrar y salir, consultas a WorldGuard sin depender de él, bloques que responden a clics, preguntas por chat, copias del estado de un jugador, precios de venta y multiplicadores por permiso. |
+| **Y además** | Barras de jefe con temporizador, hologramas de texto que no se guardan en el mundo y vuelven solos si un comando los borra, webhooks de Discord, tops que se actualizan en segundo plano, teletransportes con espera, regiones con eventos de entrar y salir, consultas a WorldGuard sin depender de él, bloques que responden a clics, preguntas por chat, copias del estado de un jugador, precios de venta y multiplicadores por permiso. |
 
 ## Requisitos
 
@@ -261,7 +261,7 @@ repositorio Maven local (`~/.m2`). En el `pom.xml` del plugin, con Java 21
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>2.0.1</version>
+    <version>2.0.2</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -656,6 +656,11 @@ Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev · https://dis
 
 ## Historial de versiones
 
+- **2.0.2:** los hologramas vuelven solos en el tick siguiente cuando un comando u otro plugin
+  borra su entidad (por ejemplo `/kill @e[type=text_display]` o `/killall`). Si se borran
+  más de 5 veces en 10 segundos, la consola lo avisa una vez y el holograma queda abajo hasta
+  que cambien sus líneas o se vuelva a cargar su chunk. Sin cambios de API: los plugins no se
+  recompilan, y los que traían un listener propio para esto pueden quitarlo.
 - **2.0.1:** cabezas con `skull-owner` en servidores en modo offline. Si el dueño está
   conectado, se usa su perfil del juego, así que la skin que le puso el servidor o un plugin de
   skins (por ejemplo, SkinsRestorer) sale en la cabeza. Un UUID de modo offline sin skin ya no se

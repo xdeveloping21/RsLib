@@ -61,6 +61,10 @@ public final class ListenerHub {
         pm.registerEvents(GuiManager.protectionListener(), rslib);
         pm.registerEvents(Teleports.sharedListener(), rslib);
         pm.registerEvents(HologramUtil.chunkListener(), rslib);
+        Listener hologramRemovals = HologramUtil.removalListener();
+        if (hologramRemovals != null) {
+            pm.registerEvents(hologramRemovals, rslib);
+        }
         pm.registerEvents(ArmourEquipListener.shared(), rslib);
         pm.registerEvents(ChunkMoveListener.shared(), rslib);
         pm.registerEvents(SelectionManager.wandListener(), rslib);
