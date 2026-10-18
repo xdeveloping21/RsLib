@@ -233,7 +233,7 @@ class ActionEngineTest {
         assertThrows(IllegalArgumentException.class, () -> engine.register(" [] ", (p, a, c) -> { }));
     }
 
-    /** Raul's rule: [remove-item] with an amount of 0 or less warns and touches nothing. */
+    /** [remove-item] with an amount of 0 or less warns and touches nothing. */
     @Test
     void removeItemWithoutAPositiveAmountDoesNothing() {
         run(ActionContext.of(steve.player, null), "[remove-item] 0", "[remove-item] -3 DIAMOND", "[remove-item] 1.5");

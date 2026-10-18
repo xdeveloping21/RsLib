@@ -65,14 +65,14 @@ class SoundUtilTest {
         assertEquals("ENTITY_PLAYER_LEVELUP", SoundUtil.constantName("minecraft:entity.player.levelup"));
         assertEquals("ENTITY_PLAYER_LEVELUP", SoundUtil.constantName("Minecraft:Entity.Player.LevelUp"));
         assertEquals("BLOCK_NOTE_BLOCK_PLING", SoundUtil.constantName("block.note_block.pling"));
-        assertEquals("OKIMC:CLICK-2", SoundUtil.constantName("okimc:click-2"));
+        assertEquals("MYPACK:CLICK-2", SoundUtil.constantName("mypack:click-2"));
     }
 
     /** A namespaced id outside the registry is a resource pack sound; its key must be valid. */
     @Test
     void namespacedIdsMakeKeys() {
-        assertEquals("okimc:click-2", SoundUtil.keyOf("okimc:click-2").toString());
-        assertEquals("okimc:ui.click", SoundUtil.keyOf("OkiMC:UI.Click").toString());
+        assertEquals("mypack:click-2", SoundUtil.keyOf("mypack:click-2").toString());
+        assertEquals("mypack:ui.click", SoundUtil.keyOf("MyPack:UI.Click").toString());
         assertEquals("minecraft:entity.player.levelup", SoundUtil.keyOf("entity.player.levelup").toString());
         assertNull(SoundUtil.keyOf("a:b:c"));
         assertNull(SoundUtil.keyOf("bad key!"));

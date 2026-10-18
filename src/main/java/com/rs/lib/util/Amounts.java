@@ -24,8 +24,6 @@ import java.util.OptionalLong;
  * {@code 3 M} and {@code 1_000} read as expected. Values are exact {@link BigDecimal}s;
  * the {@code double} and {@code long} views reject what does not fit (a non-finite double,
  * a fraction or an overflow for a whole number). Safe from any thread.</p>
- *
- * <p>Written for Raul's plugins (2026-10-05), carried over to RsLib unchanged.</p>
  */
 public final class Amounts {
 

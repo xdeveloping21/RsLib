@@ -183,7 +183,7 @@ class RequirementEngineTest {
         assertTrue(engine.test(null, context));
     }
 
-    /** Raul's rule: a requirement written wrong fails closed with a warning naming the file and key. */
+    /** A requirement written wrong fails closed with a warning naming the file and key. */
     @Test
     void warningsNameFileAndKey() {
         FakeActionHost host = new FakeActionHost();

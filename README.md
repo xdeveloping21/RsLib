@@ -739,7 +739,7 @@ Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev · https://dis
   nada si hay dos jars de RsLib en `plugins/`, las opciones de `[particle]` avisan cuando están
   mal escritas y las duraciones de los comandos se leen como en los archivos (palabras
   desconocidas se saltan y un número solo son segundos). Los requisitos mal escritos siguen
-  fallando siempre (decisión de Raul) y no hay semanas ni meses en las duraciones.
+  fallando siempre y no hay semanas ni meses en las duraciones.
 - **1.1.0:** regiones con varita de selección (`rs().selections()`), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib
   (`debug` en su config.yml y `/rslib debug`), `/rslib reload` sin plugin para su config.yml
