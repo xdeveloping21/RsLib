@@ -1,4 +1,4 @@
-# RsLib 2.0.0
+# RsLib 2.0.1
 
 Librería base de los plugins Rs de RsDevelopment para Paper 1.20 a 1.21.x (Java 21).
 
@@ -80,7 +80,7 @@ compilar los plugins Rs:
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -156,6 +156,12 @@ Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
 
 ## Historial de versiones
 
+- **2.0.1:** cabezas con `skull-owner` en servidores en modo offline. Si el dueño está
+  conectado, se usa su perfil del juego, así que la skin que le puso el servidor o un plugin de
+  skins (por ejemplo, SkinsRestorer) sale en la cabeza. Un UUID de modo offline sin skin ya no se
+  busca en Mojang (no puede tener ninguna), y la consola ya no muestra `Could not find the skin of
+  skull-owner ...` por cada jugador de un servidor offline. Sin cambios de API: los plugins no se
+  recompilan.
 - **2.0.0:** cambio incompatible: las marcas que RsLib guarda en los ítems pasan a llamarse
   `rslib_*` (`rslib_item_id`, `rslib_locked`, `rslib_no_drop`, `rslib_no_manual_equip`,
   `rslib_keep_on_death`, `rslib_obtain_via`, `rslib_durability`, `rslib_durability_line`, las

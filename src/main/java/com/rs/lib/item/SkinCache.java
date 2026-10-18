@@ -26,10 +26,14 @@ import com.rs.lib.scheduler.RsScheduler;
  * <ol>
  *     <li>A cached skin is applied at once: found ones are kept 30 minutes, owners that could
  *     not be found 2 minutes (at most {@value #MAX_ENTRIES} owners).</li>
- *     <li>Otherwise the owner is resolved without the network (a UUID, an online player, a
+ *     <li>Otherwise the owner is resolved without the network (an online player, by UUID or by
+ *     name, keeps the skin the server gave them, also one set by a skin plugin; then a UUID or a
  *     name the server has cached) and what is known is shown.</li>
- *     <li>When that has no texture, Paper fetches the profile on its own executor; one fetch per
- *     owner at a time, however many renders ask. When it arrives it is cached on the main
+ *     <li>An offline-mode UUID (version 3, made by the server from the name) with no texture is
+ *     never looked up: Mojang has no skin for it. The plain head is kept for 2 minutes, without
+ *     a warning.</li>
+ *     <li>Any other owner still without a texture: Paper fetches the profile on its own
+ *     executor; one fetch per owner at a time, however many renders ask. When it arrives it is cached on the main
  *     thread and every {@code onArrive} callback waiting for that owner runs, so a menu can
  *     render the cell again. Without a callback, the next render shows the skin.</li>
  * </ol>
@@ -92,6 +96,10 @@ final class SkinCache {
         }
         if (local != null && local.getId() != null) {
             meta.setPlayerProfile(local);
+            if (offlineModeId(local.getId())) {
+                remember(key, local, now + MISSING_MILLIS);
+                return;
+            }
         }
         fetch(key, owner.trim(), local, onArrive, warn);
     }
@@ -122,10 +130,14 @@ final class SkinCache {
         }
     }
 
-    /** A UUID, an online player or a name in the server's cache; null when none of those. Never uses the network. */
+    /** An online player, a UUID or a name in the server's cache; null when none of those. Never uses the network. */
     private static PlayerProfile resolveLocally(String owner) {
         UUID id = uuidOrNull(owner);
         if (id != null) {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null) {
+                return player.getPlayerProfile();
+            }
             PlayerProfile profile = Bukkit.createProfile(id);
             profile.completeFromCache(false);
             return profile;
@@ -141,6 +153,14 @@ final class SkinCache {
             return profile;
         }
         return null;
+    }
+
+    /**
+     * Whether {@code id} was made by a server in offline mode from the player's name
+     * (a version 3 UUID): Mojang never has a skin for it. Online accounts use version 4.
+     */
+    static boolean offlineModeId(UUID id) {
+        return id.version() == 3;
     }
 
     static UUID uuidOrNull(String text) {
