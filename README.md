@@ -40,7 +40,6 @@ mensajes, comandos, menús, base de datos y más, para que todos los plugins se 
   - [Recarga](#recarga)
   - [Nivel de API y compatibilidad](#nivel-de-api-y-compatibilidad)
   - [En Velocity](#en-velocity)
-  - [Ofuscar un plugin que usa RsLib](#ofuscar-un-plugin-que-usa-rslib)
 - [Compilar desde el código](#compilar-desde-el-código)
 - [Licencia](#licencia)
 - [Historial de versiones](#historial-de-versiones)
@@ -634,14 +633,6 @@ public final class MiProxy {
 }
 ```
 
-### Ofuscar un plugin que usa RsLib
-
-`docs/rslib-consumer-rules.pro` tiene las reglas de ProGuard que un plugin ofuscado necesita
-para seguir funcionando con RsLib: conserva los métodos que RsLib llama por nombre
-(`requiredApiLevel`, `buildSpec`, `onPreEnable`, `onInnerEnable`, `onInnerDisable`), los
-`@EventHandler`, los eventos, los enums que se leen por nombre, el paquete `.api` y lo que
-Velocity busca. RsLib no viaja dentro del plugin, así que no se ofusca con él.
-
 ## Compilar desde el código
 
 Con Java 21 o posterior y Maven:
@@ -746,8 +737,8 @@ Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev · https://dis
   fallando siempre (decisión de Raul) y no hay semanas ni meses en las duraciones.
 - **1.1.0:** regiones con varita de selección (`rs().selections()`), eventos propios (armadura, cambio de chunk, selección completa), base para Velocity
   en el mismo jar, tareas a horas del reloj (`rs().cron()`), depuración propia de RsLib
-  (`debug` en su config.yml y `/rslib debug`), `/rslib reload` sin plugin para su config.yml,
-  `update-configs` y reglas de ProGuard para plugins ofuscados. Nivel de API 2.
+  (`debug` en su config.yml y `/rslib debug`), `/rslib reload` sin plugin para su config.yml
+  y `update-configs`. Nivel de API 2.
 - **1.0.0:** primera versión: núcleo, YAML, mensajes, texto, comandos, base de datos,
   cooldowns, PlaceholderAPI, menús, ítems, acciones, economía, tops, teletransportes, copias de
   jugador, barras de jefe, hologramas, Discord y actualizador propio. Nivel de API 1.
