@@ -35,12 +35,15 @@ package com.rs.lib;
  *     and hologram view range and movement.</li>
  *     <li>4 (1.4.0): each plugin's own {@code update-configs} in its main config
  *     ({@code rs().yml().updateConfigs()} and the {@code YamlUpdater} overloads that take it).</li>
+ *     <li>5 (2.1.0): the whole look of a hologram ({@code HologramStyle}: shadow, see-through,
+ *     background, alignment, line width, text opacity, scale), with
+ *     {@code holograms().spawn(id, location, lines, style)}, {@code setStyle} and {@code style}.</li>
  * </ul>
  */
 public final class RsApi {
 
     /** Must stay a literal so the compiler inlines it into every plugin. */
-    public static final int LEVEL = 4;
+    public static final int LEVEL = 5;
 
     private RsApi() {
     }

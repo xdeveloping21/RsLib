@@ -52,7 +52,9 @@ import net.kyori.adventure.text.JoinConfiguration;
  *   it, including any other plugin's, are never
  *   adopted, changed or removed.</li>
  *   <li>Each line goes through PlaceholderAPI with no viewer and then the full text pipeline;
- *   the lines are joined with line breaks. The billboard is {@code CENTER} unless set.</li>
+ *   the lines are joined with line breaks. The billboard is {@code CENTER} unless set; the
+ *   whole look (shadow, background, scale and more) is a {@link HologramStyle}, given at
+ *   {@link #spawn(String, Location, List, HologramStyle)} or with {@link #setStyle}.</li>
  *   <li>A refresh ({@link #refreshEvery}) does no placeholder work while no player is near
  *   enough to see the hologram; it renders again the moment a player starts receiving the
  *   entity, or at the next refresh once one is near.</li>
@@ -125,13 +127,22 @@ public final class HologramUtil {
      * not loaded, the hologram appears once it is.
      */
     public void spawn(String id, Location location, List<String> lines) {
+        spawn(id, location, lines, HologramStyle.DEFAULT);
+    }
+
+    /**
+     * Like {@link #spawn(String, Location, List)} with a look (see {@link HologramStyle}); null is
+     * {@link HologramStyle#DEFAULT}. The style stays with the hologram: every new entity (after a
+     * chunk reload or a removal) gets it again.
+     */
+    public void spawn(String id, Location location, List<String> lines, HologramStyle style) {
         Objects.requireNonNull(id, "id");
         World world = worldOf(location);
         if (world == null) {
             host.logger().warning("Hologram '" + id + "' has no loaded world in its location; not spawned.");
             return;
         }
-        Hologram hologram = new Hologram(this, id, location, copy(lines));
+        Hologram hologram = new Hologram(this, id, location, copy(lines), style == null ? HologramStyle.DEFAULT : style);
         Hologram previous = holograms.put(id, hologram);
         if (previous != null) {
             destroy(previous);
@@ -157,7 +168,9 @@ public final class HologramUtil {
             return;
         }
         Display.Billboard value = billboard == null ? Display.Billboard.CENTER : billboard;
-        hologram.billboard = value;
+        synchronized (hologram) {
+            hologram.style = hologram.style.toBuilder().billboard(value).build();
+        }
         TextDisplay display = hologram.entity;
         if (Hologram.alive(display)) {
             onEntityThread(display, () -> {
@@ -289,7 +302,9 @@ public final class HologramUtil {
             return;
         }
         boolean valid = range > 0 && Float.isFinite(range);
-        hologram.viewRange = valid ? range : 0f;
+        synchronized (hologram) {
+            hologram.style = hologram.style.toBuilder().viewRange(valid ? range : 0f).build();
+        }
         float value = valid ? range : 1f;
         TextDisplay display = hologram.entity;
         if (Hologram.alive(display)) {
@@ -301,6 +316,40 @@ public final class HologramUtil {
         }
         // A wider range may bring players in: their text must not wait for the next refresh.
         wake(hologram);
+    }
+
+    /**
+     * Changes the whole look (see {@link HologramStyle}); null is {@link HologramStyle#DEFAULT}.
+     * The entity is updated now if it exists, and every new entity gets the style too.
+     * {@link #setBillboard} and {@link #setViewRange} keep working on top of it.
+     */
+    public void setStyle(String id, HologramStyle style) {
+        Hologram hologram = known(id);
+        if (hologram == null) {
+            return;
+        }
+        HologramStyle value = style == null ? HologramStyle.DEFAULT : style;
+        synchronized (hologram) {
+            hologram.style = value;
+        }
+        TextDisplay display = hologram.entity;
+        if (Hologram.alive(display)) {
+            onEntityThread(display, () -> {
+                synchronized (hologram) {
+                    if (hologram.entity == display && Hologram.alive(display)) {
+                        hologram.style.apply(display, true);
+                    }
+                }
+            });
+        }
+        // The view range may have grown: players now in range must not wait for the next refresh.
+        wake(hologram);
+    }
+
+    /** The hologram's current look, or null for an id that does not exist. */
+    public HologramStyle style(String id) {
+        Hologram hologram = holograms.get(id);
+        return hologram == null ? null : hologram.style;
     }
 
     /** Hides the hologram from one player, until {@link #showTo} or until they leave. */
@@ -500,10 +549,7 @@ public final class HologramUtil {
     private void configure(Hologram hologram, TextDisplay display) {
         display.setPersistent(false);
         display.getPersistentDataContainer().set(MARK, PersistentDataType.STRING, hologram.mark());
-        display.setBillboard(hologram.billboard);
-        if (hologram.viewRange > 0) {
-            display.setViewRange(hologram.viewRange);
-        }
+        hologram.style.apply(display, false);
         if (hologram.teleportTicks >= 0 && !host.teleportDuration(display, hologram.teleportTicks)) {
             hologram.teleportTicks = -1;
         }
@@ -627,7 +673,7 @@ public final class HologramUtil {
     /** True when a player who may see the hologram is near it; see {@link #refreshEvery}. */
     private boolean anyoneNear(Hologram hologram) {
         Hologram.Place at = hologram.place;
-        return host.anyoneNear(at.world(), at.chunkX(), at.chunkZ(), radiusChunks(hologram.viewRange),
+        return host.anyoneNear(at.world(), at.chunkX(), at.chunkZ(), radiusChunks(hologram.style.viewRange()),
                 hologram.hiddenFrom);
     }
 

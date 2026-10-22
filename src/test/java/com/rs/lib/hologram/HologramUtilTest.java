@@ -15,6 +15,7 @@ import java.util.function.UnaryOperator;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.TextDisplay;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -308,7 +309,7 @@ class HologramUtilTest {
 
     @Test
     void theRespawnWindowStartsAgainAfterTenSeconds() {
-        Hologram hologram = new Hologram(holograms, "w", here(), List.of());
+        Hologram hologram = new Hologram(holograms, "w", here(), List.of(), HologramStyle.DEFAULT);
         long start = 1_000L;
         for (int i = 0; i < HologramUtil.MAX_RESPAWNS; i++) {
             assertTrue(hologram.countRespawn(start + i));
@@ -409,6 +410,75 @@ class HologramUtilTest {
         HologramChunkListener.INSTANCE.chunkLoaded("world", 0, 1);
         host.tick();
         assertEquals(Display.Billboard.VERTICAL, host.alive().get(0).billboard);
+    }
+
+    @Test
+    void aHologramWithoutAStyleOnlyGetsItsBillboard() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"));
+        FakeDisplay display = host.spawned.get(0);
+        assertEquals(0, count(display.calls, "setShadowed false") + count(display.calls, "setBackgroundColor")
+                + count(display.calls, "setTransformation") + count(display.calls, "setLineWidth 200"));
+        assertEquals(Display.Billboard.CENTER, display.billboard);
+    }
+
+    @Test
+    void aStyleIsAppliedAtSpawnAndAgainToTheNextEntity() {
+        world.load(0, 1);
+        HologramStyle style = HologramStyle.builder().billboard(Display.Billboard.FIXED).shadow(true).seeThrough(true)
+                .background(0).alignment(TextDisplay.TextAlignment.LEFT).lineWidth(90).textOpacity(100).scale(2f)
+                .viewRange(3f).build();
+        holograms.spawn("crate", here(), List.of("a"), style);
+        assertStyled(host.spawned.get(0));
+
+        world.unload(0, 1, host);
+        world.load(0, 1);
+        HologramChunkListener.INSTANCE.chunkLoaded("world", 0, 1);
+        host.tick();
+        assertStyled(host.alive().get(0));
+        assertSame(style, holograms.style("crate"));
+    }
+
+    private static void assertStyled(FakeDisplay d) {
+        assertEquals(Display.Billboard.FIXED, d.billboard);
+        assertTrue(d.shadowed);
+        assertTrue(d.seeThrough);
+        assertEquals(0, d.background.asARGB());
+        assertEquals(TextDisplay.TextAlignment.LEFT, d.alignment);
+        assertEquals(90, d.lineWidth);
+        assertEquals((byte) 100, d.textOpacity);
+        assertEquals(2f, d.transformation.getScale().x());
+        assertEquals(3f, d.viewRange);
+    }
+
+    @Test
+    void setStyleChangesTheLiveEntityAndBackToDefaultResetsIt() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"));
+        holograms.setStyle("crate", HologramStyle.builder().shadow(true).scale(3f).background(0xFF00FF00).build());
+        FakeDisplay d = host.spawned.get(0);
+        assertTrue(d.shadowed);
+        assertEquals(3f, d.transformation.getScale().x());
+        assertEquals(0xFF00FF00, d.background.asARGB());
+
+        holograms.setStyle("crate", null);
+        assertFalse(d.shadowed);
+        assertEquals(1f, d.transformation.getScale().x());
+        assertEquals(HologramStyle.DEFAULT_BACKGROUND, d.background.asARGB());
+        assertEquals(HologramStyle.DEFAULT, holograms.style("crate"));
+    }
+
+    @Test
+    void setBillboardAndViewRangeWorkOnTopOfAStyle() {
+        world.load(0, 1);
+        holograms.spawn("crate", here(), List.of("a"), HologramStyle.builder().shadow(true).build());
+        holograms.setBillboard("crate", Display.Billboard.HORIZONTAL);
+        holograms.setViewRange("crate", 4f);
+        HologramStyle now = holograms.style("crate");
+        assertTrue(now.shadow());
+        assertEquals(Display.Billboard.HORIZONTAL, now.billboard());
+        assertEquals(4f, now.viewRange());
+        assertEquals(Display.Billboard.HORIZONTAL, host.spawned.get(0).billboard);
     }
 
     @Test

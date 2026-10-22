@@ -15,6 +15,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -23,6 +24,9 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import com.rs.lib.scheduler.TaskHandle;
 
@@ -295,6 +299,14 @@ final class FakeHologramHost implements HologramHost {
         Location at;
         int teleportTicks = -1;
         float viewRange = 1f;
+        boolean shadowed;
+        boolean seeThrough;
+        Color background = Color.fromARGB(HologramStyle.DEFAULT_BACKGROUND);
+        TextDisplay.TextAlignment alignment = TextDisplay.TextAlignment.CENTER;
+        int lineWidth = HologramStyle.DEFAULT_LINE_WIDTH;
+        byte textOpacity = (byte) -1;
+        Transformation transformation = new Transformation(new Vector3f(), new AxisAngle4f(), new Vector3f(1, 1, 1),
+                new AxisAngle4f());
         boolean valid = true;
         boolean persistent = true;
         boolean removed;
@@ -348,6 +360,42 @@ final class FakeHologramHost implements HologramHost {
                             yield null;
                         }
                         case "getBillboard" -> billboard;
+                        case "setShadowed" -> {
+                            calls.add("setShadowed " + args[0]);
+                            shadowed = (Boolean) args[0];
+                            yield null;
+                        }
+                        case "setSeeThrough" -> {
+                            calls.add("setSeeThrough " + args[0]);
+                            seeThrough = (Boolean) args[0];
+                            yield null;
+                        }
+                        case "setBackgroundColor" -> {
+                            calls.add("setBackgroundColor");
+                            background = (Color) args[0];
+                            yield null;
+                        }
+                        case "setAlignment" -> {
+                            calls.add("setAlignment " + args[0]);
+                            alignment = (TextDisplay.TextAlignment) args[0];
+                            yield null;
+                        }
+                        case "setLineWidth" -> {
+                            calls.add("setLineWidth " + args[0]);
+                            lineWidth = (Integer) args[0];
+                            yield null;
+                        }
+                        case "setTextOpacity" -> {
+                            calls.add("setTextOpacity " + args[0]);
+                            textOpacity = (Byte) args[0];
+                            yield null;
+                        }
+                        case "getTransformation" -> transformation;
+                        case "setTransformation" -> {
+                            calls.add("setTransformation");
+                            transformation = (Transformation) args[0];
+                            yield null;
+                        }
                         case "setViewRange" -> {
                             calls.add("setViewRange " + args[0]);
                             viewRange = (Float) args[0];

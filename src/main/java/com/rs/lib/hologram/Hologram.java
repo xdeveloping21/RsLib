@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 
 import com.rs.lib.scheduler.TaskHandle;
@@ -30,9 +29,8 @@ final class Hologram {
     /** Where it stands; replaced whole by a move. */
     volatile Place place;
     volatile List<String> lines;
-    volatile Display.Billboard billboard = Display.Billboard.CENTER;
-    /** The view range given with {@code setViewRange}; 0 is the entity's own default (1). */
-    volatile float viewRange;
+    /** How it looks; billboard and view range included. Replaced whole on every change. */
+    volatile HologramStyle style;
     /** The teleport duration last given to the entity, or -1 when it was never set. */
     volatile int teleportTicks = -1;
     /** The entity while it exists; null before the first spawn and after delete. */
@@ -47,11 +45,12 @@ final class Hologram {
     private long respawnsSince;
     private int respawns;
 
-    Hologram(HologramUtil owner, String id, Location at, List<String> lines) {
+    Hologram(HologramUtil owner, String id, Location at, List<String> lines, HologramStyle style) {
         this.owner = owner;
         this.id = id;
         this.place = Place.of(at);
         this.lines = lines;
+        this.style = style;
     }
 
     /** A world name, coordinates and the chunk they fall in. */

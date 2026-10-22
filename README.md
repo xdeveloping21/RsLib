@@ -1,7 +1,7 @@
-# RsLib 2.0.2
+# RsLib 2.1.0
 
 [![CI](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml/badge.svg)](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml)
-![Versión](https://img.shields.io/badge/versi%C3%B3n-2.0.2-blue)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.0-blue)
 ![Paper](https://img.shields.io/badge/Paper-1.20%20a%201.21.x-informational)
 ![Velocity](https://img.shields.io/badge/Velocity-3.4-informational)
 ![Java](https://img.shields.io/badge/Java-21-orange)
@@ -261,7 +261,7 @@ repositorio Maven local (`~/.m2`). En el `pom.xml` del plugin, con Java 21
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>2.0.2</version>
+    <version>2.1.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -590,7 +590,8 @@ pública no se elimina dentro de una misma versión mayor.
 
 | Nivel de API | Versiones de RsLib |
 |---|---|
-| 4 | 1.4.0 y posteriores (incluye 2.0.x) |
+| 5 | 2.1.0 y posteriores |
+| 4 | 1.4.0 a 2.0.2 |
 | 3 | 1.3.0 a 1.3.2 |
 | 2 | 1.1.0 y 1.2.0 |
 | 1 | 1.0.0 |
@@ -656,6 +657,17 @@ Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev · https://dis
 
 ## Historial de versiones
 
+- **2.1.0:** estilos de holograma. `HologramStyle` define todo el aspecto del texto: hacia
+  dónde gira (`FIXED`, `VERTICAL`, `HORIZONTAL` o `CENTER`), sombra, verse a través de los
+  bloques, fondo (`default`, `none`, `#RRGGBB`, `#AARRGGBB` o `R, G, B[, A]`), alineación,
+  ancho de línea, opacidad del texto, escala y distancia de vista. Se da al crear
+  (`holograms().spawn(id, location, lines, style)`) o después con `setStyle(id, style)`, y
+  vuelve a aplicarse cada vez que el holograma reaparece (chunk recargado o entidad borrada);
+  `setBillboard` y `setViewRange` siguen funcionando encima. `HologramStyle.read(section,
+  fallback, warn)` lo lee desde yml: cada clave es opcional y un valor inválido conserva el
+  anterior con un aviso que nombra la clave. `HologramStyle.DEFAULT` es el aspecto de siempre,
+  así que los hologramas sin estilo se ven igual. Nivel de API 5: solo los plugins que usen
+  estilos necesitan RsLib 2.1.0; los demás funcionan con solo cambiar el jar.
 - **2.0.2:** los hologramas vuelven solos en el tick siguiente cuando un comando u otro plugin
   borra su entidad (por ejemplo `/kill @e[type=text_display]` o `/killall`). Si se borran
   más de 5 veces en 10 segundos, la consola lo avisa una vez y el holograma queda abajo hasta
