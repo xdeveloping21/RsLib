@@ -3,7 +3,7 @@
 [![CI](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml/badge.svg)](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml)
 ![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.1-blue)
 ![Paper](https://img.shields.io/badge/Paper-1.20%20a%201.21.x-informational)
-![Velocity](https://img.shields.io/badge/Velocity-3.4-informational)
+![Velocity](https://img.shields.io/badge/Velocity-3.4%20a%204.x-informational)
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![API](https://img.shields.io/badge/nivel%20de%20API-4-success)
 
@@ -68,7 +68,7 @@ mensajes, comandos, menús, base de datos y más, para que todos los plugins se 
 | | |
 |---|---|
 | Servidor | Paper 1.20 a 1.21.x, o un fork de Paper (no Folia) |
-| Proxy (opcional) | Velocity 3.4 |
+| Proxy (opcional) | Velocity 3.4 a 4.x (4.x necesita Java 25) |
 | Java | 21 o posterior |
 
 Dependencias opcionales:
@@ -603,7 +603,7 @@ tiempo de ejecución (`RsVersion`, `RsCompat`). El manifiesto del jar lleva `RsL
 
 ### En Velocity
 
-El mismo `RsLib-<versión>.jar` es también un plugin de Velocity 3.4 (id `rslib`; pensado también para
+El mismo `RsLib-<versión>.jar` es también un plugin de Velocity 3.4 a 4.x (id `rslib`; pensado también para
 Velocity-CTD). En el proxy solo se carga `com.rs.lib.velocity` con el texto y la fusión de
 YAML, nunca una clase de Bukkit. Un plugin de proxy depende de `rslib` y usa `Rsv`: su
 `config.yml` se crea desde el jar y se le añaden las claves que falten, sin tocar lo demás ni
