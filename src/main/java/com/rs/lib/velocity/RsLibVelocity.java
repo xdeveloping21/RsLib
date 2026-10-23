@@ -1,9 +1,8 @@
 package com.rs.lib.velocity;
 
-import javax.inject.Inject;
-
 import org.slf4j.Logger;
 
+import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.proxy.ProxyServer;

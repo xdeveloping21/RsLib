@@ -178,7 +178,7 @@ class RsvTest {
     void theEntryPointIsInjectedAndLogsOnProxyInit() throws Exception {
         Constructor<?>[] constructors = RsLibVelocity.class.getConstructors();
         assertEquals(1, constructors.length);
-        assertTrue(constructors[0].isAnnotationPresent(javax.inject.Inject.class));
+        assertTrue(constructors[0].isAnnotationPresent(com.google.inject.Inject.class));
         Method init = RsLibVelocity.class.getMethod("onProxyInit", ProxyInitializeEvent.class);
         assertTrue(init.isAnnotationPresent(Subscribe.class));
 

@@ -1,7 +1,7 @@
-# RsLib 2.1.0
+# RsLib 2.1.1
 
 [![CI](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml/badge.svg)](https://github.com/xdeveloping21/RsLib/actions/workflows/ci.yml)
-![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.0-blue)
+![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.1-blue)
 ![Paper](https://img.shields.io/badge/Paper-1.20%20a%201.21.x-informational)
 ![Velocity](https://img.shields.io/badge/Velocity-3.4-informational)
 ![Java](https://img.shields.io/badge/Java-21-orange)
@@ -261,7 +261,7 @@ repositorio Maven local (`~/.m2`). En el `pom.xml` del plugin, con Java 21
 <dependency>
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>2.1.0</version>
+    <version>2.1.1</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -657,6 +657,10 @@ Autor: Raul Sanhueza (RsDevelopment) · https://rsdevelopment.dev · https://dis
 
 ## Historial de versiones
 
+- **2.1.1:** RsLib vuelve a cargar en Velocity 3.5 y 4.x. Su punto de entrada usaba
+  `javax.inject.Inject`, que el Guice de esas versiones ya no reconoce («No injectable
+  constructor for type RsLibVelocity»); ahora usa `com.google.inject.Inject`. Sin cambios de
+  API ni para Paper: los plugins no se recompilan, solo se cambia el jar de RsLib.
 - **2.1.0:** estilos de holograma. `HologramStyle` define todo el aspecto del texto: hacia
   dónde gira (`FIXED`, `VERTICAL`, `HORIZONTAL` o `CENTER`), sombra, verse a través de los
   bloques, fondo (`default`, `none`, `#RRGGBB`, `#AARRGGBB` o `R, G, B[, A]`), alineación,

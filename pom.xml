@@ -6,7 +6,7 @@
 
     <groupId>com.rs</groupId>
     <artifactId>rslib</artifactId>
-    <version>2.1.0</version>
+    <version>2.1.1</version>
     <packaging>jar</packaging>
 
     <name>RsLib</name>
@@ -85,12 +85,19 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- El @Inject del punto de entrada de Velocity (su Guice lo reconoce). -->
+        <!-- El @Inject de Guice del punto de entrada de Velocity. javax.inject.Inject no sirve:
+             el Guice de Velocity 3.5 y posteriores ya no lo reconoce. -->
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <version>1</version>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <version>6.0.0</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- El Logger que Velocity entrega a sus plugins; Paper también lo trae. -->
         <dependency>
